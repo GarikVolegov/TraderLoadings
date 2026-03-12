@@ -3,6 +3,7 @@ import { ClockWidget } from "@/components/ClockWidget";
 import { ProfileWidget } from "@/components/ProfileWidget";
 import { LotCalculatorWidget } from "@/components/LotCalculatorWidget";
 import { MissionsWidget } from "@/components/MissionsWidget";
+import { TopNav } from "@/components/TopNav";
 
 export default function Dashboard() {
   return (
@@ -18,21 +19,7 @@ export default function Dashboard() {
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 space-y-8">
         
-        {/* Header */}
-        <motion.header 
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-between"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-primary/20 rounded-xl border border-primary/50 flex items-center justify-center">
-              <div className="w-4 h-4 bg-primary rounded-sm rotate-45 shadow-[0_0_10px_rgba(34,197,94,0.8)]" />
-            </div>
-            <h1 className="text-2xl font-bold font-mono tracking-tight bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">
-              Trader<span className="text-primary">Dash</span>
-            </h1>
-          </div>
-        </motion.header>
+        <TopNav />
 
         {/* Top Section: Clock & Sessions */}
         <motion.section 

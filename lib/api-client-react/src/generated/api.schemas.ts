@@ -37,3 +37,78 @@ export interface CompleteMissionResponse {
   profile: UserProfile;
   levelUp: boolean;
 }
+
+export interface JournalImage {
+  id: number;
+  url: string;
+}
+
+export type JournalEntryResult =
+  (typeof JournalEntryResult)[keyof typeof JournalEntryResult];
+
+export const JournalEntryResult = {
+  win: "win",
+  loss: "loss",
+  breakeven: "breakeven",
+  none: "none",
+} as const;
+
+export interface JournalEntry {
+  id: number;
+  title: string;
+  content: string;
+  tradeDate: string;
+  result: JournalEntryResult;
+  tags?: string | null;
+  images: JournalImage[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CreateJournalEntryRequestResult =
+  (typeof CreateJournalEntryRequestResult)[keyof typeof CreateJournalEntryRequestResult];
+
+export const CreateJournalEntryRequestResult = {
+  win: "win",
+  loss: "loss",
+  breakeven: "breakeven",
+  none: "none",
+} as const;
+
+export interface CreateJournalEntryRequest {
+  title: string;
+  content: string;
+  tradeDate: string;
+  result: CreateJournalEntryRequestResult;
+  tags?: string | null;
+}
+
+export type UpdateJournalEntryRequestResult =
+  (typeof UpdateJournalEntryRequestResult)[keyof typeof UpdateJournalEntryRequestResult];
+
+export const UpdateJournalEntryRequestResult = {
+  win: "win",
+  loss: "loss",
+  breakeven: "breakeven",
+  none: "none",
+} as const;
+
+export interface UpdateJournalEntryRequest {
+  title: string;
+  content: string;
+  tradeDate: string;
+  result: UpdateJournalEntryRequestResult;
+  tags?: string | null;
+}
+
+export interface DeleteJournalEntryResponse {
+  success: boolean;
+}
+
+export interface UploadImageResponse {
+  image: JournalImage;
+}
+
+export type UploadJournalImageBody = {
+  image: Blob;
+};

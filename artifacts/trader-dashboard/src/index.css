@@ -31,6 +31,9 @@
 
   --color-success: hsl(var(--success));
   --color-success-foreground: hsl(var(--success-foreground));
+  
+  --color-warning: hsl(var(--warning));
+  --color-warning-foreground: hsl(var(--warning-foreground));
 
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
@@ -73,6 +76,9 @@
 
   --success: 150 100% 40%;
   --success-foreground: 144 100% 10%;
+  
+  --warning: 35 100% 55%;
+  --warning-foreground: 35 100% 10%;
 
   --border: 216 34% 17%;
   --input: 216 34% 17%;
@@ -121,5 +127,12 @@
   }
   .neon-glow-volume {
     box-shadow: 0 0 20px 0 hsl(var(--session-volume) / 0.4);
+  }
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
 }

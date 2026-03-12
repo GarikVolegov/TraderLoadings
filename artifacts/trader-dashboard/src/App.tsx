@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Dashboard from "./pages/Dashboard";
+import Journal from "./pages/Journal";
 import NotFound from "./pages/not-found";
 
 // Initialize Query Client with standard defaults
@@ -19,6 +20,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
+      <Route path="/journal" component={Journal} />
       <Route component={NotFound} />
     </Switch>
   );

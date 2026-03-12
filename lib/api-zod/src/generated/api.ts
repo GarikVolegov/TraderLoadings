@@ -8,7 +8,6 @@
 import * as zod from "zod";
 
 /**
- * Returns server health status
  * @summary Health check
  */
 export const HealthCheckResponse = zod.object({
@@ -82,4 +81,135 @@ export const CompleteMissionResponse = zod.object({
     xpToNextLevel: zod.number(),
   }),
   levelUp: zod.boolean(),
+});
+
+/**
+ * @summary Get all journal entries
+ */
+export const GetJournalEntriesResponseItem = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  content: zod.string(),
+  tradeDate: zod.string(),
+  result: zod.enum(["win", "loss", "breakeven", "none"]),
+  tags: zod.string().nullish(),
+  images: zod.array(
+    zod.object({
+      id: zod.number(),
+      url: zod.string(),
+    }),
+  ),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+});
+export const GetJournalEntriesResponse = zod.array(
+  GetJournalEntriesResponseItem,
+);
+
+/**
+ * @summary Create a new journal entry
+ */
+export const CreateJournalEntryBody = zod.object({
+  title: zod.string(),
+  content: zod.string(),
+  tradeDate: zod.string(),
+  result: zod.enum(["win", "loss", "breakeven", "none"]),
+  tags: zod.string().nullish(),
+});
+
+/**
+ * @summary Get a single journal entry
+ */
+export const GetJournalEntryParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetJournalEntryResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  content: zod.string(),
+  tradeDate: zod.string(),
+  result: zod.enum(["win", "loss", "breakeven", "none"]),
+  tags: zod.string().nullish(),
+  images: zod.array(
+    zod.object({
+      id: zod.number(),
+      url: zod.string(),
+    }),
+  ),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+});
+
+/**
+ * @summary Update a journal entry
+ */
+export const UpdateJournalEntryParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateJournalEntryBody = zod.object({
+  title: zod.string(),
+  content: zod.string(),
+  tradeDate: zod.string(),
+  result: zod.enum(["win", "loss", "breakeven", "none"]),
+  tags: zod.string().nullish(),
+});
+
+export const UpdateJournalEntryResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  content: zod.string(),
+  tradeDate: zod.string(),
+  result: zod.enum(["win", "loss", "breakeven", "none"]),
+  tags: zod.string().nullish(),
+  images: zod.array(
+    zod.object({
+      id: zod.number(),
+      url: zod.string(),
+    }),
+  ),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+});
+
+/**
+ * @summary Delete a journal entry
+ */
+export const DeleteJournalEntryParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteJournalEntryResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
+ * @summary Upload an image for a journal entry
+ */
+export const UploadJournalImageParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UploadJournalImageBody = zod.object({
+  image: zod.instanceof(File),
+});
+
+export const UploadJournalImageResponse = zod.object({
+  image: zod.object({
+    id: zod.number(),
+    url: zod.string(),
+  }),
+});
+
+/**
+ * @summary Remove an image from a journal entry
+ */
+export const DeleteJournalImageParams = zod.object({
+  id: zod.coerce.number(),
+  imageId: zod.coerce.number(),
+});
+
+export const DeleteJournalImageResponse = zod.object({
+  success: zod.boolean(),
 });

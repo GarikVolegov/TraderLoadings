@@ -7,7 +7,17 @@
  */
 
 export * from "./completeMissionResponse";
+export * from "./createJournalEntryRequest";
+export * from "./createJournalEntryRequestResult";
+export * from "./deleteJournalEntryResponse";
 export * from "./healthStatus";
+export * from "./journalEntry";
+export * from "./journalEntryResult";
+export * from "./journalImage";
 export * from "./mission";
+export * from "./updateJournalEntryRequest";
+export * from "./updateJournalEntryRequestResult";
 export * from "./updateProfileRequest";
+export * from "./uploadImageResponse";
+export * from "./uploadJournalImageBody";
 export * from "./userProfile";

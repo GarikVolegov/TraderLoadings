@@ -13,13 +13,14 @@ tags:
     description: User profile operations
   - name: missions
     description: Daily missions operations
+  - name: journal
+    description: Trading journal operations
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -91,6 +92,152 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CompleteMissionResponse"
+
+  /journal:
+    get:
+      operationId: getJournalEntries
+      tags: [journal]
+      summary: Get all journal entries
+      responses:
+        "200":
+          description: List of journal entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/JournalEntry"
+    post:
+      operationId: createJournalEntry
+      tags: [journal]
+      summary: Create a new journal entry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateJournalEntryRequest"
+      responses:
+        "201":
+          description: Created journal entry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JournalEntry"
+
+  /journal/{id}:
+    get:
+      operationId: getJournalEntry
+      tags: [journal]
+      summary: Get a single journal entry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Journal entry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JournalEntry"
+    put:
+      operationId: updateJournalEntry
+      tags: [journal]
+      summary: Update a journal entry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateJournalEntryRequest"
+      responses:
+        "200":
+          description: Updated journal entry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JournalEntry"
+    delete:
+      operationId: deleteJournalEntry
+      tags: [journal]
+      summary: Delete a journal entry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteJournalEntryResponse"
+
+  /journal/{id}/images:
+    post:
+      operationId: uploadJournalImage
+      tags: [journal]
+      summary: Upload an image for a journal entry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                image:
+                  type: string
+                  format: binary
+              required:
+                - image
+      responses:
+        "200":
+          description: Uploaded image URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadImageResponse"
+
+  /journal/{id}/images/{imageId}:
+    delete:
+      operationId: deleteJournalImage
+      tags: [journal]
+      summary: Remove an image from a journal entry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: imageId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteJournalEntryResponse"
 
 components:
   schemas:
@@ -172,3 +319,107 @@ components:
         - mission
         - profile
         - levelUp
+
+    JournalImage:
+      type: object
+      properties:
+        id:
+          type: integer
+        url:
+          type: string
+      required:
+        - id
+        - url
+
+    JournalEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        content:
+          type: string
+        tradeDate:
+          type: string
+        result:
+          type: string
+          enum: [win, loss, breakeven, none]
+        tags:
+          type: string
+          nullable: true
+        images:
+          type: array
+          items:
+            $ref: "#/components/schemas/JournalImage"
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - title
+        - content
+        - tradeDate
+        - result
+        - images
+        - createdAt
+        - updatedAt
+
+    CreateJournalEntryRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+        tradeDate:
+          type: string
+        result:
+          type: string
+          enum: [win, loss, breakeven, none]
+        tags:
+          type: string
+          nullable: true
+      required:
+        - title
+        - content
+        - tradeDate
+        - result
+
+    UpdateJournalEntryRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+        tradeDate:
+          type: string
+        result:
+          type: string
+          enum: [win, loss, breakeven, none]
+        tags:
+          type: string
+          nullable: true
+      required:
+        - title
+        - content
+        - tradeDate
+        - result
+
+    DeleteJournalEntryResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+      required:
+        - success
+
+    UploadImageResponse:
+      type: object
+      properties:
+        image:
+          $ref: "#/components/schemas/JournalImage"
+      required:
+        - image
