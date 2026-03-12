@@ -1,0 +1,26 @@
+import { Link } from "wouter";
+import { AlertCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+
+export default function NotFound() {
+  return (
+    <div className="min-h-screen w-full flex items-center justify-center bg-background p-4">
+      <div className="max-w-md w-full glass-card p-8 rounded-2xl text-center space-y-6">
+        <div className="flex justify-center">
+          <div className="w-20 h-20 bg-destructive/10 rounded-full flex items-center justify-center">
+            <AlertCircle className="w-10 h-10 text-destructive" />
+          </div>
+        </div>
+        <h1 className="text-4xl font-bold font-mono">404</h1>
+        <p className="text-muted-foreground text-lg">
+          La pagina che stai cercando non esiste o è stata spostata.
+        </p>
+        <Link href="/" className="inline-block">
+          <Button size="lg" className="w-full">
+            Torna alla Dashboard
+          </Button>
+        </Link>
+      </div>
+    </div>
+  );
+}

@@ -1,15 +1,18 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Trader Dashboard API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: profile
+    description: User profile operations
+  - name: missions
+    description: Daily missions operations
 paths:
   /healthz:
     get:
@@ -24,6 +27,71 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /profile:
+    get:
+      operationId: getProfile
+      tags: [profile]
+      summary: Get user profile
+      responses:
+        "200":
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+    put:
+      operationId: updateProfile
+      tags: [profile]
+      summary: Update user profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProfileRequest"
+      responses:
+        "200":
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+
+  /missions:
+    get:
+      operationId: getMissions
+      tags: [missions]
+      summary: Get daily missions
+      responses:
+        "200":
+          description: List of missions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Mission"
+
+  /missions/{id}/complete:
+    post:
+      operationId: completeMission
+      tags: [missions]
+      summary: Mark a mission as complete
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated mission and profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompleteMissionResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +102,73 @@ components:
       required:
         - status
 
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        avatarUrl:
+          type: string
+          nullable: true
+        xp:
+          type: integer
+        level:
+          type: integer
+        xpToNextLevel:
+          type: integer
+      required:
+        - id
+        - name
+        - xp
+        - level
+        - xpToNextLevel
+
+    UpdateProfileRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        avatarUrl:
+          type: string
+          nullable: true
+      required:
+        - name
+
+    Mission:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        xpReward:
+          type: integer
+        completed:
+          type: boolean
+        completedAt:
+          type: string
+          nullable: true
+      required:
+        - id
+        - title
+        - description
+        - xpReward
+        - completed
+
+    CompleteMissionResponse:
+      type: object
+      properties:
+        mission:
+          $ref: "#/components/schemas/Mission"
+        profile:
+          $ref: "#/components/schemas/UserProfile"
+        levelUp:
+          type: boolean
+      required:
+        - mission
+        - profile
+        - levelUp
