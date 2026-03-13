@@ -110,20 +110,29 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     const tryAutoStart = () => {
       if (hasAutoStarted.current) return;
       hasAutoStarted.current = true;
+
+      try {
+        if (!audioCtxRef.current) {
+          audioCtxRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+        }
+        audioCtxRef.current.resume();
+      } catch {}
+
       setModeRef.current("alpha");
-      document.removeEventListener("click", tryAutoStart);
-      document.removeEventListener("keydown", tryAutoStart);
-      document.removeEventListener("touchstart", tryAutoStart);
+
+      document.removeEventListener("click", tryAutoStart, true);
+      document.removeEventListener("keydown", tryAutoStart, true);
+      document.removeEventListener("touchstart", tryAutoStart, true);
     };
 
-    document.addEventListener("click", tryAutoStart);
-    document.addEventListener("keydown", tryAutoStart);
-    document.addEventListener("touchstart", tryAutoStart);
+    document.addEventListener("click", tryAutoStart, true);
+    document.addEventListener("keydown", tryAutoStart, true);
+    document.addEventListener("touchstart", tryAutoStart, true);
 
     return () => {
-      document.removeEventListener("click", tryAutoStart);
-      document.removeEventListener("keydown", tryAutoStart);
-      document.removeEventListener("touchstart", tryAutoStart);
+      document.removeEventListener("click", tryAutoStart, true);
+      document.removeEventListener("keydown", tryAutoStart, true);
+      document.removeEventListener("touchstart", tryAutoStart, true);
     };
   }, []);
 
