@@ -1,8 +1,8 @@
-# Workspace
+# TraderLoading
 
 ## Overview
 
-pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
+Professional forex/stock trading web dashboard. pnpm workspace monorepo using TypeScript.
 
 ## Stack
 
@@ -15,82 +15,68 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **Validation**: Zod (`zod/v4`), `drizzle-zod`
 - **API codegen**: Orval (from OpenAPI spec)
 - **Build**: esbuild (CJS bundle)
+- **Frontend**: React + Vite + Tailwind CSS + shadcn/ui
+
+## Features
+
+- **Dashboard**: Real-time clock with trading sessions (Asian/London/NY), lot-size calculator (formula: (€/pips)/11), daily missions with XP/levels
+- **Journal (Diario)**: Trade journal entries with images, plus Idee and Obiettivi tabs
+- **Checklist**: Customizable pre-trade checklist with progress tracking
+- **News**: Real-time macro news (gold/USD) via Perplexity API — requires `PERPLEXITY_API_KEY` secret
+- **Settings**: Profile with XP/level, account auth (Replit Auth), binaural audio player (persistent background audio), customizable background image upload
+- **Auth**: Replit Auth (OIDC/PKCE) — sessions stored in DB `sessions` table
 
 ## Structure
 
 ```text
 artifacts-monorepo/
-├── artifacts/              # Deployable applications
-│   └── api-server/         # Express API server
-├── lib/                    # Shared libraries
+├── artifacts/
+│   ├── api-server/         # Express API server
+│   └── trader-dashboard/   # React+Vite frontend
+├── lib/
 │   ├── api-spec/           # OpenAPI spec + Orval codegen config
 │   ├── api-client-react/   # Generated React Query hooks
 │   ├── api-zod/            # Generated Zod schemas from OpenAPI
-│   └── db/                 # Drizzle ORM schema + DB connection
-├── scripts/                # Utility scripts (single workspace package)
-│   └── src/                # Individual .ts scripts, run via `pnpm --filter @workspace/scripts run <script>`
-├── pnpm-workspace.yaml     # pnpm workspace (artifacts/*, lib/*, lib/integrations/*, scripts)
-├── tsconfig.base.json      # Shared TS options (composite, bundler resolution, es2022)
-├── tsconfig.json           # Root TS project references
-└── package.json            # Root package with hoisted devDeps
+│   ├── db/                 # Drizzle ORM schema + DB connection
+│   └── replit-auth-web/    # Auth hook for browser (useAuth)
+├── scripts/
+└── ...
 ```
+
+## DB Tables
+
+- `profile` — trader name, XP, level
+- `missions` — daily missions with XP rewards
+- `journal_entries` + `journal_images` — trading journal
+- `ideas` — ideas (type=idea) and goals (type=goal) for journal tabs
+- `checklist_items` — customizable pre-trade checklist
+- `user_settings` — background image URL and type
+- `sessions` + `users` — Replit Auth sessions
+
+## API Routes
+
+All mounted at `/api`:
+- `GET/PUT /profile`
+- `GET /missions`, `POST /missions/:id/complete`
+- `GET/POST /journal`, `GET/PUT/DELETE /journal/:id`, `POST /journal/:id/images`, `DELETE /journal/:id/images/:imageId`
+- `GET/POST /ideas`, `PUT/DELETE /ideas/:id`
+- `GET/POST /checklist`, `PUT/DELETE /checklist/:id`
+- `GET /news` — Perplexity AI macro news (cached 15 min)
+- `GET/PUT /settings`, `POST /settings/background`
+- `GET /auth/user`, `GET /login`, `GET /callback`, `GET /logout`
+
+## Secrets Required
+
+- `PERPLEXITY_API_KEY` — Perplexity AI for macro news feature
+- `DATABASE_URL` — auto-provided by Replit
+- `REPL_ID` — auto-provided by Replit
+
+## Commands
+
+- `pnpm --filter @workspace/api-spec run codegen` — regenerate API client after OpenAPI changes
+- `pnpm --filter @workspace/db run push` — push schema to DB
+- `pnpm run typecheck` — full project typecheck
 
 ## TypeScript & Composite Projects
 
-Every package extends `tsconfig.base.json` which sets `composite: true`. The root `tsconfig.json` lists all packages as project references. This means:
-
-- **Always typecheck from the root** — run `pnpm run typecheck` (which runs `tsc --build --emitDeclarationOnly`). This builds the full dependency graph so that cross-package imports resolve correctly. Running `tsc` inside a single package will fail if its dependencies haven't been built yet.
-- **`emitDeclarationOnly`** — we only emit `.d.ts` files during typecheck; actual JS bundling is handled by esbuild/tsx/vite...etc, not `tsc`.
-- **Project references** — when package A depends on package B, A's `tsconfig.json` must list B in its `references` array. `tsc --build` uses this to determine build order and skip up-to-date packages.
-
-## Root Scripts
-
-- `pnpm run build` — runs `typecheck` first, then recursively runs `build` in all packages that define it
-- `pnpm run typecheck` — runs `tsc --build --emitDeclarationOnly` using project references
-
-## Packages
-
-### `artifacts/api-server` (`@workspace/api-server`)
-
-Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` for request and response validation and `@workspace/db` for persistence.
-
-- Entry: `src/index.ts` — reads `PORT`, starts Express
-- App setup: `src/app.ts` — mounts CORS, JSON/urlencoded parsing, routes at `/api`
-- Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /health` (full path: `/api/health`)
-- Depends on: `@workspace/db`, `@workspace/api-zod`
-- `pnpm --filter @workspace/api-server run dev` — run the dev server
-- `pnpm --filter @workspace/api-server run build` — production esbuild bundle (`dist/index.cjs`)
-- Build bundles an allowlist of deps (express, cors, pg, drizzle-orm, zod, etc.) and externalizes the rest
-
-### `lib/db` (`@workspace/db`)
-
-Database layer using Drizzle ORM with PostgreSQL. Exports a Drizzle client instance and schema models.
-
-- `src/index.ts` — creates a `Pool` + Drizzle instance, exports schema
-- `src/schema/index.ts` — barrel re-export of all models
-- `src/schema/<modelname>.ts` — table definitions with `drizzle-zod` insert schemas (no models definitions exist right now)
-- `drizzle.config.ts` — Drizzle Kit config (requires `DATABASE_URL`, automatically provided by Replit)
-- Exports: `.` (pool, db, schema), `./schema` (schema only)
-
-Production migrations are handled by Replit when publishing. In development, we just use `pnpm --filter @workspace/db run push`, and we fallback to `pnpm --filter @workspace/db run push-force`.
-
-### `lib/api-spec` (`@workspace/api-spec`)
-
-Owns the OpenAPI 3.1 spec (`openapi.yaml`) and the Orval config (`orval.config.ts`). Running codegen produces output into two sibling packages:
-
-1. `lib/api-client-react/src/generated/` — React Query hooks + fetch client
-2. `lib/api-zod/src/generated/` — Zod schemas
-
-Run codegen: `pnpm --filter @workspace/api-spec run codegen`
-
-### `lib/api-zod` (`@workspace/api-zod`)
-
-Generated Zod schemas from the OpenAPI spec (e.g. `HealthCheckResponse`). Used by `api-server` for response validation.
-
-### `lib/api-client-react` (`@workspace/api-client-react`)
-
-Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHealthCheck`, `healthCheck`).
-
-### `scripts` (`@workspace/scripts`)
-
-Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.
+Every package extends `tsconfig.base.json` with `composite: true`. Run `pnpm run typecheck` from root for full typecheck. When adding a new lib, add it to both root `tsconfig.json` and the consuming app's `tsconfig.json` references array.
