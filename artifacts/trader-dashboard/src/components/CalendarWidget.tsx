@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { Calendar, RefreshCw, TrendingUp, ChevronDown, ChevronUp } from "lucide-react";
+import { Calendar, RefreshCw, TrendingUp, ChevronDown, ChevronUp, SlidersHorizontal } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useGetEconomicCalendar, getGetEconomicCalendarQueryKey } from "@workspace/api-client-react";
@@ -25,6 +25,7 @@ export function CalendarWidget() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [forceNocache, setForceNocache] = useState(false);
   const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set());
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
@@ -118,60 +119,74 @@ export function CalendarWidget() {
           <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-accent" />
           Calendario Economico
         </CardTitle>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={handleRefresh}
-          className="h-8 w-8 text-muted-foreground hover:text-primary"
-        >
-          <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`} />
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setFiltersOpen((v) => !v)}
+            className={`h-8 w-8 transition-colors ${filtersOpen ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-primary"}`}
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleRefresh}
+            className="h-8 w-8 text-muted-foreground hover:text-primary"
+          >
+            <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`} />
+          </Button>
+        </div>
       </CardHeader>
 
       <CardContent className="p-3 sm:p-4 space-y-3">
-        <div className="space-y-2">
-          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Valuta</p>
-          <div className="flex flex-wrap gap-1.5">
-            {CURRENCIES.map((c) => (
-              <button
-                key={c}
-                onClick={() => toggleCurrency(c)}
-                className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all ${
-                  selectedCurrencies.has(c)
-                    ? "bg-primary/20 text-primary border border-primary/40"
-                    : "bg-secondary/40 text-muted-foreground border border-border/50 hover:border-primary/30"
-                }`}
-              >
-                {c}
-              </button>
-            ))}
-          </div>
-        </div>
+        {filtersOpen && (
+          <div className="space-y-3 pb-3 border-b border-border/30 animate-in slide-in-from-top-2 duration-200">
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Valuta</p>
+              <div className="flex flex-wrap gap-1.5">
+                {CURRENCIES.map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => toggleCurrency(c)}
+                    className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all ${
+                      selectedCurrencies.has(c)
+                        ? "bg-primary/20 text-primary border border-primary/40"
+                        : "bg-secondary/40 text-muted-foreground border border-border/50 hover:border-primary/30"
+                    }`}
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-        <div className="space-y-2">
-          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Impatto</p>
-          <div className="flex flex-wrap gap-1.5">
-            {(Object.keys(IMPACT_CONFIG) as Impact[]).filter(i => i !== "Holiday").map((impact) => {
-              const cfg = IMPACT_CONFIG[impact];
-              return (
-                <button
-                  key={impact}
-                  onClick={() => toggleImpact(impact)}
-                  className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 ${
-                    selectedImpacts.has(impact)
-                      ? `${cfg.border} ${cfg.text} bg-secondary/60 border`
-                      : "bg-secondary/40 text-muted-foreground border border-border/50 hover:border-primary/30"
-                  }`}
-                >
-                  <span className={`w-2 h-2 rounded-full ${cfg.color}`} />
-                  {cfg.label}
-                </button>
-              );
-            })}
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Impatto</p>
+              <div className="flex flex-wrap gap-1.5">
+                {(Object.keys(IMPACT_CONFIG) as Impact[]).filter(i => i !== "Holiday").map((impact) => {
+                  const cfg = IMPACT_CONFIG[impact];
+                  return (
+                    <button
+                      key={impact}
+                      onClick={() => toggleImpact(impact)}
+                      className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 ${
+                        selectedImpacts.has(impact)
+                          ? `${cfg.border} ${cfg.text} bg-secondary/60 border`
+                          : "bg-secondary/40 text-muted-foreground border border-border/50 hover:border-primary/30"
+                      }`}
+                    >
+                      <span className={`w-2 h-2 rounded-full ${cfg.color}`} />
+                      {cfg.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
-        </div>
+        )}
 
-        <div className="border-t border-border/30 pt-3">
+        <div>
           {isLoading ? (
             <div className="p-8 flex justify-center">
               <div className="w-8 h-8 rounded-full border-4 border-primary border-t-transparent animate-spin" />
