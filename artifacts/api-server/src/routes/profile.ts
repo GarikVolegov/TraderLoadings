@@ -56,13 +56,25 @@ function getUserId(req: Request): string | null {
   return req.user?.id ?? null;
 }
 
+async function generateUniqueName(base: string): Promise<string> {
+  const existing = await db.select({ id: profileTable.id })
+    .from(profileTable)
+    .where(sql`lower(${profileTable.name}) = lower(${base}) AND ${profileTable.userId} IS NOT NULL`)
+    .limit(1);
+  if (existing.length === 0) return base;
+  const suffix = Math.floor(1000 + Math.random() * 9000);
+  return `${base}${suffix}`;
+}
+
 async function getOrCreateProfile(userId: string | null) {
   const where = userId ? eq(profileTable.userId, userId) : isNull(profileTable.userId);
   const profiles = await db.select().from(profileTable).where(where).limit(1);
   if (profiles.length > 0) return profiles[0];
 
+  const name = userId ? await generateUniqueName("Trader") : "Trader";
+
   const [created] = await db.insert(profileTable).values({
-    name: "Trader",
+    name,
     avatarUrl: null,
     xp: 0,
     level: 1,
