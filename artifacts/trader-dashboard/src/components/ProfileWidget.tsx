@@ -34,8 +34,8 @@ export function ProfileWidget() {
         queryClient.invalidateQueries({ queryKey: getGetProfileQueryKey() });
         setIsEditModalOpen(false);
       },
-      onError: (err: any) => {
-        if (err?.status === 409) {
+      onError: (err: unknown) => {
+        if (err && typeof err === "object" && "status" in err && (err as Record<string, unknown>).status === 409) {
           setNameError("Nome già in uso da un altro utente");
         }
       },
@@ -68,7 +68,7 @@ export function ProfileWidget() {
   const [checkingName, setCheckingName] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const debouncedName = useDebounce(editName.trim(), 400);
+  const debouncedName = useDebounce(editName.trim(), 300);
 
   const checkName = useCallback(async (name: string) => {
     if (!name || !profile) return;

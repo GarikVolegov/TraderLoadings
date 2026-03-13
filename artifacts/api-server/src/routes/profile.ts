@@ -131,8 +131,12 @@ router.put("/profile", async (req, res) => {
       xpToNextLevel,
     });
     res.json(data);
-  } catch (err: any) {
-    if (err?.code === "23505" && err?.constraint?.includes("profile_name")) {
+  } catch (err: unknown) {
+    if (
+      err instanceof Error &&
+      "code" in err &&
+      (err as Record<string, unknown>).code === "23505"
+    ) {
       res.status(409).json({ error: "Nome già in uso da un altro utente" });
       return;
     }
