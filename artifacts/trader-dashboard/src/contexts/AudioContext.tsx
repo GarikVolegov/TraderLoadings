@@ -34,6 +34,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const oscillatorsRef = useRef<OscillatorNode[] | null>(null);
   const gainRef = useRef<GainNode | null>(null);
   const hasAutoStarted = useRef(false);
+  const startIdRef = useRef(0);
 
   const stopOscillators = useCallback(() => {
     if (oscillatorsRef.current) {
@@ -49,7 +50,10 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       }
       const ctx = audioCtxRef.current;
 
+      const thisStartId = ++startIdRef.current;
+
       const createNodes = () => {
+        if (startIdRef.current !== thisStartId) return;
         stopOscillators();
 
         const gain = ctx.createGain();
@@ -95,6 +99,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
 
   const setMode = useCallback((newMode: AudioMode) => {
     if (newMode === "off") {
+      startIdRef.current++;
       stopOscillators();
     } else {
       const config = AUDIO_MODES[newMode as keyof typeof AUDIO_MODES];
