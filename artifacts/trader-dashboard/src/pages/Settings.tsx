@@ -5,37 +5,42 @@ import { ProfileWidget } from "@/components/ProfileWidget";
 import { AudioPlayer } from "@/components/AudioPlayer";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Image, Upload, X, LogIn, LogOut } from "lucide-react";
+import { Image, Upload, X, LogIn, LogOut, RefreshCw } from "lucide-react";
 import { useBackground } from "@/contexts/BackgroundContext";
-import { useGetUserSettings, useUpdateUserSettings } from "@workspace/api-client-react";
+import { useGetUserSettings, useUpdateUserSettings, getGetUserSettingsQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 
 function BackgroundSettings() {
   const { backgroundUrl, setBackgroundUrl } = useBackground();
   const [uploading, setUploading] = useState(false);
+  const [imgError, setImgError] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
-  const { data: settings } = useGetUserSettings();
+  const { data: settings, refetch } = useGetUserSettings();
   const updateMutation = useUpdateUserSettings();
   const qc = useQueryClient();
   const { toast } = useToast();
 
-  const handleUpload = async (file: File) => {
+  const isCustom = settings?.backgroundType === "custom" && settings?.backgroundUrl && !imgError;
+  const previewUrl = backgroundUrl || settings?.backgroundUrl;
+
+  const handleFileChange = async (file: File) => {
     setUploading(true);
+    setImgError(false);
     try {
       const form = new FormData();
       form.append("image", file);
-      const res = await fetch(`${import.meta.env.BASE_URL}api/settings/background`, {
+      const res = await fetch("api/settings/background", {
         method: "POST",
         body: form,
         credentials: "include",
       });
-      const data = await res.json();
-      if (data.url) {
-        setBackgroundUrl(data.url);
-        qc.invalidateQueries({ queryKey: ["getUserSettings"] });
-        toast({ description: "Sfondo aggiornato." });
-      }
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json() as { url: string };
+      setBackgroundUrl(data.url);
+      await refetch();
+      qc.invalidateQueries({ queryKey: getGetUserSettingsQueryKey() });
+      toast({ description: "Sfondo aggiornato con successo." });
     } catch {
       toast({ description: "Errore durante il caricamento.", variant: "destructive" });
     } finally {
@@ -44,10 +49,16 @@ function BackgroundSettings() {
   };
 
   const handleReset = async () => {
-    await updateMutation.mutateAsync({ data: { backgroundType: "default" } });
-    setBackgroundUrl(null);
-    qc.invalidateQueries({ queryKey: ["getUserSettings"] });
-    toast({ description: "Sfondo ripristinato." });
+    try {
+      await updateMutation.mutateAsync({ data: { backgroundType: "default", backgroundUrl: null } });
+      setBackgroundUrl(null);
+      setImgError(false);
+      await refetch();
+      qc.invalidateQueries({ queryKey: getGetUserSettingsQueryKey() });
+      toast({ description: "Sfondo ripristinato." });
+    } catch {
+      toast({ description: "Errore durante il ripristino.", variant: "destructive" });
+    }
   };
 
   return (
@@ -59,26 +70,33 @@ function BackgroundSettings() {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {backgroundUrl || settings?.backgroundType === "custom" ? (
-          <div className="relative rounded-xl overflow-hidden border border-border aspect-video">
+        {isCustom && previewUrl ? (
+          <div className="relative rounded-xl overflow-hidden border border-border aspect-video group">
             <img
-              src={backgroundUrl || settings?.backgroundUrl || ""}
+              src={previewUrl}
               alt="Sfondo attuale"
               className="w-full h-full object-cover"
+              onError={() => setImgError(true)}
             />
-            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-              <Button variant="destructive" size="sm" onClick={handleReset}>
+            <div className="absolute inset-0 bg-black/50 flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+              <Button size="sm" variant="outline" onClick={() => fileRef.current?.click()}>
+                <Upload className="w-4 h-4 mr-1" />
+                Cambia
+              </Button>
+              <Button size="sm" variant="destructive" onClick={handleReset}>
                 <X className="w-4 h-4 mr-1" />
                 Rimuovi
               </Button>
             </div>
           </div>
         ) : (
-          <div className="rounded-xl border-2 border-dashed border-border flex items-center justify-center aspect-video text-muted-foreground">
-            <div className="text-center">
-              <Image className="w-8 h-8 mx-auto mb-2 opacity-40" />
-              <p className="text-sm">Nessuno sfondo personalizzato</p>
-            </div>
+          <div
+            className="rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center aspect-video text-muted-foreground cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
+            onClick={() => fileRef.current?.click()}
+          >
+            <Image className="w-10 h-10 mb-3 opacity-30" />
+            <p className="text-sm font-medium">Nessuno sfondo personalizzato</p>
+            <p className="text-xs opacity-60 mt-1">Clicca per selezionare un'immagine</p>
           </div>
         )}
 
@@ -87,18 +105,40 @@ function BackgroundSettings() {
           type="file"
           accept="image/*"
           className="hidden"
-          onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0])}
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) handleFileChange(f);
+            e.target.value = "";
+          }}
         />
 
-        <Button
-          onClick={() => fileRef.current?.click()}
-          disabled={uploading}
-          className="w-full"
-          variant="outline"
-        >
-          <Upload className="w-4 h-4 mr-2" />
-          {uploading ? "Caricamento..." : "Scegli dalla libreria foto"}
-        </Button>
+        {!isCustom && (
+          <Button
+            onClick={() => fileRef.current?.click()}
+            disabled={uploading}
+            className="w-full"
+            variant="outline"
+          >
+            {uploading ? (
+              <>
+                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                Caricamento...
+              </>
+            ) : (
+              <>
+                <Upload className="w-4 h-4 mr-2" />
+                Scegli dalla libreria foto
+              </>
+            )}
+          </Button>
+        )}
+
+        {(imgError || (settings?.backgroundType === "custom" && !settings?.backgroundUrl)) && (
+          <Button variant="outline" size="sm" onClick={handleReset} className="w-full">
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Ripristina sfondo predefinito
+          </Button>
+        )}
       </CardContent>
     </Card>
   );
@@ -106,10 +146,10 @@ function BackgroundSettings() {
 
 function AuthSection() {
   const handleLogin = () => {
-    window.location.href = `${import.meta.env.BASE_URL}api/login?returnTo=${encodeURIComponent(import.meta.env.BASE_URL)}`;
+    window.location.href = `api/login?returnTo=${encodeURIComponent(window.location.origin + import.meta.env.BASE_URL)}`;
   };
   const handleLogout = () => {
-    window.location.href = `${import.meta.env.BASE_URL}api/logout`;
+    window.location.href = `api/logout`;
   };
 
   return (
@@ -120,9 +160,9 @@ function AuthSection() {
           Account
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-4">
         <p className="text-sm text-muted-foreground">
-          Accedi per sincronizzare i tuoi dati e restare collegato su questo dispositivo.
+          Accedi per mantenere i dati sincronizzati e restare collegato su questo dispositivo.
         </p>
         <div className="flex gap-2">
           <Button onClick={handleLogin} className="flex-1">
@@ -142,20 +182,20 @@ function AuthSection() {
 export default function Settings() {
   return (
     <PageLayout>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
           <ProfileWidget />
         </motion.div>
 
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
           <AuthSection />
         </motion.div>
 
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
           <AudioPlayer />
         </motion.div>
 
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
           <BackgroundSettings />
         </motion.div>
       </div>
