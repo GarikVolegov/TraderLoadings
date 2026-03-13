@@ -12,6 +12,7 @@ import friendsRouter from "./friends.js";
 import chatRouter from "./chat.js";
 import calendarRouter from "./calendar.js";
 import backtestRouter from "./backtest.js";
+import candlesRouter from "./candles.js";
 
 const router: IRouter = Router();
 
@@ -28,5 +29,6 @@ router.use(friendsRouter);
 router.use(chatRouter);
 router.use(calendarRouter);
 router.use(backtestRouter);
+router.use(candlesRouter);
 
 export default router;

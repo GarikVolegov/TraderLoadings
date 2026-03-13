@@ -3,8 +3,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { format, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
 import {
-  Plus, Trash2, ArrowLeft, TrendingUp, TrendingDown, Minus,
-  BarChart3, FlaskConical, ChevronRight,
+  Plus, Trash2, ArrowLeft, TrendingUp, TrendingDown,
+  BarChart3, FlaskConical, ChevronRight, Play,
 } from "lucide-react";
 import { PageLayout } from "@/components/PageLayout";
 import { Button } from "@/components/ui/button";
@@ -23,13 +23,15 @@ import {
   getGetBacktestTradesQueryKey,
   type BacktestSession,
 } from "@workspace/api-client-react";
+import ChartReplay from "@/components/ChartReplay";
 
 const PAIRS = [
   "EUR/USD", "GBP/USD", "USD/JPY", "USD/CHF", "AUD/USD", "NZD/USD", "USD/CAD",
   "EUR/GBP", "EUR/JPY", "GBP/JPY", "AUD/JPY", "XAU/USD", "US30", "NAS100", "SPX500",
+  "BTC/USD", "ETH/USD",
 ];
 
-const TIMEFRAMES = ["M1", "M5", "M15", "M30", "H1", "H4", "D1", "W1"];
+const TIMEFRAMES = ["M15", "M30", "H1", "H4", "D1", "W1"];
 
 function NewSessionForm({ onClose }: { onClose: () => void }) {
   const { toast } = useToast();
@@ -114,7 +116,16 @@ function SessionDetail({ session, onBack }: { session: BacktestSession; onBack: 
   const { data: trades, isLoading } = useGetBacktestTrades(session.id);
   const createTrade = useCreateBacktestTrade();
   const deleteTrade = useDeleteBacktestTrade();
-  const [showForm, setShowForm] = useState(false);
+  const [mode, setMode] = useState<"chart" | "manual">("chart");
+  const [pendingChartTrades, setPendingChartTrades] = useState<Array<{
+    direction: "buy" | "sell";
+    entryPrice: number;
+    exitPrice?: number;
+    stopLoss?: number;
+    takeProfit?: number;
+    result?: "win" | "loss" | "breakeven";
+    pips?: number;
+  }>>([]);
 
   const [direction, setDirection] = useState<"buy" | "sell">("buy");
   const [entryPrice, setEntryPrice] = useState("");
@@ -156,10 +167,43 @@ function SessionDetail({ session, onBack }: { session: BacktestSession; onBack: 
       qc.invalidateQueries({ queryKey: getGetBacktestTradesQueryKey(session.id) });
       toast({ description: "Trade aggiunto." });
       resetForm();
-      setShowForm(false);
     } catch {
       toast({ description: "Errore.", variant: "destructive" });
     }
+  };
+
+  const handleSaveChartTrades = async (chartTrades: Array<{
+    direction: "buy" | "sell";
+    entryPrice: number;
+    exitPrice?: number;
+    stopLoss?: number;
+    takeProfit?: number;
+    result?: "win" | "loss" | "breakeven";
+    pips?: number;
+  }>) => {
+    for (const t of chartTrades) {
+      if (!t.exitPrice || t.result == null) continue;
+      try {
+        await createTrade.mutateAsync({
+          id: session.id,
+          data: {
+            direction: t.direction,
+            entryPrice: t.entryPrice.toFixed(5),
+            exitPrice: t.exitPrice.toFixed(5),
+            stopLoss: t.stopLoss?.toFixed(5),
+            takeProfit: t.takeProfit?.toFixed(5),
+            lotSize: "0.01",
+            result: t.result,
+            pips: (t.pips ?? 0).toFixed(1),
+            tradeDate: format(new Date(), "yyyy-MM-dd"),
+          },
+        });
+      } catch {
+        /* skip failed */
+      }
+    }
+    qc.invalidateQueries({ queryKey: getGetBacktestTradesQueryKey(session.id) });
+    toast({ description: `${chartTrades.length} trade salvati dalla sessione chart.` });
   };
 
   const handleDeleteTrade = async (id: number) => {
@@ -175,7 +219,6 @@ function SessionDetail({ session, onBack }: { session: BacktestSession; onBack: 
     const breakevens = trades.filter((t) => t.result === "breakeven").length;
     const total = trades.length;
     const winRate = Math.round((wins / total) * 100);
-
     let totalRR = 0;
     let rrCount = 0;
     trades.forEach((t) => {
@@ -192,33 +235,67 @@ function SessionDetail({ session, onBack }: { session: BacktestSession; onBack: 
       }
     });
     const avgRR = rrCount > 0 ? (totalRR / rrCount).toFixed(2) : null;
-
     const totalPips = trades.reduce((sum, t) => sum + parseFloat(t.pips ?? "0"), 0);
-
     return { total, wins, losses, breakevens, winRate, avgRR, totalPips: totalPips.toFixed(1) };
   }, [trades]);
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" onClick={onBack} className="h-9 w-9 shrink-0">
           <ArrowLeft className="w-5 h-5" />
         </Button>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h3 className="text-lg font-bold truncate">{session.name}</h3>
           <p className="text-xs text-muted-foreground">
             {session.pair} · {session.timeframe}
             {session.strategy && ` · ${session.strategy}`}
           </p>
         </div>
-        <Button onClick={() => setShowForm(!showForm)} className="ml-auto shrink-0">
-          <Plus className="w-4 h-4 mr-2" />
-          Trade
-        </Button>
       </div>
 
-      {showForm && (
-        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
+      <div className="flex gap-1 p-1 rounded-xl bg-secondary/30 border border-border/30">
+        <button
+          onClick={() => setMode("chart")}
+          className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 ${
+            mode === "chart" ? "bg-primary/20 text-primary" : "text-muted-foreground"
+          }`}
+        >
+          <Play className="w-4 h-4" />
+          Replay Grafico
+        </button>
+        <button
+          onClick={() => setMode("manual")}
+          className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 ${
+            mode === "manual" ? "bg-primary/20 text-primary" : "text-muted-foreground"
+          }`}
+        >
+          <Plus className="w-4 h-4" />
+          Manuale
+        </button>
+      </div>
+
+      {mode === "chart" ? (
+        <div className="space-y-3">
+          <ChartReplay
+            symbol={session.pair}
+            interval={session.timeframe}
+            onTradesChange={(chartTrades) => {
+              setPendingChartTrades(chartTrades.filter((t) => t.exitPrice != null));
+            }}
+          />
+          {pendingChartTrades.length > 0 && (
+            <Button
+              onClick={() => handleSaveChartTrades(pendingChartTrades)}
+              disabled={createTrade.isPending}
+              className="w-full"
+            >
+              Salva {pendingChartTrades.length} trade nel database
+            </Button>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-4">
           <Card>
             <CardContent className="p-4 space-y-4">
               <div className="flex gap-2 mb-2">
@@ -239,7 +316,6 @@ function SessionDetail({ session, onBack }: { session: BacktestSession; onBack: 
                   SELL
                 </button>
               </div>
-
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 <div className="space-y-1">
                   <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Entry</label>
@@ -266,9 +342,7 @@ function SessionDetail({ session, onBack }: { session: BacktestSession; onBack: 
                   <Input type="date" value={tradeDate} onChange={(e) => setTradeDate(e.target.value)} />
                 </div>
               </div>
-
               <Input placeholder="Note (opzionale)" value={notes} onChange={(e) => setNotes(e.target.value)} />
-
               {entryPrice && exitPrice && (
                 <div className={`text-center py-2 rounded-lg text-sm font-bold ${
                   computedResult.result === "win" ? "bg-green-500/10 text-green-400"
@@ -278,16 +352,14 @@ function SessionDetail({ session, onBack }: { session: BacktestSession; onBack: 
                   {computedResult.result.toUpperCase()} · {computedResult.pips} pips
                 </div>
               )}
-
               <div className="flex gap-3 justify-end">
-                <Button variant="ghost" onClick={() => { resetForm(); setShowForm(false); }}>Annulla</Button>
                 <Button onClick={handleAddTrade} disabled={!entryPrice || !exitPrice || createTrade.isPending}>
                   Aggiungi Trade
                 </Button>
               </div>
             </CardContent>
           </Card>
-        </motion.div>
+        </div>
       )}
 
       {stats && (
@@ -298,7 +370,6 @@ function SessionDetail({ session, onBack }: { session: BacktestSession; onBack: 
             <StatBox label="Pips Totali" value={stats.totalPips} color={parseFloat(stats.totalPips) >= 0 ? "text-green-400" : "text-red-400"} icon={<BarChart3 className="w-4 h-4" />} />
             {stats.avgRR && <StatBox label="R:R Medio" value={stats.avgRR} color={parseFloat(stats.avgRR) >= 1 ? "text-green-400" : "text-orange-400"} icon={<TrendingUp className="w-4 h-4" />} />}
           </div>
-
           <div className="rounded-2xl bg-card/60 backdrop-blur-sm border border-border/50 p-4">
             <div className="flex items-end gap-3">
               <div className="flex-1">
@@ -314,19 +385,9 @@ function SessionDetail({ session, onBack }: { session: BacktestSession; onBack: 
         </div>
       )}
 
-      {isLoading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => <div key={i} className="h-16 rounded-xl bg-white/5 animate-pulse" />)}
-        </div>
-      ) : !trades || trades.length === 0 ? (
-        <Card className="border-dashed border-white/10">
-          <CardContent className="p-10 text-center">
-            <FlaskConical className="w-10 h-10 mx-auto mb-3 opacity-20" />
-            <p className="text-muted-foreground">Nessun trade. Aggiungi il primo trade per iniziare il backtest.</p>
-          </CardContent>
-        </Card>
-      ) : (
+      {trades && trades.length > 0 && (
         <div className="space-y-2">
+          <h4 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Trade Salvati</h4>
           <AnimatePresence>
             {trades.map((trade, idx) => (
               <motion.div
@@ -344,7 +405,6 @@ function SessionDetail({ session, onBack }: { session: BacktestSession; onBack: 
                     ? <TrendingUp className="w-4 h-4 text-green-400" />
                     : <TrendingDown className="w-4 h-4 text-red-400" />}
                 </div>
-
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <span className="font-mono">{trade.entryPrice} → {trade.exitPrice}</span>
@@ -354,7 +414,7 @@ function SessionDetail({ session, onBack }: { session: BacktestSession; onBack: 
                     <span className={`text-sm font-bold ${
                       trade.result === "win" ? "text-green-400" : trade.result === "loss" ? "text-red-400" : "text-yellow-400"
                     }`}>
-                      {trade.result === "win" ? "+" : trade.result === "loss" ? "" : ""}{trade.pips ?? "0"} pips
+                      {trade.result === "win" ? "+" : ""}{trade.pips ?? "0"} pips
                     </span>
                     <span className="text-[10px] text-muted-foreground/60">
                       {format(parseISO(trade.tradeDate), "d MMM", { locale: it })}
@@ -362,7 +422,6 @@ function SessionDetail({ session, onBack }: { session: BacktestSession; onBack: 
                     {trade.notes && <span className="text-[10px] text-muted-foreground/50 truncate">{trade.notes}</span>}
                   </div>
                 </div>
-
                 <div className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase shrink-0 ${
                   trade.result === "win" ? "bg-green-500/15 text-green-400"
                     : trade.result === "loss" ? "bg-red-500/15 text-red-400"
@@ -370,7 +429,6 @@ function SessionDetail({ session, onBack }: { session: BacktestSession; onBack: 
                 }`}>
                   {trade.result}
                 </div>
-
                 <Button
                   variant="ghost"
                   size="sm"
@@ -382,6 +440,12 @@ function SessionDetail({ session, onBack }: { session: BacktestSession; onBack: 
               </motion.div>
             ))}
           </AnimatePresence>
+        </div>
+      )}
+
+      {isLoading && (
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => <div key={i} className="h-16 rounded-xl bg-white/5 animate-pulse" />)}
         </div>
       )}
     </div>
@@ -431,7 +495,7 @@ export default function Backtest() {
             <FlaskConical className="w-7 h-7 text-primary" />
             Backtest
           </h2>
-          <p className="text-muted-foreground mt-1">Testa le tue strategie registrando trade ipotetici.</p>
+          <p className="text-muted-foreground mt-1">Replay su grafici reali. Testa le tue strategie come su FX Replay.</p>
         </div>
         <Button onClick={() => setShowNew(!showNew)}>
           <Plus className="w-4 h-4 mr-2" />
@@ -457,7 +521,7 @@ export default function Backtest() {
             <FlaskConical className="w-12 h-12 mx-auto mb-4 opacity-20" />
             <h3 className="text-xl font-bold mb-2">Nessuna sessione di backtest</h3>
             <p className="text-muted-foreground max-w-md mx-auto mb-6">
-              Crea una sessione per iniziare a testare le tue strategie di trading.
+              Crea una sessione per iniziare a fare replay su grafici reali e testare le tue strategie.
             </p>
             <Button onClick={() => setShowNew(true)}>
               <Plus className="w-4 h-4 mr-2" />
@@ -494,13 +558,11 @@ export default function Backtest() {
                     <Trash2 className="w-3.5 h-3.5" />
                   </Button>
                 </div>
-
                 {session.strategy && (
                   <p className="text-xs text-muted-foreground/70 mb-3 truncate">
                     Strategia: {session.strategy}
                   </p>
                 )}
-
                 <div className="flex items-center justify-between mt-auto pt-3 border-t border-border/30">
                   <span className="text-[10px] text-muted-foreground/50">
                     {format(parseISO(session.createdAt), "d MMM yyyy", { locale: it })}
