@@ -541,6 +541,159 @@ export const UpdateUserSettingsResponse = zod.object({
 });
 
 /**
+ * @summary Search users by name
+ */
+export const SearchUsersQueryParams = zod.object({
+  q: zod.coerce.string(),
+});
+
+export const SearchUsersResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  avatarUrl: zod.string().nullish(),
+  userId: zod.string().nullish(),
+});
+export const SearchUsersResponse = zod.array(SearchUsersResponseItem);
+
+/**
+ * @summary Send a friend request
+ */
+export const SendFriendRequestBody = zod.object({
+  friendUserId: zod.string(),
+});
+
+/**
+ * @summary Get pending friend requests
+ */
+export const GetPendingFriendRequestsResponseItem = zod.object({
+  id: zod.number(),
+  userId: zod.string(),
+  friendId: zod.string(),
+  status: zod.string(),
+  createdAt: zod.string().optional(),
+  senderName: zod.string().nullish(),
+  senderAvatar: zod.string().nullish(),
+});
+export const GetPendingFriendRequestsResponse = zod.array(
+  GetPendingFriendRequestsResponseItem,
+);
+
+/**
+ * @summary Accept or reject a friend request
+ */
+export const RespondToFriendRequestParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const RespondToFriendRequestBody = zod.object({
+  action: zod.enum(["accept", "reject"]),
+});
+
+export const RespondToFriendRequestResponse = zod.union([
+  zod.object({
+    id: zod.number(),
+    userId: zod.string(),
+    friendId: zod.string(),
+    status: zod.string(),
+    createdAt: zod.string().optional(),
+  }),
+  zod.object({
+    success: zod.boolean(),
+  }),
+]);
+
+/**
+ * @summary Get friend list
+ */
+export const GetFriendsResponseItem = zod.object({
+  friendshipId: zod.number(),
+  friendUserId: zod.string(),
+  name: zod.string(),
+  avatarUrl: zod.string().nullish(),
+  online: zod.boolean(),
+});
+export const GetFriendsResponse = zod.array(GetFriendsResponseItem);
+
+/**
+ * @summary Remove a friend
+ */
+export const RemoveFriendParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const RemoveFriendResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
+ * @summary Save user public key for E2EE
+ */
+export const SavePublicKeyBody = zod.object({
+  publicKeyJwk: zod.object({}).passthrough(),
+});
+
+export const SavePublicKeyResponse = zod.object({
+  id: zod.number(),
+  userId: zod.string(),
+  publicKeyJwk: zod.string(),
+  createdAt: zod.string().optional(),
+});
+
+/**
+ * @summary Get a user public key
+ */
+export const GetPublicKeyParams = zod.object({
+  userId: zod.coerce.string(),
+});
+
+export const GetPublicKeyResponse = zod.object({
+  userId: zod.string(),
+  publicKeyJwk: zod.object({}).passthrough(),
+});
+
+/**
+ * @summary Send an encrypted message
+ */
+export const SendChatMessageBody = zod.object({
+  receiverId: zod.string(),
+  ciphertext: zod.string(),
+  iv: zod.string(),
+});
+
+/**
+ * @summary Get messages with a friend
+ */
+export const GetChatMessagesParams = zod.object({
+  friendId: zod.coerce.string(),
+});
+
+export const GetChatMessagesQueryParams = zod.object({
+  cursor: zod.coerce.number().optional(),
+});
+
+export const GetChatMessagesResponse = zod.object({
+  messages: zod.array(
+    zod.object({
+      id: zod.number(),
+      senderId: zod.string(),
+      receiverId: zod.string(),
+      ciphertext: zod.string(),
+      iv: zod.string(),
+      read: zod.string().optional(),
+      createdAt: zod.string(),
+    }),
+  ),
+  nextCursor: zod.number().nullish(),
+});
+
+/**
+ * @summary Get unread message count
+ */
+export const GetUnreadCountResponse = zod.object({
+  count: zod.number(),
+});
+
+/**
  * @summary Upload a custom background image
  */
 export const UploadBackgroundBody = zod.object({

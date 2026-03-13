@@ -315,6 +315,100 @@ export interface UploadBackgroundResponse {
   url: string;
 }
 
+export interface UserSearchResult {
+  id: number;
+  name: string;
+  avatarUrl?: string | null;
+  userId?: string | null;
+}
+
+export interface FriendRequestBody {
+  friendUserId: string;
+}
+
+export interface FriendshipRecord {
+  id: number;
+  userId: string;
+  friendId: string;
+  status: string;
+  createdAt?: string;
+}
+
+export interface PendingFriendRequest {
+  id: number;
+  userId: string;
+  friendId: string;
+  status: string;
+  createdAt?: string;
+  senderName?: string | null;
+  senderAvatar?: string | null;
+}
+
+export type FriendRequestActionAction =
+  (typeof FriendRequestActionAction)[keyof typeof FriendRequestActionAction];
+
+export const FriendRequestActionAction = {
+  accept: "accept",
+  reject: "reject",
+} as const;
+
+export interface FriendRequestAction {
+  action: FriendRequestActionAction;
+}
+
+export interface FriendListItem {
+  friendshipId: number;
+  friendUserId: string;
+  name: string;
+  avatarUrl?: string | null;
+  online: boolean;
+}
+
+export type SavePublicKeyBodyPublicKeyJwk = { [key: string]: unknown };
+
+export interface SavePublicKeyBody {
+  publicKeyJwk: SavePublicKeyBodyPublicKeyJwk;
+}
+
+export interface PublicKeyRecord {
+  id: number;
+  userId: string;
+  publicKeyJwk: string;
+  createdAt?: string;
+}
+
+export type PublicKeyResponsePublicKeyJwk = { [key: string]: unknown };
+
+export interface PublicKeyResponse {
+  userId: string;
+  publicKeyJwk: PublicKeyResponsePublicKeyJwk;
+}
+
+export interface SendMessageBody {
+  receiverId: string;
+  ciphertext: string;
+  iv: string;
+}
+
+export interface ChatMessageRecord {
+  id: number;
+  senderId: string;
+  receiverId: string;
+  ciphertext: string;
+  iv: string;
+  read?: string;
+  createdAt: string;
+}
+
+export interface ChatMessagesResponse {
+  messages: ChatMessageRecord[];
+  nextCursor?: number | null;
+}
+
+export interface UnreadCountResponse {
+  count: number;
+}
+
 /**
  * Opaque session token — `Bearer <sid>`.
  */
@@ -340,6 +434,14 @@ export type UploadProfileAvatarBody = {
 
 export type UploadJournalImageBody = {
   image: Blob;
+};
+
+export type SearchUsersParams = {
+  q: string;
+};
+
+export type GetChatMessagesParams = {
+  cursor?: number;
 };
 
 export type UploadBackgroundBody = {

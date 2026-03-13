@@ -1,15 +1,19 @@
 import { Link, useRoute } from "wouter";
 import { motion } from "framer-motion";
-import { LayoutDashboard, BookOpen, Settings, CheckSquare, Newspaper, Volume2, VolumeX } from "lucide-react";
+import { LayoutDashboard, BookOpen, Settings, CheckSquare, Newspaper, Volume2, VolumeX, MessageCircle } from "lucide-react";
 import { useAudio } from "@/contexts/AudioContext";
+import { useGetUnreadCount } from "@workspace/api-client-react";
 
 export function TopNav() {
   const [isDash] = useRoute("/");
   const [isJournal] = useRoute("/journal");
   const [isChecklist] = useRoute("/checklist");
   const [isNews] = useRoute("/news");
+  const [isChat] = useRoute("/chat");
   const [isSettings] = useRoute("/settings");
   const { mode, setMode } = useAudio();
+  const { data: unreadData } = useGetUnreadCount({ query: { refetchInterval: 5000 } });
+  const unreadCount = unreadData?.count ?? 0;
 
   const isPlaying = mode !== "off";
 
@@ -87,6 +91,22 @@ export function TopNav() {
           >
             <Newspaper className="w-4 h-4" />
             <span className="hidden sm:inline">News</span>
+          </Link>
+          <Link
+            href="/chat"
+            className={`relative flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+              isChat
+                ? "bg-primary/10 text-primary shadow-[inset_0_0_20px_rgba(34,197,94,0.1)]"
+                : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+            }`}
+          >
+            <MessageCircle className="w-4 h-4" />
+            <span className="hidden sm:inline">Chat</span>
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full px-1">
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            )}
           </Link>
           <Link
             href="/settings"

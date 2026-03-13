@@ -24,6 +24,7 @@ Professional forex/stock trading web dashboard. pnpm workspace monorepo using Ty
 - **Checklist**: Customizable pre-trade checklist with progress tracking
 - **News**: Real-time macro news (gold/USD/forex) via RSS feeds (Seeking Alpha, CNBC) with optional Perplexity AI enhancement. Server cache 10min, manual refresh bypasses cache. Keyword filter: gold/XAU/USD/DXY/Fed/CPI/inflation/treasury/nonfarm
 - **Settings**: Profile with XP/level + avatar (upload from device or AI-generated via gpt-image-1) + unique username validation, account auth (Replit Auth), binaural audio player (5 presets: Alpha 10Hz, Theta 6Hz, Beta 18Hz, Gamma 40Hz, Deep Focus 14Hz with auto-start), font selector (Inter/JetBrains Mono/Roboto/Space Grotesk/IBM Plex Sans), background darkness slider (0-90%), customizable background image upload, **Trading settings** (customize session names/times/visibility, lot calculator divisor)
+- **Chat E2EE**: End-to-end encrypted chat between friends. ECDH key exchange (P-256), AES-GCM encryption, private keys stored in IndexedDB. Friendship system with search, requests, accept/reject, remove. Real-time polling (3-5s). Unread badge in nav.
 - **Auth**: Replit Auth (OIDC/PKCE) — sessions stored in DB `sessions` table. Multi-user data isolation via userId column on all data tables
 - **Audio**: Binaural beats with stereo panning (left/right ear separation). Auto-starts Alpha mode on first user interaction
 
@@ -53,6 +54,9 @@ artifacts-monorepo/
 - `ideas` — ideas (type=idea) and goals (type=goal) for journal tabs, userId
 - `checklist_items` — customizable pre-trade checklist, userId
 - `user_settings` — background URL/type, fontChoice, backgroundDarkness, tradingSessions (JSON), lotDivisor, userId
+- `friendships` — userId, friendId, status (pending/accepted), createdAt. Unique index on (userId, friendId)
+- `chat_messages` — senderId, receiverId, ciphertext (base64), iv (base64), read flag, createdAt
+- `user_public_keys` — userId (unique), publicKeyJwk (JSON string), createdAt
 - `sessions` + `users` — Replit Auth sessions
 
 ## API Routes
@@ -65,6 +69,8 @@ All mounted at `/api`. All data routes filter by `req.user?.id` for multi-user i
 - `GET/POST /checklist`, `PUT/DELETE /checklist/:id`
 - `GET /news` — Macro news via RSS feeds (Seeking Alpha, CNBC) + optional Perplexity AI. Cached 10min, `?nocache=1` bypasses cache
 - `GET/PUT /settings`, `POST /settings/background`
+- `GET /friends/search?q=`, `POST /friends/request`, `GET /friends/requests`, `PATCH /friends/requests/:id`, `GET /friends`, `DELETE /friends/:id`
+- `POST /chat/keys`, `GET /chat/keys/:userId`, `POST /chat/messages`, `GET /chat/messages/:friendId`, `GET /chat/unread`
 - `GET /auth/user`, `GET /login`, `GET /callback`, `GET /logout`
 
 ## Secrets Required

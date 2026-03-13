@@ -1,0 +1,446 @@
+import { useState, useEffect, useRef, useCallback } from "react";
+import { motion } from "framer-motion";
+import { PageLayout } from "@/components/PageLayout";
+import { useE2EEKeys } from "@/hooks/useE2EEKeys";
+import { useAuth } from "@workspace/replit-auth-web";
+import { getSharedKey, encryptMessage, decryptMessage } from "@/lib/e2ee";
+import {
+  useGetFriends,
+  useSearchUsers,
+  useSendFriendRequest,
+  useGetPendingFriendRequests,
+  useRespondToFriendRequest,
+  useRemoveFriend,
+  useGetPublicKey,
+  useSendChatMessage,
+  useGetChatMessages,
+  useGetUnreadCount,
+} from "@workspace/api-client-react";
+import {
+  UserPlus,
+  Check,
+  X,
+  Send,
+  MessageCircle,
+  Users,
+  ArrowLeft,
+  Shield,
+  Loader2,
+  Trash2,
+  Search,
+  LogIn,
+} from "lucide-react";
+
+type View = "friends" | "chat";
+
+export default function Chat() {
+  const { isAuthenticated, isLoading: authLoading, login, user } = useAuth();
+  const { keyPair, isReady: e2eeReady, error: e2eeError } = useE2EEKeys(user?.id ?? null);
+  const [selectedFriend, setSelectedFriend] = useState<{ friendUserId: string; name: string; friendshipId: number } | null>(null);
+  const [mobileView, setMobileView] = useState<View>("friends");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showSearch, setShowSearch] = useState(false);
+  const [messageInput, setMessageInput] = useState("");
+  const [decryptedMessages, setDecryptedMessages] = useState<Array<{ id: number; senderId: string; text: string; createdAt: string }>>([]);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+
+  const { data: friends = [], refetch: refetchFriends } = useGetFriends({ query: { refetchInterval: 10000 } });
+  const { data: pendingRequests = [], refetch: refetchRequests } = useGetPendingFriendRequests({ query: { refetchInterval: 10000 } });
+  const { data: searchResults = [] } = useSearchUsers(
+    { q: searchQuery },
+    { query: { enabled: searchQuery.length >= 2 } }
+  );
+  const { data: unreadData, refetch: refetchUnread } = useGetUnreadCount({ query: { refetchInterval: 5000 } });
+
+  const sendFriendRequestMutation = useSendFriendRequest();
+  const respondMutation = useRespondToFriendRequest();
+  const removeFriendMutation = useRemoveFriend();
+  const sendMessageMutation = useSendChatMessage();
+
+  const { data: friendPublicKeyData } = useGetPublicKey(
+    selectedFriend?.friendUserId ?? "",
+    { query: { enabled: !!selectedFriend?.friendUserId } }
+  );
+
+  const { data: messagesData, refetch: refetchMessages } = useGetChatMessages(
+    selectedFriend?.friendUserId ?? "",
+    {},
+    { query: { enabled: !!selectedFriend?.friendUserId, refetchInterval: 3000 } }
+  );
+
+  useEffect(() => {
+    if (!messagesData?.messages || !keyPair || !friendPublicKeyData?.publicKeyJwk) return;
+
+    const decrypt = async () => {
+      try {
+        const sharedKey = await getSharedKey(keyPair.privateKey, friendPublicKeyData.publicKeyJwk as JsonWebKey);
+        const decrypted = await Promise.all(
+          messagesData.messages.map(async (msg) => ({
+            id: msg.id,
+            senderId: msg.senderId,
+            text: await decryptMessage(msg.ciphertext, msg.iv, sharedKey),
+            createdAt: msg.createdAt,
+          }))
+        );
+        setDecryptedMessages(decrypted);
+      } catch (err) {
+        console.error("Decrypt error:", err);
+      }
+    };
+    decrypt();
+  }, [messagesData?.messages, keyPair, friendPublicKeyData?.publicKeyJwk]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [decryptedMessages]);
+
+  const handleSendMessage = useCallback(async () => {
+    if (!messageInput.trim() || !selectedFriend || !keyPair || !friendPublicKeyData?.publicKeyJwk) return;
+    try {
+      const sharedKey = await getSharedKey(keyPair.privateKey, friendPublicKeyData.publicKeyJwk as JsonWebKey);
+      const { ciphertext, iv } = await encryptMessage(messageInput.trim(), sharedKey);
+      await sendMessageMutation.mutateAsync({
+        data: { receiverId: selectedFriend.friendUserId, ciphertext, iv },
+      });
+      setMessageInput("");
+      refetchMessages();
+    } catch (err) {
+      console.error("Send error:", err);
+    }
+  }, [messageInput, selectedFriend, keyPair, friendPublicKeyData, sendMessageMutation, refetchMessages]);
+
+  const handleSelectFriend = (f: { friendUserId: string; name: string; friendshipId: number }) => {
+    setSelectedFriend(f);
+    setDecryptedMessages([]);
+    setMobileView("chat");
+  };
+
+  const handleSendFriendRequest = async (friendUserId: string) => {
+    try {
+      await sendFriendRequestMutation.mutateAsync({ data: { friendUserId } });
+      setSearchQuery("");
+      setShowSearch(false);
+    } catch {}
+  };
+
+  const handleRespondRequest = async (id: number, action: "accept" | "reject") => {
+    try {
+      await respondMutation.mutateAsync({ id, data: { action } });
+      refetchRequests();
+      refetchFriends();
+    } catch {}
+  };
+
+  const handleRemoveFriend = async (id: number) => {
+    try {
+      await removeFriendMutation.mutateAsync({ id });
+      if (selectedFriend?.friendshipId === id) {
+        setSelectedFriend(null);
+        setMobileView("friends");
+      }
+      refetchFriends();
+    } catch {}
+  };
+
+  if (authLoading) {
+    return (
+      <PageLayout>
+        <div className="flex items-center justify-center h-[60vh]">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </PageLayout>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <PageLayout>
+        <div className="flex items-center justify-center h-[60vh]">
+          <div className="text-center space-y-4">
+            <MessageCircle className="w-16 h-16 mx-auto text-primary opacity-40" />
+            <h2 className="text-xl font-bold">Chat E2E Encrypted</h2>
+            <p className="text-muted-foreground">Accedi per chattare con i tuoi amici in modo sicuro</p>
+            <button
+              onClick={() => login()}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-colors"
+            >
+              <LogIn className="w-4 h-4" />
+              Accedi
+            </button>
+          </div>
+        </div>
+      </PageLayout>
+    );
+  }
+
+  if (e2eeError) {
+    return (
+      <PageLayout>
+        <div className="flex items-center justify-center h-[60vh]">
+          <div className="text-center space-y-4">
+            <Shield className="w-16 h-16 mx-auto text-destructive opacity-40" />
+            <h2 className="text-xl font-bold">Errore crittografia</h2>
+            <p className="text-muted-foreground">Impossibile inizializzare la crittografia end-to-end.</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-colors"
+            >
+              Riprova
+            </button>
+          </div>
+        </div>
+      </PageLayout>
+    );
+  }
+
+  if (!e2eeReady) {
+    return (
+      <PageLayout>
+        <div className="flex items-center justify-center h-[60vh]">
+          <div className="text-center space-y-4">
+            <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto" />
+            <p className="text-muted-foreground">Inizializzazione crittografia...</p>
+          </div>
+        </div>
+      </PageLayout>
+    );
+  }
+
+  const friendsSidebar = (
+    <div className="flex flex-col h-full">
+      <div className="p-4 border-b border-border space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold flex items-center gap-2">
+            <Users className="w-5 h-5 text-primary" />
+            Amici
+          </h2>
+          <button
+            onClick={() => setShowSearch(!showSearch)}
+            className="p-2 rounded-lg hover:bg-white/5 text-muted-foreground hover:text-primary transition-colors"
+          >
+            <UserPlus className="w-5 h-5" />
+          </button>
+        </div>
+
+        {showSearch && (
+          <div className="space-y-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Cerca utenti..."
+                className="w-full pl-10 pr-4 py-2 bg-card/50 border border-border rounded-lg text-sm focus:outline-none focus:border-primary"
+                autoFocus
+              />
+            </div>
+            {searchResults.length > 0 && (
+              <div className="space-y-1 max-h-40 overflow-y-auto">
+                {searchResults.map((user) => (
+                  <div key={user.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-white/5">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">
+                        {user.name.charAt(0).toUpperCase()}
+                      </div>
+                      <span className="text-sm">{user.name}</span>
+                    </div>
+                    <button
+                      onClick={() => user.userId && handleSendFriendRequest(user.userId)}
+                      className="p-1.5 rounded-lg bg-primary/20 text-primary hover:bg-primary/30 transition-colors"
+                    >
+                      <UserPlus className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {pendingRequests.length > 0 && (
+        <div className="p-4 border-b border-border">
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase mb-2">
+            Richieste ({pendingRequests.length})
+          </h3>
+          <div className="space-y-2">
+            {pendingRequests.map((req) => (
+              <div key={req.id} className="flex items-center justify-between p-2 rounded-lg bg-card/30">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-yellow-500/20 flex items-center justify-center text-xs font-bold text-yellow-400">
+                    {(req.senderName ?? "?").charAt(0).toUpperCase()}
+                  </div>
+                  <span className="text-sm">{req.senderName ?? "Sconosciuto"}</span>
+                </div>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => handleRespondRequest(req.id, "accept")}
+                    className="p-1.5 rounded-lg bg-primary/20 text-primary hover:bg-primary/30 transition-colors"
+                  >
+                    <Check className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => handleRespondRequest(req.id, "reject")}
+                    className="p-1.5 rounded-lg bg-destructive/20 text-destructive hover:bg-destructive/30 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="flex-1 overflow-y-auto p-2">
+        {(friends as any[]).length === 0 ? (
+          <div className="text-center text-muted-foreground text-sm py-8">
+            <MessageCircle className="w-10 h-10 mx-auto mb-3 opacity-30" />
+            <p>Nessun amico ancora.</p>
+            <p className="text-xs mt-1">Cerca e aggiungi amici per iniziare a chattare!</p>
+          </div>
+        ) : (
+          <div className="space-y-1">
+            {(friends as any[]).map((friend: any) => (
+              <div
+                key={friend.friendshipId}
+                onClick={() => handleSelectFriend(friend)}
+                className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all group ${
+                  selectedFriend?.friendUserId === friend.friendUserId
+                    ? "bg-primary/10 border border-primary/30"
+                    : "hover:bg-white/5 border border-transparent"
+                }`}
+              >
+                <div className="relative">
+                  <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-sm font-bold text-primary">
+                    {friend.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-background ${
+                    friend.online ? "bg-primary" : "bg-muted-foreground/40"
+                  }`} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{friend.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {friend.online ? "Online" : "Offline"}
+                  </p>
+                </div>
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleRemoveFriend(friend.friendshipId); }}
+                  className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-all"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const chatArea = (
+    <div className="flex flex-col h-full">
+      {selectedFriend ? (
+        <>
+          <div className="p-4 border-b border-border flex items-center gap-3">
+            <button
+              onClick={() => { setSelectedFriend(null); setMobileView("friends"); }}
+              className="p-2 rounded-lg hover:bg-white/5 text-muted-foreground lg:hidden"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-sm font-bold text-primary">
+              {selectedFriend.name.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <p className="font-medium">{selectedFriend.name}</p>
+              <p className="text-xs text-primary flex items-center gap-1">
+                <Shield className="w-3 h-3" /> Crittografia end-to-end
+              </p>
+            </div>
+          </div>
+
+          <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-3">
+            {decryptedMessages.length === 0 ? (
+              <div className="text-center text-muted-foreground text-sm py-12">
+                <Shield className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                <p>Inizio della conversazione cifrata</p>
+                <p className="text-xs mt-1">I messaggi sono protetti con crittografia end-to-end</p>
+              </div>
+            ) : (
+              decryptedMessages.map((msg) => {
+                const isMine = msg.senderId !== selectedFriend.friendUserId;
+                return (
+                  <div key={msg.id} className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
+                    <div className={`max-w-[75%] px-4 py-2.5 rounded-2xl text-sm ${
+                      isMine
+                        ? "bg-primary text-primary-foreground rounded-br-md"
+                        : "bg-card/80 border border-border rounded-bl-md"
+                    }`}>
+                      <p className="break-words whitespace-pre-wrap">{msg.text}</p>
+                      <p className={`text-[10px] mt-1 ${isMine ? "text-primary-foreground/60" : "text-muted-foreground"}`}>
+                        {new Date(msg.createdAt).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          <div className="p-4 border-t border-border">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={messageInput}
+                onChange={(e) => setMessageInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSendMessage()}
+                placeholder="Scrivi un messaggio..."
+                className="flex-1 px-4 py-2.5 bg-card/50 border border-border rounded-xl text-sm focus:outline-none focus:border-primary transition-colors"
+              />
+              <button
+                onClick={handleSendMessage}
+                disabled={!messageInput.trim() || sendMessageMutation.isPending}
+                className="px-4 py-2.5 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <Send className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center text-muted-foreground space-y-3">
+            <MessageCircle className="w-16 h-16 mx-auto opacity-20" />
+            <p className="text-lg">Seleziona un amico per chattare</p>
+            <p className="text-sm">I messaggi sono protetti con crittografia end-to-end</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <PageLayout>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-card/30 backdrop-blur-md border border-border rounded-2xl overflow-hidden"
+        style={{ height: "calc(100vh - 140px)" }}
+      >
+        <div className="hidden lg:grid grid-cols-[340px_1fr] h-full">
+          <div className="border-r border-border">{friendsSidebar}</div>
+          <div>{chatArea}</div>
+        </div>
+
+        <div className="lg:hidden h-full">
+          {mobileView === "friends" ? friendsSidebar : chatArea}
+        </div>
+      </motion.div>
+    </PageLayout>
+  );
+}

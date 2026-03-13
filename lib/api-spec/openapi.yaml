@@ -25,6 +25,10 @@ tags:
     description: Macro news
   - name: settings
     description: User settings
+  - name: friends
+    description: Friendship management
+  - name: chat
+    description: E2E encrypted chat
 paths:
   /healthz:
     get:
@@ -619,6 +623,234 @@ paths:
               schema:
                 $ref: "#/components/schemas/UserSettings"
 
+  /friends/search:
+    get:
+      operationId: searchUsers
+      tags: [friends]
+      summary: Search users by name
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserSearchResult"
+
+  /friends/request:
+    post:
+      operationId: sendFriendRequest
+      tags: [friends]
+      summary: Send a friend request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FriendRequestBody"
+      responses:
+        "201":
+          description: Friend request sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FriendshipRecord"
+        "409":
+          description: Request already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /friends/requests:
+    get:
+      operationId: getPendingFriendRequests
+      tags: [friends]
+      summary: Get pending friend requests
+      responses:
+        "200":
+          description: Pending requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PendingFriendRequest"
+
+  /friends/requests/{id}:
+    patch:
+      operationId: respondToFriendRequest
+      tags: [friends]
+      summary: Accept or reject a friend request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FriendRequestAction"
+      responses:
+        "200":
+          description: Request handled
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/FriendshipRecord"
+                  - $ref: "#/components/schemas/DeleteResponse"
+
+  /friends:
+    get:
+      operationId: getFriends
+      tags: [friends]
+      summary: Get friend list
+      responses:
+        "200":
+          description: Friends
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FriendListItem"
+
+  /friends/{id}:
+    delete:
+      operationId: removeFriend
+      tags: [friends]
+      summary: Remove a friend
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteResponse"
+
+  /chat/keys:
+    post:
+      operationId: savePublicKey
+      tags: [chat]
+      summary: Save user public key for E2EE
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SavePublicKeyBody"
+      responses:
+        "200":
+          description: Key saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicKeyRecord"
+
+  /chat/keys/{userId}:
+    get:
+      operationId: getPublicKey
+      tags: [chat]
+      summary: Get a user public key
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Public key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicKeyResponse"
+        "404":
+          description: Key not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /chat/messages:
+    post:
+      operationId: sendChatMessage
+      tags: [chat]
+      summary: Send an encrypted message
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendMessageBody"
+      responses:
+        "201":
+          description: Message sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatMessageRecord"
+        "403":
+          description: Not friends
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /chat/messages/{friendId}:
+    get:
+      operationId: getChatMessages
+      tags: [chat]
+      summary: Get messages with a friend
+      parameters:
+        - name: friendId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Messages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatMessagesResponse"
+
+  /chat/unread:
+    get:
+      operationId: getUnreadCount
+      tags: [chat]
+      summary: Get unread message count
+      responses:
+        "200":
+          description: Unread count
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnreadCountResponse"
+
   /settings/background:
     post:
       operationId: uploadBackground
@@ -1134,3 +1366,196 @@ components:
           type: string
       required:
         - url
+
+    UserSearchResult:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        avatarUrl:
+          type: string
+          nullable: true
+        userId:
+          type: string
+          nullable: true
+      required:
+        - id
+        - name
+
+    FriendRequestBody:
+      type: object
+      properties:
+        friendUserId:
+          type: string
+      required:
+        - friendUserId
+
+    FriendshipRecord:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: string
+        friendId:
+          type: string
+        status:
+          type: string
+        createdAt:
+          type: string
+      required:
+        - id
+        - userId
+        - friendId
+        - status
+
+    PendingFriendRequest:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: string
+        friendId:
+          type: string
+        status:
+          type: string
+        createdAt:
+          type: string
+        senderName:
+          type: string
+          nullable: true
+        senderAvatar:
+          type: string
+          nullable: true
+      required:
+        - id
+        - userId
+        - friendId
+        - status
+
+    FriendRequestAction:
+      type: object
+      properties:
+        action:
+          type: string
+          enum: [accept, reject]
+      required:
+        - action
+
+    FriendListItem:
+      type: object
+      properties:
+        friendshipId:
+          type: integer
+        friendUserId:
+          type: string
+        name:
+          type: string
+        avatarUrl:
+          type: string
+          nullable: true
+        online:
+          type: boolean
+      required:
+        - friendshipId
+        - friendUserId
+        - name
+        - online
+
+    SavePublicKeyBody:
+      type: object
+      properties:
+        publicKeyJwk:
+          type: object
+      required:
+        - publicKeyJwk
+
+    PublicKeyRecord:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: string
+        publicKeyJwk:
+          type: string
+        createdAt:
+          type: string
+      required:
+        - id
+        - userId
+        - publicKeyJwk
+
+    PublicKeyResponse:
+      type: object
+      properties:
+        userId:
+          type: string
+        publicKeyJwk:
+          type: object
+      required:
+        - userId
+        - publicKeyJwk
+
+    SendMessageBody:
+      type: object
+      properties:
+        receiverId:
+          type: string
+        ciphertext:
+          type: string
+        iv:
+          type: string
+      required:
+        - receiverId
+        - ciphertext
+        - iv
+
+    ChatMessageRecord:
+      type: object
+      properties:
+        id:
+          type: integer
+        senderId:
+          type: string
+        receiverId:
+          type: string
+        ciphertext:
+          type: string
+        iv:
+          type: string
+        read:
+          type: string
+        createdAt:
+          type: string
+      required:
+        - id
+        - senderId
+        - receiverId
+        - ciphertext
+        - iv
+        - createdAt
+
+    ChatMessagesResponse:
+      type: object
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatMessageRecord"
+        nextCursor:
+          type: integer
+          nullable: true
+      required:
+        - messages
+
+    UnreadCountResponse:
+      type: object
+      properties:
+        count:
+          type: integer
+      required:
+        - count
