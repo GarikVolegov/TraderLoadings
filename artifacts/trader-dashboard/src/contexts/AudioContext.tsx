@@ -42,12 +42,14 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const startFrequencies = useCallback((baseFreq: number, beatFreq: number, vol: number) => {
+  const startFrequencies = useCallback(async (baseFreq: number, beatFreq: number, vol: number) => {
     if (!audioCtxRef.current) {
       audioCtxRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
     }
     const ctx = audioCtxRef.current;
-    if (ctx.state === "suspended") ctx.resume();
+    if (ctx.state === "suspended") {
+      await ctx.resume();
+    }
     stopOscillators();
 
     const gain = ctx.createGain();
@@ -78,15 +80,18 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     oscillatorsRef.current = [osc1, osc2];
   }, [stopOscillators]);
 
+  const volumeRef = useRef(volume);
+  volumeRef.current = volume;
+
   const setMode = useCallback((newMode: AudioMode) => {
     if (newMode === "off") {
       stopOscillators();
     } else {
       const config = AUDIO_MODES[newMode];
-      startFrequencies(config.baseFreq, config.beatFreq, volume);
+      startFrequencies(config.baseFreq, config.beatFreq, volumeRef.current);
     }
     setModeState(newMode);
-  }, [volume, stopOscillators, startFrequencies]);
+  }, [stopOscillators, startFrequencies]);
 
   const setVolume = useCallback((v: number) => {
     setVolumeState(v);
@@ -95,13 +100,16 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const setModeRef = useRef(setMode);
+  setModeRef.current = setMode;
+
   useEffect(() => {
     if (hasAutoStarted.current) return;
 
     const tryAutoStart = () => {
       if (hasAutoStarted.current) return;
       hasAutoStarted.current = true;
-      setMode("alpha");
+      setModeRef.current("alpha");
       document.removeEventListener("click", tryAutoStart);
       document.removeEventListener("keydown", tryAutoStart);
       document.removeEventListener("touchstart", tryAutoStart);
@@ -116,7 +124,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       document.removeEventListener("keydown", tryAutoStart);
       document.removeEventListener("touchstart", tryAutoStart);
     };
-  }, [setMode]);
+  }, []);
 
   return (
     <AudioCtx.Provider value={{ mode, setMode, volume, setVolume }}>
