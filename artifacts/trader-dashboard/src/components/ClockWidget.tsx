@@ -1,80 +1,58 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { format } from "date-fns";
-import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { useBackground, type TradingSessionConfig } from "@/contexts/BackgroundContext";
 
-type SessionType = "asian" | "london" | "ny" | "volume";
+function parseTime(t: string): number {
+  const [h, m] = t.split(":").map(Number);
+  return h + (m || 0) / 60;
+}
 
-interface SessionInfo {
-  id: SessionType;
-  name: string;
-  timeRange: string;
-  colorClass: string;
-  glowClass: string;
-  active: boolean;
+function isInSession(utcHours: number, session: TradingSessionConfig): boolean {
+  const open = parseTime(session.openUTC);
+  const close = parseTime(session.closeUTC);
+  if (open < close) {
+    return utcHours >= open && utcHours < close;
+  }
+  return utcHours >= open || utcHours < close;
 }
 
 export function ClockWidget() {
   const [time, setTime] = useState(new Date());
-  const [activeSessionId, setActiveSessionId] = useState<SessionType>("asian");
+  const { tradingSessions } = useBackground();
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      const now = new Date();
-      setTime(now);
-      
-      // Calculate current UTC hours (0-23.99)
-      const utcHours = now.getUTCHours() + now.getUTCMinutes() / 60;
-      
-      if (utcHours >= 0 && utcHours < 8) {
-        setActiveSessionId("asian");
-      } else if (utcHours >= 8 && utcHours < 13.5) {
-        setActiveSessionId("london");
-      } else if (utcHours >= 13.5 && utcHours < 20) {
-        setActiveSessionId("ny");
-      } else {
-        setActiveSessionId("volume");
-      }
-    }, 1000);
-
+    const timer = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  const sessions: SessionInfo[] = [
-    {
-      id: "asian",
-      name: "Asiatica",
-      timeRange: "00:00 - 08:00 UTC",
-      colorClass: "bg-[hsl(var(--session-asian))]",
-      glowClass: "neon-glow-asian border-[hsl(var(--session-asian))]",
-      active: activeSessionId === "asian"
+  const activeSession = useMemo(() => {
+    const utcHours = time.getUTCHours() + time.getUTCMinutes() / 60;
+    const enabledSessions = tradingSessions.filter(s => s.enabled);
+    return enabledSessions.find(s => isInSession(utcHours, s)) || null;
+  }, [time, tradingSessions]);
+
+  const colorMap: Record<string, { bg: string; glow: string }> = {
+    "session-asian": {
+      bg: "bg-[hsl(var(--session-asian))]",
+      glow: "neon-glow-asian",
     },
-    {
-      id: "london",
-      name: "Londinese",
-      timeRange: "08:00 - 13:30 UTC",
-      colorClass: "bg-[hsl(var(--session-london))]",
-      glowClass: "neon-glow-london border-[hsl(var(--session-london))]",
-      active: activeSessionId === "london"
+    "session-london": {
+      bg: "bg-[hsl(var(--session-london))]",
+      glow: "neon-glow-london",
     },
-    {
-      id: "ny",
-      name: "New York",
-      timeRange: "13:30 - 20:00 UTC",
-      colorClass: "bg-[hsl(var(--session-ny))]",
-      glowClass: "neon-glow-ny border-[hsl(var(--session-ny))]",
-      active: activeSessionId === "ny"
+    "session-ny": {
+      bg: "bg-[hsl(var(--session-ny))]",
+      glow: "neon-glow-ny",
     },
-    {
-      id: "volume",
-      name: "Conferma Vol.",
-      timeRange: "20:00 - 00:00 UTC",
-      colorClass: "bg-[hsl(var(--session-volume))]",
-      glowClass: "neon-glow-volume border-[hsl(var(--session-volume))]",
-      active: activeSessionId === "volume"
-    }
-  ];
+    "session-volume": {
+      bg: "bg-[hsl(var(--session-volume))]",
+      glow: "neon-glow-volume",
+    },
+  };
+
+  const activeColors = activeSession ? colorMap[activeSession.color] : null;
 
   return (
     <Card className="overflow-hidden border-t-4 border-t-primary/50 relative">
@@ -83,9 +61,8 @@ export function ClockWidget() {
       </div>
       
       <CardContent className="p-3 sm:p-6 md:p-8">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4 sm:gap-8">
-          {/* Digital Clock */}
-          <div className="flex flex-col items-center md:items-start z-10">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-8">
+          <div className="flex flex-col items-center sm:items-start z-10">
             <p className="text-muted-foreground font-medium mb-0.5 sm:mb-1 uppercase tracking-widest text-xs sm:text-sm">Tempo Locale</p>
             <div className="text-5xl sm:text-6xl md:text-7xl font-mono font-bold tracking-tighter text-foreground drop-shadow-[0_0_10px_rgba(255,255,255,0.1)]">
               {format(time, "HH:mm:ss")}
@@ -95,45 +72,29 @@ export function ClockWidget() {
             </p>
           </div>
 
-          {/* Session Indicators */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 w-full md:w-auto z-10">
-            {sessions.map((session) => (
-              <div 
-                key={session.id}
-                className={cn(
-                  "relative flex flex-col items-center justify-center p-2 sm:p-4 rounded-xl border transition-all duration-500",
-                  session.active 
-                    ? `bg-secondary/80 ${session.glowClass} scale-105` 
-                    : "bg-secondary/30 border-border/50 opacity-60"
-                )}
-              >
-                <div className="flex items-center gap-1 sm:gap-2 mb-1 sm:mb-2">
-                  <div 
-                    className={cn(
-                      "w-2 h-2 sm:w-3 sm:h-3 rounded-full transition-all duration-300", 
-                      session.colorClass,
-                      session.active && "animate-pulse shadow-[0_0_8px_currentColor]"
-                    )} 
-                  />
-                  <span className={cn(
-                    "font-bold text-xs sm:text-sm tracking-wide",
-                    session.active ? "text-foreground" : "text-muted-foreground"
-                  )}>
-                    {session.name}
-                  </span>
-                </div>
-                <span className="text-[10px] sm:text-xs font-mono text-muted-foreground">{session.timeRange}</span>
-                
-                {session.active && (
-                  <motion.div 
-                    layoutId="activeSession"
-                    className="absolute inset-0 rounded-xl border-2 border-white/10"
-                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                  />
-                )}
-              </div>
-            ))}
-          </div>
+          {activeSession && activeColors && (
+            <div className={cn(
+              "flex items-center gap-3 px-5 py-3 rounded-xl border bg-secondary/80 z-10",
+              activeColors.glow
+            )}>
+              <div className={cn(
+                "w-3 h-3 rounded-full animate-pulse shadow-[0_0_8px_currentColor]",
+                activeColors.bg
+              )} />
+              <span className="font-bold text-sm tracking-wide text-foreground">
+                {activeSession.name}
+              </span>
+            </div>
+          )}
+
+          {!activeSession && (
+            <div className="flex items-center gap-3 px-5 py-3 rounded-xl border border-border/50 bg-secondary/30 z-10 opacity-60">
+              <div className="w-3 h-3 rounded-full bg-muted-foreground/40" />
+              <span className="font-bold text-sm tracking-wide text-muted-foreground">
+                Nessuna sessione
+              </span>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

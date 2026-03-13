@@ -38,12 +38,20 @@ async function getOrCreateSettings(userId: string | null) {
 router.get("/settings", async (req, res) => {
   const userId = getUserId(req);
   const settings = await getOrCreateSettings(userId);
-  res.json(settings);
+  const result: Record<string, unknown> = { ...settings };
+  if (settings.tradingSessions) {
+    try {
+      result.tradingSessions = JSON.parse(settings.tradingSessions);
+    } catch {
+      result.tradingSessions = null;
+    }
+  }
+  res.json(result);
 });
 
 router.put("/settings", async (req, res) => {
   const userId = getUserId(req);
-  const { backgroundUrl, backgroundType, fontChoice, backgroundDarkness } = req.body;
+  const { backgroundUrl, backgroundType, fontChoice, backgroundDarkness, tradingSessions, lotDivisor } = req.body;
   const settings = await getOrCreateSettings(userId);
 
   const updateData: Record<string, unknown> = {};
@@ -51,12 +59,30 @@ router.put("/settings", async (req, res) => {
   if (backgroundType !== undefined) updateData.backgroundType = backgroundType || "default";
   if (fontChoice !== undefined) updateData.fontChoice = fontChoice;
   if (backgroundDarkness !== undefined) updateData.backgroundDarkness = Math.min(90, Math.max(0, Number(backgroundDarkness)));
+  if (tradingSessions !== undefined) updateData.tradingSessions = tradingSessions ? JSON.stringify(tradingSessions) : null;
+  if (lotDivisor !== undefined) {
+    const parsedDivisor = Number(lotDivisor);
+    if (isNaN(parsedDivisor) || parsedDivisor < 1) {
+      res.status(400).json({ error: "lotDivisor must be a number >= 1" });
+      return;
+    }
+    updateData.lotDivisor = parsedDivisor;
+  }
 
   const [updated] = await db.update(userSettingsTable)
     .set(updateData)
     .where(eq(userSettingsTable.id, settings.id))
     .returning();
-  res.json(updated);
+  
+  const result: Record<string, unknown> = { ...updated };
+  if (updated.tradingSessions) {
+    try {
+      result.tradingSessions = JSON.parse(updated.tradingSessions);
+    } catch {
+      result.tradingSessions = null;
+    }
+  }
+  res.json(result);
 });
 
 router.post("/settings/background", upload.single("image"), async (req, res) => {

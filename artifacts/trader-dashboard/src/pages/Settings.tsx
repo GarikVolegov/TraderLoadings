@@ -1,12 +1,14 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { PageLayout } from "@/components/PageLayout";
 import { ProfileWidget } from "@/components/ProfileWidget";
 import { AudioPlayer } from "@/components/AudioPlayer";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Image, Upload, X, LogIn, LogOut, UserPlus, RefreshCw, Type, Sun } from "lucide-react";
-import { useBackground } from "@/contexts/BackgroundContext";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { Image, Upload, X, LogIn, LogOut, UserPlus, RefreshCw, Type, Sun, TrendingUp } from "lucide-react";
+import { useBackground, DEFAULT_TRADING_SESSIONS, DEFAULT_LOT_DIVISOR, type TradingSessionConfig } from "@/contexts/BackgroundContext";
 import { useGetUserSettings, useUpdateUserSettings, getGetUserSettingsQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -253,6 +255,149 @@ function BackgroundSettings() {
   );
 }
 
+function TradingSettings() {
+  const { tradingSessions, setTradingSessions, lotDivisor, setLotDivisor } = useBackground();
+  const updateMutation = useUpdateUserSettings();
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [localSessions, setLocalSessions] = useState<TradingSessionConfig[]>(tradingSessions);
+  const [localDivisor, setLocalDivisor] = useState(String(lotDivisor));
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  useEffect(() => {
+    setLocalSessions(tradingSessions);
+  }, [tradingSessions]);
+
+  useEffect(() => {
+    setLocalDivisor(String(lotDivisor));
+  }, [lotDivisor]);
+
+  useEffect(() => {
+    return () => clearTimeout(debounceRef.current);
+  }, []);
+
+  const saveSessions = (sessions: TradingSessionConfig[]) => {
+    setLocalSessions(sessions);
+    setTradingSessions(sessions);
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      try {
+        await updateMutation.mutateAsync({ data: { tradingSessions: sessions, lotDivisor: Number(localDivisor) || DEFAULT_LOT_DIVISOR } });
+        qc.invalidateQueries({ queryKey: getGetUserSettingsQueryKey() });
+      } catch {
+        toast({ description: "Errore nel salvataggio.", variant: "destructive" });
+      }
+    }, 800);
+  };
+
+  const handleSessionChange = (idx: number, field: keyof TradingSessionConfig, value: string | boolean) => {
+    const updated = localSessions.map((s, i) => i === idx ? { ...s, [field]: value } : s);
+    saveSessions(updated);
+  };
+
+  const handleDivisorChange = (value: string) => {
+    setLocalDivisor(value);
+    const num = Number(value);
+    if (num >= 1) {
+      setLotDivisor(num);
+      clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(async () => {
+        try {
+          await updateMutation.mutateAsync({ data: { lotDivisor: num, tradingSessions: localSessions } });
+          qc.invalidateQueries({ queryKey: getGetUserSettingsQueryKey() });
+        } catch {
+          toast({ description: "Errore nel salvataggio.", variant: "destructive" });
+        }
+      }, 800);
+    }
+  };
+
+  const handleReset = async () => {
+    setLocalSessions(DEFAULT_TRADING_SESSIONS);
+    setTradingSessions(DEFAULT_TRADING_SESSIONS);
+    setLocalDivisor(String(DEFAULT_LOT_DIVISOR));
+    setLotDivisor(DEFAULT_LOT_DIVISOR);
+    try {
+      await updateMutation.mutateAsync({ data: { tradingSessions: DEFAULT_TRADING_SESSIONS, lotDivisor: DEFAULT_LOT_DIVISOR } });
+      qc.invalidateQueries({ queryKey: getGetUserSettingsQueryKey() });
+      toast({ description: "Impostazioni trading ripristinate." });
+    } catch {
+      toast({ description: "Errore nel ripristino.", variant: "destructive" });
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <TrendingUp className="w-5 h-5 text-primary" />
+          Trading
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="space-y-4">
+          <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Sessioni di Trading</h4>
+          {localSessions.map((session, idx) => (
+            <div key={session.id} className="rounded-lg border border-border p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <Input
+                  value={session.name}
+                  onChange={(e) => handleSessionChange(idx, "name", e.target.value)}
+                  className="text-sm font-medium w-40"
+                />
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Visibile</span>
+                  <Switch
+                    checked={session.enabled}
+                    onCheckedChange={(checked) => handleSessionChange(idx, "enabled", checked)}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1">Apertura (UTC)</label>
+                  <Input
+                    type="time"
+                    value={session.openUTC}
+                    onChange={(e) => handleSessionChange(idx, "openUTC", e.target.value)}
+                    className="text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1">Chiusura (UTC)</label>
+                  <Input
+                    type="time"
+                    value={session.closeUTC}
+                    onChange={(e) => handleSessionChange(idx, "closeUTC", e.target.value)}
+                    className="text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="space-y-2">
+          <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Divisore Calcolatore Lotti</h4>
+          <Input
+            type="number"
+            min="1"
+            value={localDivisor}
+            onChange={(e) => handleDivisorChange(e.target.value)}
+            className="text-base w-32"
+          />
+          <p className="text-xs text-muted-foreground">Formula: (Rischio € / Stop Loss pips) / {localDivisor}</p>
+        </div>
+
+        <Button variant="outline" className="w-full" onClick={handleReset}>
+          <RefreshCw className="w-4 h-4 mr-2" />
+          Ripristina valori predefiniti
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
 function AuthSection({ login }: { login: () => void }) {
   return (
     <Card>
@@ -312,13 +457,17 @@ export default function Settings() {
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
           <BackgroundSettings />
         </motion.div>
+
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} className="lg:col-span-2">
+          <TradingSettings />
+        </motion.div>
       </div>
 
       {isAuthenticated && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.35 }}
+          transition={{ delay: 0.4 }}
           className="mt-4 sm:mt-8"
         >
           <Button

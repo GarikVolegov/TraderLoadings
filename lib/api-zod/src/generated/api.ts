@@ -460,6 +460,19 @@ export const GetUserSettingsResponse = zod.object({
     .number()
     .min(getUserSettingsResponseBackgroundDarknessMin)
     .max(getUserSettingsResponseBackgroundDarknessMax),
+  tradingSessions: zod
+    .array(
+      zod.object({
+        id: zod.string(),
+        name: zod.string(),
+        openUTC: zod.string().describe("HH:MM format"),
+        closeUTC: zod.string().describe("HH:MM format"),
+        color: zod.string(),
+        enabled: zod.boolean(),
+      }),
+    )
+    .nullish(),
+  lotDivisor: zod.number().min(1),
 });
 
 /**
@@ -479,6 +492,19 @@ export const UpdateUserSettingsBody = zod.object({
     .min(updateUserSettingsBodyBackgroundDarknessMin)
     .max(updateUserSettingsBodyBackgroundDarknessMax)
     .optional(),
+  tradingSessions: zod
+    .array(
+      zod.object({
+        id: zod.string(),
+        name: zod.string(),
+        openUTC: zod.string().describe("HH:MM format"),
+        closeUTC: zod.string().describe("HH:MM format"),
+        color: zod.string(),
+        enabled: zod.boolean(),
+      }),
+    )
+    .nullish(),
+  lotDivisor: zod.number().min(1).optional(),
 });
 
 export const updateUserSettingsResponseBackgroundDarknessMin = 0;
@@ -499,6 +525,19 @@ export const UpdateUserSettingsResponse = zod.object({
     .number()
     .min(updateUserSettingsResponseBackgroundDarknessMin)
     .max(updateUserSettingsResponseBackgroundDarknessMax),
+  tradingSessions: zod
+    .array(
+      zod.object({
+        id: zod.string(),
+        name: zod.string(),
+        openUTC: zod.string().describe("HH:MM format"),
+        closeUTC: zod.string().describe("HH:MM format"),
+        color: zod.string(),
+        enabled: zod.boolean(),
+      }),
+    )
+    .nullish(),
+  lotDivisor: zod.number().min(1),
 });
 
 /**

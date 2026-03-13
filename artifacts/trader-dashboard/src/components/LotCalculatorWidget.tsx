@@ -3,17 +3,19 @@ import { Calculator, RefreshCcw } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { useBackground } from "@/contexts/BackgroundContext";
 
 export function LotCalculatorWidget() {
   const [riskEuro, setRiskEuro] = useState<string>("");
   const [stopLossPips, setStopLossPips] = useState<string>("");
+  const { lotDivisor } = useBackground();
 
   const lotSize = useMemo(() => {
     const risk = parseFloat(riskEuro);
     const pips = parseFloat(stopLossPips);
     if (isNaN(risk) || isNaN(pips) || pips <= 0) return null;
-    return ((risk / pips) / 11).toFixed(2);
-  }, [riskEuro, stopLossPips]);
+    return ((risk / pips) / lotDivisor).toFixed(2);
+  }, [riskEuro, stopLossPips, lotDivisor]);
 
   return (
     <Card className="h-full relative overflow-hidden group">
@@ -60,7 +62,6 @@ export function LotCalculatorWidget() {
           <div className="text-4xl sm:text-5xl font-mono font-bold">
             {lotSize ?? "0.00"}
           </div>
-          <p className="text-xs text-muted-foreground/60 font-mono mt-1">(€ / pips) / 11</p>
         </div>
 
         <Button

@@ -1044,6 +1044,31 @@ components:
         - fetchedAt
         - hasApiKey
 
+    TradingSessionConfig:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        openUTC:
+          type: string
+          description: "HH:MM format"
+        closeUTC:
+          type: string
+          description: "HH:MM format"
+        color:
+          type: string
+        enabled:
+          type: boolean
+      required:
+        - id
+        - name
+        - openUTC
+        - closeUTC
+        - color
+        - enabled
+
     UserSettings:
       type: object
       properties:
@@ -1062,11 +1087,20 @@ components:
           type: integer
           minimum: 0
           maximum: 90
+        tradingSessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/TradingSessionConfig"
+          nullable: true
+        lotDivisor:
+          type: integer
+          minimum: 1
       required:
         - id
         - backgroundType
         - fontChoice
         - backgroundDarkness
+        - lotDivisor
 
     UpdateUserSettingsRequest:
       type: object
@@ -1084,6 +1118,14 @@ components:
           type: integer
           minimum: 0
           maximum: 90
+        tradingSessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/TradingSessionConfig"
+          nullable: true
+        lotDivisor:
+          type: integer
+          minimum: 1
 
     UploadBackgroundResponse:
       type: object

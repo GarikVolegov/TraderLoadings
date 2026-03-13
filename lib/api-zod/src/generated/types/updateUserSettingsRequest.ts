@@ -5,6 +5,7 @@
  * TraderLoading API
  * OpenAPI spec version: 0.1.0
  */
+import type { TradingSessionConfig } from "./tradingSessionConfig";
 import type { UpdateUserSettingsRequestBackgroundType } from "./updateUserSettingsRequestBackgroundType";
 import type { UpdateUserSettingsRequestFontChoice } from "./updateUserSettingsRequestFontChoice";
 
@@ -17,4 +18,7 @@ export interface UpdateUserSettingsRequest {
    * @maximum 90
    */
   backgroundDarkness?: number;
+  tradingSessions?: TradingSessionConfig[] | null;
+  /** @minimum 1 */
+  lotDivisor?: number;
 }

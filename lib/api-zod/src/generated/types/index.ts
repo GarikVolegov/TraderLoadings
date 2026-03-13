@@ -36,6 +36,7 @@ export * from "./mobileTokenExchangeSuccess";
 export * from "./newsArticle";
 export * from "./newsArticleSentiment";
 export * from "./newsResponse";
+export * from "./tradingSessionConfig";
 export * from "./updateChecklistItemRequest";
 export * from "./updateIdeaRequest";
 export * from "./updateJournalEntryRequest";

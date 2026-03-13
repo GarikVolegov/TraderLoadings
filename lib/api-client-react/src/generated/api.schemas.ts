@@ -233,6 +233,17 @@ export interface NewsResponse {
   hasApiKey: boolean;
 }
 
+export interface TradingSessionConfig {
+  id: string;
+  name: string;
+  /** HH:MM format */
+  openUTC: string;
+  /** HH:MM format */
+  closeUTC: string;
+  color: string;
+  enabled: boolean;
+}
+
 export type UserSettingsBackgroundType =
   (typeof UserSettingsBackgroundType)[keyof typeof UserSettingsBackgroundType];
 
@@ -262,6 +273,9 @@ export interface UserSettings {
    * @maximum 90
    */
   backgroundDarkness: number;
+  tradingSessions?: TradingSessionConfig[] | null;
+  /** @minimum 1 */
+  lotDivisor: number;
 }
 
 export type UpdateUserSettingsRequestBackgroundType =
@@ -292,6 +306,9 @@ export interface UpdateUserSettingsRequest {
    * @maximum 90
    */
   backgroundDarkness?: number;
+  tradingSessions?: TradingSessionConfig[] | null;
+  /** @minimum 1 */
+  lotDivisor?: number;
 }
 
 export interface UploadBackgroundResponse {

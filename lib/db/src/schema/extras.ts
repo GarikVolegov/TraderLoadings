@@ -25,6 +25,8 @@ export const userSettingsTable = pgTable("user_settings", {
   fontChoice: text("font_choice").notNull().default("inter"),
   backgroundDarkness: integer("background_darkness").notNull().default(60),
   userId: text("user_id"),
+  tradingSessions: text("trading_sessions"),
+  lotDivisor: integer("lot_divisor").notNull().default(11),
 });
 
 export type Idea = typeof ideasTable.$inferSelect;
