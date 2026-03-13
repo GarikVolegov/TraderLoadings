@@ -10,6 +10,7 @@ import newsRouter from "./news.js";
 import settingsRouter from "./settings.js";
 import friendsRouter from "./friends.js";
 import chatRouter from "./chat.js";
+import calendarRouter from "./calendar.js";
 
 const router: IRouter = Router();
 
@@ -24,5 +25,6 @@ router.use(newsRouter);
 router.use(settingsRouter);
 router.use(friendsRouter);
 router.use(chatRouter);
+router.use(calendarRouter);
 
 export default router;

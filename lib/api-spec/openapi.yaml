@@ -25,6 +25,8 @@ tags:
     description: Macro news
   - name: settings
     description: User settings
+  - name: calendar
+    description: Economic calendar
   - name: friends
     description: Friendship management
   - name: chat
@@ -593,6 +595,29 @@ paths:
               schema:
                 $ref: "#/components/schemas/NewsResponse"
 
+  /calendar:
+    get:
+      operationId: getEconomicCalendar
+      tags: [calendar]
+      summary: Get weekly economic calendar events
+      parameters:
+        - name: nocache
+          in: query
+          schema:
+            type: string
+            enum: ["1"]
+          required: false
+          description: Set to 1 to bypass server cache
+      responses:
+        "200":
+          description: Calendar events list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CalendarEvent"
+
   /settings:
     get:
       operationId: getUserSettings
@@ -622,6 +647,21 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/UserSettings"
+
+  /leaderboard:
+    get:
+      operationId: getLeaderboard
+      tags: [profile]
+      summary: Get trader leaderboard ranked by XP
+      responses:
+        "200":
+          description: Leaderboard entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GetLeaderboardResponseItem"
 
   /friends/search:
     get:
@@ -1559,3 +1599,47 @@ components:
           type: integer
       required:
         - count
+
+    GetLeaderboardResponseItem:
+      type: object
+      properties:
+        position:
+          type: integer
+        name:
+          type: string
+        avatarUrl:
+          type: string
+          nullable: true
+        level:
+          type: integer
+        xp:
+          type: integer
+      required:
+        - position
+        - name
+        - level
+        - xp
+
+    CalendarEvent:
+      type: object
+      properties:
+        title:
+          type: string
+        country:
+          type: string
+        date:
+          type: string
+        impact:
+          type: string
+          enum: [High, Medium, Low, Holiday]
+        forecast:
+          type: string
+          nullable: true
+        previous:
+          type: string
+          nullable: true
+      required:
+        - title
+        - country
+        - date
+        - impact

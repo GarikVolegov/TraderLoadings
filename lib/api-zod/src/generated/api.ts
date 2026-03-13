@@ -440,6 +440,28 @@ export const GetMacroNewsResponse = zod.object({
 });
 
 /**
+ * @summary Get weekly economic calendar events
+ */
+export const GetEconomicCalendarQueryParams = zod.object({
+  nocache: zod
+    .enum(["1"])
+    .optional()
+    .describe("Set to 1 to bypass server cache"),
+});
+
+export const GetEconomicCalendarResponseItem = zod.object({
+  title: zod.string(),
+  country: zod.string(),
+  date: zod.string(),
+  impact: zod.enum(["High", "Medium", "Low", "Holiday"]),
+  forecast: zod.string().nullish(),
+  previous: zod.string().nullish(),
+});
+export const GetEconomicCalendarResponse = zod.array(
+  GetEconomicCalendarResponseItem,
+);
+
+/**
  * @summary Get user settings
  */
 export const getUserSettingsResponseBackgroundDarknessMin = 0;
@@ -539,6 +561,18 @@ export const UpdateUserSettingsResponse = zod.object({
     .nullish(),
   lotDivisor: zod.number().min(1),
 });
+
+/**
+ * @summary Get trader leaderboard ranked by XP
+ */
+export const GetLeaderboardResponseItem = zod.object({
+  position: zod.number(),
+  name: zod.string(),
+  avatarUrl: zod.string().nullish(),
+  level: zod.number(),
+  xp: zod.number(),
+});
+export const GetLeaderboardResponse = zod.array(GetLeaderboardResponseItem);
 
 /**
  * @summary Search users by name
@@ -703,15 +737,3 @@ export const UploadBackgroundBody = zod.object({
 export const UploadBackgroundResponse = zod.object({
   url: zod.string(),
 });
-
-/**
- * @summary Get trader leaderboard
- */
-export const GetLeaderboardResponseItem = zod.object({
-  position: zod.number(),
-  name: zod.string(),
-  avatarUrl: zod.string().nullish(),
-  level: zod.number(),
-  xp: zod.number(),
-});
-export const GetLeaderboardResponse = zod.array(GetLeaderboardResponseItem);

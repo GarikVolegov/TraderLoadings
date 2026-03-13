@@ -20,6 +20,7 @@ import type {
   AuthUserEnvelope,
   AvatarResponse,
   BeginBrowserLoginParams,
+  CalendarEvent,
   ChatMessageRecord,
   ChatMessagesResponse,
   CheckNameResponse,
@@ -36,6 +37,8 @@ import type {
   FriendRequestBody,
   FriendshipRecord,
   GetChatMessagesParams,
+  GetEconomicCalendarParams,
+  GetLeaderboardResponseItem,
   HandleBrowserLoginCallbackParams,
   HealthStatus,
   Idea,
@@ -2588,6 +2591,106 @@ export function useGetMacroNews<
 }
 
 /**
+ * @summary Get weekly economic calendar events
+ */
+export const getGetEconomicCalendarUrl = (
+  params?: GetEconomicCalendarParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/calendar?${stringifiedParams}`
+    : `/api/calendar`;
+};
+
+export const getEconomicCalendar = async (
+  params?: GetEconomicCalendarParams,
+  options?: RequestInit,
+): Promise<CalendarEvent[]> => {
+  return customFetch<CalendarEvent[]>(getGetEconomicCalendarUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetEconomicCalendarQueryKey = (
+  params?: GetEconomicCalendarParams,
+) => {
+  return [`/api/calendar`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetEconomicCalendarQueryOptions = <
+  TData = Awaited<ReturnType<typeof getEconomicCalendar>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetEconomicCalendarParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getEconomicCalendar>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetEconomicCalendarQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getEconomicCalendar>>
+  > = ({ signal }) =>
+    getEconomicCalendar(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getEconomicCalendar>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetEconomicCalendarQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getEconomicCalendar>>
+>;
+export type GetEconomicCalendarQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get weekly economic calendar events
+ */
+
+export function useGetEconomicCalendar<
+  TData = Awaited<ReturnType<typeof getEconomicCalendar>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetEconomicCalendarParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getEconomicCalendar>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetEconomicCalendarQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
  * @summary Get user settings
  */
 export const getGetUserSettingsUrl = () => {
@@ -2748,6 +2851,81 @@ export const useUpdateUserSettings = <
 > => {
   return useMutation(getUpdateUserSettingsMutationOptions(options));
 };
+
+/**
+ * @summary Get trader leaderboard ranked by XP
+ */
+export const getGetLeaderboardUrl = () => {
+  return `/api/leaderboard`;
+};
+
+export const getLeaderboard = async (
+  options?: RequestInit,
+): Promise<GetLeaderboardResponseItem[]> => {
+  return customFetch<GetLeaderboardResponseItem[]>(getGetLeaderboardUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetLeaderboardQueryKey = () => {
+  return [`/api/leaderboard`] as const;
+};
+
+export const getGetLeaderboardQueryOptions = <
+  TData = Awaited<ReturnType<typeof getLeaderboard>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getLeaderboard>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetLeaderboardQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getLeaderboard>>> = ({
+    signal,
+  }) => getLeaderboard({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getLeaderboard>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetLeaderboardQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getLeaderboard>>
+>;
+export type GetLeaderboardQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get trader leaderboard ranked by XP
+ */
+
+export function useGetLeaderboard<
+  TData = Awaited<ReturnType<typeof getLeaderboard>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getLeaderboard>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetLeaderboardQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Search users by name

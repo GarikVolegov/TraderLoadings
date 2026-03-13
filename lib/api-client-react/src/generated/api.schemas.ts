@@ -409,6 +409,33 @@ export interface UnreadCountResponse {
   count: number;
 }
 
+export interface GetLeaderboardResponseItem {
+  position: number;
+  name: string;
+  avatarUrl?: string | null;
+  level: number;
+  xp: number;
+}
+
+export type CalendarEventImpact =
+  (typeof CalendarEventImpact)[keyof typeof CalendarEventImpact];
+
+export const CalendarEventImpact = {
+  High: "High",
+  Medium: "Medium",
+  Low: "Low",
+  Holiday: "Holiday",
+} as const;
+
+export interface CalendarEvent {
+  title: string;
+  country: string;
+  date: string;
+  impact: CalendarEventImpact;
+  forecast?: string | null;
+  previous?: string | null;
+}
+
 /**
  * Opaque session token — `Bearer <sid>`.
  */
@@ -435,6 +462,20 @@ export type UploadProfileAvatarBody = {
 export type UploadJournalImageBody = {
   image: Blob;
 };
+
+export type GetEconomicCalendarParams = {
+  /**
+   * Set to 1 to bypass server cache
+   */
+  nocache?: GetEconomicCalendarNocache;
+};
+
+export type GetEconomicCalendarNocache =
+  (typeof GetEconomicCalendarNocache)[keyof typeof GetEconomicCalendarNocache];
+
+export const GetEconomicCalendarNocache = {
+  NUMBER_1: "1",
+} as const;
 
 export type SearchUsersParams = {
   q: string;

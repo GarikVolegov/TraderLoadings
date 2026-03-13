@@ -68,6 +68,8 @@ All mounted at `/api`. All data routes filter by `req.user?.id` for multi-user i
 - `GET/POST /ideas`, `PUT/DELETE /ideas/:id`
 - `GET/POST /checklist`, `PUT/DELETE /checklist/:id`
 - `GET /news` — Macro news via RSS feeds (Seeking Alpha, CNBC) + optional Perplexity AI. Cached 10min, `?nocache=1` bypasses cache
+- `GET /calendar` — Weekly economic calendar from Forex Factory. Cached 30min, `?nocache=1` bypasses cache. Client-side filtering by currency and impact
+- `GET /leaderboard` — Trader leaderboard ranked by XP
 - `GET/PUT /settings`, `POST /settings/background`
 - `GET /friends/search?q=`, `POST /friends/request`, `GET /friends/requests`, `PATCH /friends/requests/:id`, `GET /friends`, `DELETE /friends/:id`
 - `POST /chat/keys`, `GET /chat/keys/:userId`, `POST /chat/messages`, `GET /chat/messages/:friendId`, `GET /chat/unread`
