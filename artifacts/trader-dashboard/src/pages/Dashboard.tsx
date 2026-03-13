@@ -3,6 +3,7 @@ import { PageLayout } from "@/components/PageLayout";
 import { ClockWidget } from "@/components/ClockWidget";
 import { MissionsWidget } from "@/components/MissionsWidget";
 import { LotCalculatorWidget } from "@/components/LotCalculatorWidget";
+import { LeaderboardWidget } from "@/components/LeaderboardWidget";
 
 export default function Dashboard() {
   return (
@@ -33,6 +34,14 @@ export default function Dashboard() {
           <LotCalculatorWidget />
         </motion.section>
       </div>
+
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }}
+      >
+        <LeaderboardWidget />
+      </motion.section>
     </PageLayout>
   );
 }

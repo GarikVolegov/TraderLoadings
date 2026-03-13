@@ -550,3 +550,15 @@ export const UploadBackgroundBody = zod.object({
 export const UploadBackgroundResponse = zod.object({
   url: zod.string(),
 });
+
+/**
+ * @summary Get trader leaderboard
+ */
+export const GetLeaderboardResponseItem = zod.object({
+  position: zod.number(),
+  name: zod.string(),
+  avatarUrl: zod.string().nullish(),
+  level: zod.number(),
+  xp: zod.number(),
+});
+export const GetLeaderboardResponse = zod.array(GetLeaderboardResponseItem);

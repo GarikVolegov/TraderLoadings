@@ -5,8 +5,8 @@ import fs from "fs";
 import crypto from "crypto";
 import { db } from "@workspace/db";
 import { profileTable } from "@workspace/db";
-import { UpdateProfileBody, UpdateProfileResponse, GetProfileResponse } from "@workspace/api-zod";
-import { eq, isNull, and, ne, sql } from "drizzle-orm";
+import { UpdateProfileBody, UpdateProfileResponse, GetProfileResponse, GetLeaderboardResponse } from "@workspace/api-zod";
+import { eq, isNull, and, ne, sql, isNotNull, desc } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -238,6 +238,27 @@ router.post("/profile/avatar/generate", async (req, res) => {
     console.warn("AI avatar generation failed:", err);
     res.status(500).json({ error: "Generazione avatar fallita. Riprova." });
   }
+});
+
+router.get("/leaderboard", async (_req, res) => {
+  const profiles = await db.select()
+    .from(profileTable)
+    .where(isNotNull(profileTable.userId))
+    .orderBy(desc(profileTable.xp));
+
+  const leaderboard = profiles.map((p, idx) => {
+    const { level } = computeLevel(p.xp);
+    return {
+      position: idx + 1,
+      name: p.name,
+      avatarUrl: p.avatarUrl ?? null,
+      level,
+      xp: p.xp,
+    };
+  });
+
+  const data = GetLeaderboardResponse.parse(leaderboard);
+  res.json(data);
 });
 
 export { getOrCreateProfile, computeLevel, getUserId };
