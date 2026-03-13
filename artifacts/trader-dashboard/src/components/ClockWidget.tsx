@@ -67,9 +67,6 @@ export function ClockWidget() {
             <div className="text-5xl sm:text-6xl md:text-7xl font-mono font-bold tracking-tighter text-foreground drop-shadow-[0_0_10px_rgba(255,255,255,0.1)]">
               {format(time, "HH:mm:ss")}
             </div>
-            <p className="text-primary/80 mt-1 sm:mt-2 font-mono font-medium text-sm">
-              UTC: {format(new Date(time.getTime() + time.getTimezoneOffset() * 60000), "HH:mm:ss")}
-            </p>
           </div>
 
           {activeSession && activeColors && (
