@@ -64,10 +64,10 @@ export default function Checklist() {
 
   return (
     <PageLayout>
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
         <div>
           <h2 className="text-2xl sm:text-3xl font-bold font-mono">Checklist Pre-Trade</h2>
-          <p className="text-muted-foreground mt-1">Verifica ogni passaggio prima di entrare in trade.</p>
+          <p className="text-muted-foreground mt-1 text-sm sm:text-base">Verifica ogni passaggio prima di entrare in trade.</p>
         </div>
         {total > 0 && (
           <Button variant="outline" size="sm" onClick={handleResetAll}>
