@@ -1,9 +1,10 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { Calendar, RefreshCw, TrendingUp, ChevronDown, ChevronUp, SlidersHorizontal } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useGetEconomicCalendar, getGetEconomicCalendarQueryKey } from "@workspace/api-client-react";
+import { useGetEconomicCalendar, getGetEconomicCalendarQueryKey, useUpdateUserSettings } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useBackground } from "@/contexts/BackgroundContext";
 
 const CURRENCIES = ["USD", "EUR", "GBP", "JPY", "AUD", "CAD", "CHF", "NZD", "CNY"] as const;
 
@@ -20,8 +21,10 @@ const GRACE_PERIOD_MS = 60 * 60 * 1000;
 
 export function CalendarWidget() {
   const queryClient = useQueryClient();
-  const [selectedCurrencies, setSelectedCurrencies] = useState<Set<string>>(new Set(["USD", "EUR", "GBP"]));
-  const [selectedImpacts, setSelectedImpacts] = useState<Set<string>>(new Set(["High", "Medium"]));
+  const { calendarCurrencies, setCalendarCurrencies, calendarImpacts, setCalendarImpacts } = useBackground();
+  const selectedCurrencies = useMemo(() => new Set(calendarCurrencies), [calendarCurrencies]);
+  const selectedImpacts = useMemo(() => new Set(calendarImpacts), [calendarImpacts]);
+  const { mutate: saveSettings } = useUpdateUserSettings();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [forceNocache, setForceNocache] = useState(false);
   const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set());
@@ -37,29 +40,29 @@ export function CalendarWidget() {
     forceNocache ? { nocache: "1" } : {},
   );
 
-  const toggleCurrency = (currency: string) => {
-    setSelectedCurrencies((prev) => {
-      const next = new Set(prev);
-      if (next.has(currency)) {
-        if (next.size > 1) next.delete(currency);
-      } else {
-        next.add(currency);
-      }
-      return next;
-    });
-  };
+  const toggleCurrency = useCallback((currency: string) => {
+    const current = new Set(calendarCurrencies);
+    if (current.has(currency)) {
+      if (current.size > 1) current.delete(currency);
+    } else {
+      current.add(currency);
+    }
+    const arr = Array.from(current);
+    setCalendarCurrencies(arr);
+    saveSettings({ data: { calendarCurrencies: arr } });
+  }, [calendarCurrencies, setCalendarCurrencies, saveSettings]);
 
-  const toggleImpact = (impact: string) => {
-    setSelectedImpacts((prev) => {
-      const next = new Set(prev);
-      if (next.has(impact)) {
-        if (next.size > 1) next.delete(impact);
-      } else {
-        next.add(impact);
-      }
-      return next;
-    });
-  };
+  const toggleImpact = useCallback((impact: string) => {
+    const current = new Set(calendarImpacts);
+    if (current.has(impact)) {
+      if (current.size > 1) current.delete(impact);
+    } else {
+      current.add(impact);
+    }
+    const arr = Array.from(current);
+    setCalendarImpacts(arr);
+    saveSettings({ data: { calendarImpacts: arr } });
+  }, [calendarImpacts, setCalendarImpacts, saveSettings]);
 
   const toggleExpanded = (key: string) => {
     setExpandedEvents((prev) => {

@@ -276,6 +276,8 @@ export interface UserSettings {
   tradingSessions?: TradingSessionConfig[] | null;
   /** @minimum 1 */
   lotDivisor: number;
+  calendarCurrencies?: string[] | null;
+  calendarImpacts?: string[] | null;
 }
 
 export type UpdateUserSettingsRequestBackgroundType =
@@ -309,6 +311,8 @@ export interface UpdateUserSettingsRequest {
   tradingSessions?: TradingSessionConfig[] | null;
   /** @minimum 1 */
   lotDivisor?: number;
+  calendarCurrencies?: string[] | null;
+  calendarImpacts?: string[] | null;
 }
 
 export interface UploadBackgroundResponse {

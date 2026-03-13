@@ -40,18 +40,20 @@ router.get("/settings", async (req, res) => {
   const settings = await getOrCreateSettings(userId);
   const result: Record<string, unknown> = { ...settings };
   if (settings.tradingSessions) {
-    try {
-      result.tradingSessions = JSON.parse(settings.tradingSessions);
-    } catch {
-      result.tradingSessions = null;
-    }
+    try { result.tradingSessions = JSON.parse(settings.tradingSessions); } catch { result.tradingSessions = null; }
+  }
+  if (settings.calendarCurrencies) {
+    try { result.calendarCurrencies = JSON.parse(settings.calendarCurrencies); } catch { result.calendarCurrencies = null; }
+  }
+  if (settings.calendarImpacts) {
+    try { result.calendarImpacts = JSON.parse(settings.calendarImpacts); } catch { result.calendarImpacts = null; }
   }
   res.json(result);
 });
 
 router.put("/settings", async (req, res) => {
   const userId = getUserId(req);
-  const { backgroundUrl, backgroundType, fontChoice, backgroundDarkness, tradingSessions, lotDivisor } = req.body;
+  const { backgroundUrl, backgroundType, fontChoice, backgroundDarkness, tradingSessions, lotDivisor, calendarCurrencies, calendarImpacts } = req.body;
   const settings = await getOrCreateSettings(userId);
 
   const updateData: Record<string, unknown> = {};
@@ -68,6 +70,12 @@ router.put("/settings", async (req, res) => {
     }
     updateData.lotDivisor = parsedDivisor;
   }
+  if (calendarCurrencies !== undefined) {
+    updateData.calendarCurrencies = Array.isArray(calendarCurrencies) ? JSON.stringify(calendarCurrencies) : null;
+  }
+  if (calendarImpacts !== undefined) {
+    updateData.calendarImpacts = Array.isArray(calendarImpacts) ? JSON.stringify(calendarImpacts) : null;
+  }
 
   const [updated] = await db.update(userSettingsTable)
     .set(updateData)
@@ -76,11 +84,13 @@ router.put("/settings", async (req, res) => {
   
   const result: Record<string, unknown> = { ...updated };
   if (updated.tradingSessions) {
-    try {
-      result.tradingSessions = JSON.parse(updated.tradingSessions);
-    } catch {
-      result.tradingSessions = null;
-    }
+    try { result.tradingSessions = JSON.parse(updated.tradingSessions); } catch { result.tradingSessions = null; }
+  }
+  if (updated.calendarCurrencies) {
+    try { result.calendarCurrencies = JSON.parse(updated.calendarCurrencies); } catch { result.calendarCurrencies = null; }
+  }
+  if (updated.calendarImpacts) {
+    try { result.calendarImpacts = JSON.parse(updated.calendarImpacts); } catch { result.calendarImpacts = null; }
   }
   res.json(result);
 });

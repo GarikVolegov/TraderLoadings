@@ -27,6 +27,8 @@ export const userSettingsTable = pgTable("user_settings", {
   userId: text("user_id"),
   tradingSessions: text("trading_sessions"),
   lotDivisor: integer("lot_divisor").notNull().default(11),
+  calendarCurrencies: text("calendar_currencies"),
+  calendarImpacts: text("calendar_impacts"),
 });
 
 export type Idea = typeof ideasTable.$inferSelect;

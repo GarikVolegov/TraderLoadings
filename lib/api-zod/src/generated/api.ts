@@ -495,6 +495,8 @@ export const GetUserSettingsResponse = zod.object({
     )
     .nullish(),
   lotDivisor: zod.number().min(1),
+  calendarCurrencies: zod.array(zod.string()).nullish(),
+  calendarImpacts: zod.array(zod.string()).nullish(),
 });
 
 /**
@@ -527,6 +529,8 @@ export const UpdateUserSettingsBody = zod.object({
     )
     .nullish(),
   lotDivisor: zod.number().min(1).optional(),
+  calendarCurrencies: zod.array(zod.string()).nullish(),
+  calendarImpacts: zod.array(zod.string()).nullish(),
 });
 
 export const updateUserSettingsResponseBackgroundDarknessMin = 0;
@@ -560,6 +564,8 @@ export const UpdateUserSettingsResponse = zod.object({
     )
     .nullish(),
   lotDivisor: zod.number().min(1),
+  calendarCurrencies: zod.array(zod.string()).nullish(),
+  calendarImpacts: zod.array(zod.string()).nullish(),
 });
 
 /**

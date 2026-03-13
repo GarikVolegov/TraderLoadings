@@ -31,6 +31,10 @@ interface BackgroundContextValue {
   setTradingSessions: (s: TradingSessionConfig[]) => void;
   lotDivisor: number;
   setLotDivisor: (d: number) => void;
+  calendarCurrencies: string[];
+  setCalendarCurrencies: (c: string[]) => void;
+  calendarImpacts: string[];
+  setCalendarImpacts: (i: string[]) => void;
 }
 
 const BackgroundCtx = createContext<BackgroundContextValue>({
@@ -44,6 +48,10 @@ const BackgroundCtx = createContext<BackgroundContextValue>({
   setTradingSessions: () => {},
   lotDivisor: DEFAULT_LOT_DIVISOR,
   setLotDivisor: () => {},
+  calendarCurrencies: ["USD", "EUR", "GBP"],
+  setCalendarCurrencies: () => {},
+  calendarImpacts: ["High", "Medium"],
+  setCalendarImpacts: () => {},
 });
 
 export function BackgroundProvider({ children }: { children: ReactNode }) {
@@ -52,6 +60,8 @@ export function BackgroundProvider({ children }: { children: ReactNode }) {
   const [fontChoice, setFontChoice] = useState("inter");
   const [tradingSessions, setTradingSessions] = useState<TradingSessionConfig[]>(DEFAULT_TRADING_SESSIONS);
   const [lotDivisor, setLotDivisor] = useState(DEFAULT_LOT_DIVISOR);
+  const [calendarCurrencies, setCalendarCurrencies] = useState<string[]>(["USD", "EUR", "GBP"]);
+  const [calendarImpacts, setCalendarImpacts] = useState<string[]>(["High", "Medium"]);
   const { data: settings } = useGetUserSettings();
 
   useEffect(() => {
@@ -72,6 +82,12 @@ export function BackgroundProvider({ children }: { children: ReactNode }) {
     if (settings?.lotDivisor !== undefined) {
       setLotDivisor(settings.lotDivisor);
     }
+    if (settings?.calendarCurrencies && Array.isArray(settings.calendarCurrencies)) {
+      setCalendarCurrencies(settings.calendarCurrencies);
+    }
+    if (settings?.calendarImpacts && Array.isArray(settings.calendarImpacts)) {
+      setCalendarImpacts(settings.calendarImpacts);
+    }
   }, [settings]);
 
   useEffect(() => {
@@ -81,7 +97,7 @@ export function BackgroundProvider({ children }: { children: ReactNode }) {
   }, [fontChoice]);
 
   return (
-    <BackgroundCtx.Provider value={{ backgroundUrl, setBackgroundUrl, darkness, setDarkness, fontChoice, setFontChoice, tradingSessions, setTradingSessions, lotDivisor, setLotDivisor }}>
+    <BackgroundCtx.Provider value={{ backgroundUrl, setBackgroundUrl, darkness, setDarkness, fontChoice, setFontChoice, tradingSessions, setTradingSessions, lotDivisor, setLotDivisor, calendarCurrencies, setCalendarCurrencies, calendarImpacts, setCalendarImpacts }}>
       {children}
     </BackgroundCtx.Provider>
   );
