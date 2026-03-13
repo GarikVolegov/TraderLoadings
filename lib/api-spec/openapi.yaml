@@ -31,6 +31,8 @@ tags:
     description: Friendship management
   - name: chat
     description: E2E encrypted chat
+  - name: backtest
+    description: Backtesting sessions and trades
 paths:
   /healthz:
     get:
@@ -617,6 +619,126 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/CalendarEvent"
+
+  /backtest/sessions:
+    get:
+      operationId: getBacktestSessions
+      tags: [backtest]
+      summary: Get all backtest sessions
+      responses:
+        "200":
+          description: List of backtest sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BacktestSession"
+    post:
+      operationId: createBacktestSession
+      tags: [backtest]
+      summary: Create a backtest session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBacktestSessionRequest"
+      responses:
+        "200":
+          description: Created session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BacktestSession"
+
+  /backtest/sessions/{id}:
+    delete:
+      operationId: deleteBacktestSession
+      tags: [backtest]
+      summary: Delete a backtest session
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+
+  /backtest/sessions/{id}/trades:
+    get:
+      operationId: getBacktestTrades
+      tags: [backtest]
+      summary: Get trades for a backtest session
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of trades
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BacktestTrade"
+    post:
+      operationId: createBacktestTrade
+      tags: [backtest]
+      summary: Add a trade to a backtest session
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBacktestTradeRequest"
+      responses:
+        "200":
+          description: Created trade
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BacktestTrade"
+
+  /backtest/trades/{id}:
+    delete:
+      operationId: deleteBacktestTrade
+      tags: [backtest]
+      summary: Delete a backtest trade
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
 
   /settings:
     get:
@@ -1663,3 +1785,130 @@ components:
         - country
         - date
         - impact
+
+    BacktestSession:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        pair:
+          type: string
+        timeframe:
+          type: string
+        strategy:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        userId:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+      required:
+        - id
+        - name
+        - pair
+        - timeframe
+        - createdAt
+
+    CreateBacktestSessionRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        pair:
+          type: string
+        timeframe:
+          type: string
+        strategy:
+          type: string
+        notes:
+          type: string
+      required:
+        - name
+        - pair
+
+    BacktestTrade:
+      type: object
+      properties:
+        id:
+          type: integer
+        sessionId:
+          type: integer
+        direction:
+          type: string
+          enum: [buy, sell]
+        entryPrice:
+          type: string
+        exitPrice:
+          type: string
+        stopLoss:
+          type: string
+          nullable: true
+        takeProfit:
+          type: string
+          nullable: true
+        lotSize:
+          type: string
+        result:
+          type: string
+          enum: [win, loss, breakeven]
+        pips:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        tradeDate:
+          type: string
+        userId:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+      required:
+        - id
+        - sessionId
+        - direction
+        - entryPrice
+        - exitPrice
+        - lotSize
+        - result
+        - tradeDate
+        - createdAt
+
+    CreateBacktestTradeRequest:
+      type: object
+      properties:
+        direction:
+          type: string
+          enum: [buy, sell]
+        entryPrice:
+          type: string
+        exitPrice:
+          type: string
+        stopLoss:
+          type: string
+        takeProfit:
+          type: string
+        lotSize:
+          type: string
+        result:
+          type: string
+          enum: [win, loss, breakeven]
+        pips:
+          type: string
+        notes:
+          type: string
+        tradeDate:
+          type: string
+      required:
+        - direction
+        - entryPrice
+        - exitPrice
+        - result
+        - tradeDate

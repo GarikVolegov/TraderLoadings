@@ -4,3 +4,4 @@ export * from "./missions";
 export * from "./journal";
 export * from "./extras";
 export * from "./chat";
+export * from "./backtest";

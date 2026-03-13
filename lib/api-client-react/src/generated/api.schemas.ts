@@ -440,6 +440,89 @@ export interface CalendarEvent {
   previous?: string | null;
 }
 
+export interface BacktestSession {
+  id: number;
+  name: string;
+  pair: string;
+  timeframe: string;
+  strategy?: string | null;
+  notes?: string | null;
+  userId?: string | null;
+  createdAt: string;
+}
+
+export interface CreateBacktestSessionRequest {
+  name: string;
+  pair: string;
+  timeframe?: string;
+  strategy?: string;
+  notes?: string;
+}
+
+export type BacktestTradeDirection =
+  (typeof BacktestTradeDirection)[keyof typeof BacktestTradeDirection];
+
+export const BacktestTradeDirection = {
+  buy: "buy",
+  sell: "sell",
+} as const;
+
+export type BacktestTradeResult =
+  (typeof BacktestTradeResult)[keyof typeof BacktestTradeResult];
+
+export const BacktestTradeResult = {
+  win: "win",
+  loss: "loss",
+  breakeven: "breakeven",
+} as const;
+
+export interface BacktestTrade {
+  id: number;
+  sessionId: number;
+  direction: BacktestTradeDirection;
+  entryPrice: string;
+  exitPrice: string;
+  stopLoss?: string | null;
+  takeProfit?: string | null;
+  lotSize: string;
+  result: BacktestTradeResult;
+  pips?: string | null;
+  notes?: string | null;
+  tradeDate: string;
+  userId?: string | null;
+  createdAt: string;
+}
+
+export type CreateBacktestTradeRequestDirection =
+  (typeof CreateBacktestTradeRequestDirection)[keyof typeof CreateBacktestTradeRequestDirection];
+
+export const CreateBacktestTradeRequestDirection = {
+  buy: "buy",
+  sell: "sell",
+} as const;
+
+export type CreateBacktestTradeRequestResult =
+  (typeof CreateBacktestTradeRequestResult)[keyof typeof CreateBacktestTradeRequestResult];
+
+export const CreateBacktestTradeRequestResult = {
+  win: "win",
+  loss: "loss",
+  breakeven: "breakeven",
+} as const;
+
+export interface CreateBacktestTradeRequest {
+  direction: CreateBacktestTradeRequestDirection;
+  entryPrice: string;
+  exitPrice: string;
+  stopLoss?: string;
+  takeProfit?: string;
+  lotSize?: string;
+  result: CreateBacktestTradeRequestResult;
+  pips?: string;
+  notes?: string;
+  tradeDate: string;
+}
+
 /**
  * Opaque session token — `Bearer <sid>`.
  */
@@ -480,6 +563,14 @@ export type GetEconomicCalendarNocache =
 export const GetEconomicCalendarNocache = {
   NUMBER_1: "1",
 } as const;
+
+export type DeleteBacktestSession200 = {
+  ok?: boolean;
+};
+
+export type DeleteBacktestTrade200 = {
+  ok?: boolean;
+};
 
 export type SearchUsersParams = {
   q: string;

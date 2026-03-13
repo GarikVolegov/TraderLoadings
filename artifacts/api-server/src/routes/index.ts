@@ -11,6 +11,7 @@ import settingsRouter from "./settings.js";
 import friendsRouter from "./friends.js";
 import chatRouter from "./chat.js";
 import calendarRouter from "./calendar.js";
+import backtestRouter from "./backtest.js";
 
 const router: IRouter = Router();
 
@@ -26,5 +27,6 @@ router.use(settingsRouter);
 router.use(friendsRouter);
 router.use(chatRouter);
 router.use(calendarRouter);
+router.use(backtestRouter);
 
 export default router;

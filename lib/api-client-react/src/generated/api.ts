@@ -19,6 +19,8 @@ import type {
 import type {
   AuthUserEnvelope,
   AvatarResponse,
+  BacktestSession,
+  BacktestTrade,
   BeginBrowserLoginParams,
   CalendarEvent,
   ChatMessageRecord,
@@ -27,9 +29,13 @@ import type {
   CheckProfileNameParams,
   ChecklistItem,
   CompleteMissionResponse,
+  CreateBacktestSessionRequest,
+  CreateBacktestTradeRequest,
   CreateChecklistItemRequest,
   CreateIdeaRequest,
   CreateJournalEntryRequest,
+  DeleteBacktestSession200,
+  DeleteBacktestTrade200,
   DeleteResponse,
   ErrorEnvelope,
   FriendListItem,
@@ -2689,6 +2695,514 @@ export function useGetEconomicCalendar<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Get all backtest sessions
+ */
+export const getGetBacktestSessionsUrl = () => {
+  return `/api/backtest/sessions`;
+};
+
+export const getBacktestSessions = async (
+  options?: RequestInit,
+): Promise<BacktestSession[]> => {
+  return customFetch<BacktestSession[]>(getGetBacktestSessionsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetBacktestSessionsQueryKey = () => {
+  return [`/api/backtest/sessions`] as const;
+};
+
+export const getGetBacktestSessionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getBacktestSessions>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getBacktestSessions>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetBacktestSessionsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getBacktestSessions>>
+  > = ({ signal }) => getBacktestSessions({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getBacktestSessions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetBacktestSessionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getBacktestSessions>>
+>;
+export type GetBacktestSessionsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get all backtest sessions
+ */
+
+export function useGetBacktestSessions<
+  TData = Awaited<ReturnType<typeof getBacktestSessions>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getBacktestSessions>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetBacktestSessionsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a backtest session
+ */
+export const getCreateBacktestSessionUrl = () => {
+  return `/api/backtest/sessions`;
+};
+
+export const createBacktestSession = async (
+  createBacktestSessionRequest: CreateBacktestSessionRequest,
+  options?: RequestInit,
+): Promise<BacktestSession> => {
+  return customFetch<BacktestSession>(getCreateBacktestSessionUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createBacktestSessionRequest),
+  });
+};
+
+export const getCreateBacktestSessionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createBacktestSession>>,
+    TError,
+    { data: BodyType<CreateBacktestSessionRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createBacktestSession>>,
+  TError,
+  { data: BodyType<CreateBacktestSessionRequest> },
+  TContext
+> => {
+  const mutationKey = ["createBacktestSession"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createBacktestSession>>,
+    { data: BodyType<CreateBacktestSessionRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createBacktestSession(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateBacktestSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createBacktestSession>>
+>;
+export type CreateBacktestSessionMutationBody =
+  BodyType<CreateBacktestSessionRequest>;
+export type CreateBacktestSessionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a backtest session
+ */
+export const useCreateBacktestSession = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createBacktestSession>>,
+    TError,
+    { data: BodyType<CreateBacktestSessionRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createBacktestSession>>,
+  TError,
+  { data: BodyType<CreateBacktestSessionRequest> },
+  TContext
+> => {
+  return useMutation(getCreateBacktestSessionMutationOptions(options));
+};
+
+/**
+ * @summary Delete a backtest session
+ */
+export const getDeleteBacktestSessionUrl = (id: number) => {
+  return `/api/backtest/sessions/${id}`;
+};
+
+export const deleteBacktestSession = async (
+  id: number,
+  options?: RequestInit,
+): Promise<DeleteBacktestSession200> => {
+  return customFetch<DeleteBacktestSession200>(
+    getDeleteBacktestSessionUrl(id),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getDeleteBacktestSessionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteBacktestSession>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteBacktestSession>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteBacktestSession"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteBacktestSession>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteBacktestSession(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteBacktestSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteBacktestSession>>
+>;
+
+export type DeleteBacktestSessionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a backtest session
+ */
+export const useDeleteBacktestSession = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteBacktestSession>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteBacktestSession>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteBacktestSessionMutationOptions(options));
+};
+
+/**
+ * @summary Get trades for a backtest session
+ */
+export const getGetBacktestTradesUrl = (id: number) => {
+  return `/api/backtest/sessions/${id}/trades`;
+};
+
+export const getBacktestTrades = async (
+  id: number,
+  options?: RequestInit,
+): Promise<BacktestTrade[]> => {
+  return customFetch<BacktestTrade[]>(getGetBacktestTradesUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetBacktestTradesQueryKey = (id: number) => {
+  return [`/api/backtest/sessions/${id}/trades`] as const;
+};
+
+export const getGetBacktestTradesQueryOptions = <
+  TData = Awaited<ReturnType<typeof getBacktestTrades>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getBacktestTrades>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetBacktestTradesQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getBacktestTrades>>
+  > = ({ signal }) => getBacktestTrades(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getBacktestTrades>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetBacktestTradesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getBacktestTrades>>
+>;
+export type GetBacktestTradesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get trades for a backtest session
+ */
+
+export function useGetBacktestTrades<
+  TData = Awaited<ReturnType<typeof getBacktestTrades>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getBacktestTrades>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetBacktestTradesQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Add a trade to a backtest session
+ */
+export const getCreateBacktestTradeUrl = (id: number) => {
+  return `/api/backtest/sessions/${id}/trades`;
+};
+
+export const createBacktestTrade = async (
+  id: number,
+  createBacktestTradeRequest: CreateBacktestTradeRequest,
+  options?: RequestInit,
+): Promise<BacktestTrade> => {
+  return customFetch<BacktestTrade>(getCreateBacktestTradeUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createBacktestTradeRequest),
+  });
+};
+
+export const getCreateBacktestTradeMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createBacktestTrade>>,
+    TError,
+    { id: number; data: BodyType<CreateBacktestTradeRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createBacktestTrade>>,
+  TError,
+  { id: number; data: BodyType<CreateBacktestTradeRequest> },
+  TContext
+> => {
+  const mutationKey = ["createBacktestTrade"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createBacktestTrade>>,
+    { id: number; data: BodyType<CreateBacktestTradeRequest> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return createBacktestTrade(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateBacktestTradeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createBacktestTrade>>
+>;
+export type CreateBacktestTradeMutationBody =
+  BodyType<CreateBacktestTradeRequest>;
+export type CreateBacktestTradeMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Add a trade to a backtest session
+ */
+export const useCreateBacktestTrade = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createBacktestTrade>>,
+    TError,
+    { id: number; data: BodyType<CreateBacktestTradeRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createBacktestTrade>>,
+  TError,
+  { id: number; data: BodyType<CreateBacktestTradeRequest> },
+  TContext
+> => {
+  return useMutation(getCreateBacktestTradeMutationOptions(options));
+};
+
+/**
+ * @summary Delete a backtest trade
+ */
+export const getDeleteBacktestTradeUrl = (id: number) => {
+  return `/api/backtest/trades/${id}`;
+};
+
+export const deleteBacktestTrade = async (
+  id: number,
+  options?: RequestInit,
+): Promise<DeleteBacktestTrade200> => {
+  return customFetch<DeleteBacktestTrade200>(getDeleteBacktestTradeUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteBacktestTradeMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteBacktestTrade>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteBacktestTrade>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteBacktestTrade"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteBacktestTrade>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteBacktestTrade(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteBacktestTradeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteBacktestTrade>>
+>;
+
+export type DeleteBacktestTradeMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a backtest trade
+ */
+export const useDeleteBacktestTrade = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteBacktestTrade>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteBacktestTrade>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteBacktestTradeMutationOptions(options));
+};
 
 /**
  * @summary Get user settings

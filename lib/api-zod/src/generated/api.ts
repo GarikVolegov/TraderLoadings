@@ -462,6 +462,131 @@ export const GetEconomicCalendarResponse = zod.array(
 );
 
 /**
+ * @summary Get all backtest sessions
+ */
+export const GetBacktestSessionsResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  pair: zod.string(),
+  timeframe: zod.string(),
+  strategy: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  userId: zod.string().nullish(),
+  createdAt: zod.string(),
+});
+export const GetBacktestSessionsResponse = zod.array(
+  GetBacktestSessionsResponseItem,
+);
+
+/**
+ * @summary Create a backtest session
+ */
+export const CreateBacktestSessionBody = zod.object({
+  name: zod.string(),
+  pair: zod.string(),
+  timeframe: zod.string().optional(),
+  strategy: zod.string().optional(),
+  notes: zod.string().optional(),
+});
+
+export const CreateBacktestSessionResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  pair: zod.string(),
+  timeframe: zod.string(),
+  strategy: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  userId: zod.string().nullish(),
+  createdAt: zod.string(),
+});
+
+/**
+ * @summary Delete a backtest session
+ */
+export const DeleteBacktestSessionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteBacktestSessionResponse = zod.object({
+  ok: zod.boolean().optional(),
+});
+
+/**
+ * @summary Get trades for a backtest session
+ */
+export const GetBacktestTradesParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetBacktestTradesResponseItem = zod.object({
+  id: zod.number(),
+  sessionId: zod.number(),
+  direction: zod.enum(["buy", "sell"]),
+  entryPrice: zod.string(),
+  exitPrice: zod.string(),
+  stopLoss: zod.string().nullish(),
+  takeProfit: zod.string().nullish(),
+  lotSize: zod.string(),
+  result: zod.enum(["win", "loss", "breakeven"]),
+  pips: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  tradeDate: zod.string(),
+  userId: zod.string().nullish(),
+  createdAt: zod.string(),
+});
+export const GetBacktestTradesResponse = zod.array(
+  GetBacktestTradesResponseItem,
+);
+
+/**
+ * @summary Add a trade to a backtest session
+ */
+export const CreateBacktestTradeParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const CreateBacktestTradeBody = zod.object({
+  direction: zod.enum(["buy", "sell"]),
+  entryPrice: zod.string(),
+  exitPrice: zod.string(),
+  stopLoss: zod.string().optional(),
+  takeProfit: zod.string().optional(),
+  lotSize: zod.string().optional(),
+  result: zod.enum(["win", "loss", "breakeven"]),
+  pips: zod.string().optional(),
+  notes: zod.string().optional(),
+  tradeDate: zod.string(),
+});
+
+export const CreateBacktestTradeResponse = zod.object({
+  id: zod.number(),
+  sessionId: zod.number(),
+  direction: zod.enum(["buy", "sell"]),
+  entryPrice: zod.string(),
+  exitPrice: zod.string(),
+  stopLoss: zod.string().nullish(),
+  takeProfit: zod.string().nullish(),
+  lotSize: zod.string(),
+  result: zod.enum(["win", "loss", "breakeven"]),
+  pips: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  tradeDate: zod.string(),
+  userId: zod.string().nullish(),
+  createdAt: zod.string(),
+});
+
+/**
+ * @summary Delete a backtest trade
+ */
+export const DeleteBacktestTradeParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteBacktestTradeResponse = zod.object({
+  ok: zod.boolean().optional(),
+});
+
+/**
  * @summary Get user settings
  */
 export const getUserSettingsResponseBackgroundDarknessMin = 0;

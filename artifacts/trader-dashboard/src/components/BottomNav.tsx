@@ -1,10 +1,11 @@
 import { Link, useRoute } from "wouter";
-import { LayoutDashboard, BookOpen, CheckSquare, MessageCircle } from "lucide-react";
+import { LayoutDashboard, BookOpen, CheckSquare, MessageCircle, FlaskConical } from "lucide-react";
 import { useGetUnreadCount } from "@workspace/api-client-react";
 
 const NAV_ITEMS = [
   { href: "/", icon: LayoutDashboard, label: "Home" },
   { href: "/journal", icon: BookOpen, label: "Diario" },
+  { href: "/backtest", icon: FlaskConical, label: "Backtest" },
   { href: "/checklist", icon: CheckSquare, label: "Checklist" },
   { href: "/chat", icon: MessageCircle, label: "Chat" },
 ] as const;

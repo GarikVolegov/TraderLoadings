@@ -1,0 +1,517 @@
+import { useState, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { format, parseISO } from "date-fns";
+import { it } from "date-fns/locale";
+import {
+  Plus, Trash2, ArrowLeft, TrendingUp, TrendingDown, Minus,
+  BarChart3, FlaskConical, ChevronRight,
+} from "lucide-react";
+import { PageLayout } from "@/components/PageLayout";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  useGetBacktestSessions,
+  useCreateBacktestSession,
+  useDeleteBacktestSession,
+  getGetBacktestSessionsQueryKey,
+  useGetBacktestTrades,
+  useCreateBacktestTrade,
+  useDeleteBacktestTrade,
+  getGetBacktestTradesQueryKey,
+  type BacktestSession,
+} from "@workspace/api-client-react";
+
+const PAIRS = [
+  "EUR/USD", "GBP/USD", "USD/JPY", "USD/CHF", "AUD/USD", "NZD/USD", "USD/CAD",
+  "EUR/GBP", "EUR/JPY", "GBP/JPY", "AUD/JPY", "XAU/USD", "US30", "NAS100", "SPX500",
+];
+
+const TIMEFRAMES = ["M1", "M5", "M15", "M30", "H1", "H4", "D1", "W1"];
+
+function NewSessionForm({ onClose }: { onClose: () => void }) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const createMutation = useCreateBacktestSession();
+  const [name, setName] = useState("");
+  const [pair, setPair] = useState("EUR/USD");
+  const [timeframe, setTimeframe] = useState("H1");
+  const [strategy, setStrategy] = useState("");
+
+  const handleSubmit = async () => {
+    if (!name.trim()) return;
+    try {
+      await createMutation.mutateAsync({
+        data: { name: name.trim(), pair, timeframe, strategy: strategy.trim() || undefined },
+      });
+      qc.invalidateQueries({ queryKey: getGetBacktestSessionsQueryKey() });
+      toast({ description: "Sessione creata." });
+      onClose();
+    } catch {
+      toast({ description: "Errore.", variant: "destructive" });
+    }
+  };
+
+  return (
+    <Card>
+      <CardContent className="p-4 sm:p-6 space-y-4">
+        <h3 className="text-lg font-bold">Nuova Sessione Backtest</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <label className="text-xs text-muted-foreground uppercase tracking-wider">Nome Sessione</label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="es. Strategia Breakout Londra" />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs text-muted-foreground uppercase tracking-wider">Strategia</label>
+            <Input value={strategy} onChange={(e) => setStrategy(e.target.value)} placeholder="es. Breakout + FVG" />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs text-muted-foreground uppercase tracking-wider">Coppia</label>
+            <select
+              value={pair}
+              onChange={(e) => setPair(e.target.value)}
+              className="w-full h-10 px-3 rounded-md border border-border bg-background text-sm"
+            >
+              {PAIRS.map((p) => <option key={p} value={p}>{p}</option>)}
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs text-muted-foreground uppercase tracking-wider">Timeframe</label>
+            <div className="flex flex-wrap gap-1.5">
+              {TIMEFRAMES.map((tf) => (
+                <button
+                  key={tf}
+                  onClick={() => setTimeframe(tf)}
+                  className={`px-2.5 py-1.5 rounded-md text-xs font-bold transition-all ${
+                    timeframe === tf
+                      ? "bg-primary/20 text-primary border border-primary/40"
+                      : "bg-secondary/40 text-muted-foreground border border-border/50"
+                  }`}
+                >
+                  {tf}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="flex gap-3 justify-end">
+          <Button variant="ghost" onClick={onClose}>Annulla</Button>
+          <Button onClick={handleSubmit} disabled={!name.trim() || createMutation.isPending}>
+            <Plus className="w-4 h-4 mr-2" />
+            Crea Sessione
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function SessionDetail({ session, onBack }: { session: BacktestSession; onBack: () => void }) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const { data: trades, isLoading } = useGetBacktestTrades(session.id);
+  const createTrade = useCreateBacktestTrade();
+  const deleteTrade = useDeleteBacktestTrade();
+  const [showForm, setShowForm] = useState(false);
+
+  const [direction, setDirection] = useState<"buy" | "sell">("buy");
+  const [entryPrice, setEntryPrice] = useState("");
+  const [exitPrice, setExitPrice] = useState("");
+  const [stopLoss, setStopLoss] = useState("");
+  const [takeProfit, setTakeProfit] = useState("");
+  const [lotSize, setLotSize] = useState("0.01");
+  const [tradeDate, setTradeDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [notes, setNotes] = useState("");
+
+  const resetForm = () => {
+    setDirection("buy"); setEntryPrice(""); setExitPrice("");
+    setStopLoss(""); setTakeProfit(""); setLotSize("0.01");
+    setTradeDate(format(new Date(), "yyyy-MM-dd")); setNotes("");
+  };
+
+  const computedResult = useMemo(() => {
+    const entry = parseFloat(entryPrice);
+    const exit = parseFloat(exitPrice);
+    if (isNaN(entry) || isNaN(exit)) return { result: "breakeven" as const, pips: "0" };
+    const diff = direction === "buy" ? exit - entry : entry - exit;
+    const pips = (diff * 10000).toFixed(1);
+    const result = diff > 0 ? "win" as const : diff < 0 ? "loss" as const : "breakeven" as const;
+    return { result, pips };
+  }, [entryPrice, exitPrice, direction]);
+
+  const handleAddTrade = async () => {
+    if (!entryPrice || !exitPrice) return;
+    try {
+      await createTrade.mutateAsync({
+        id: session.id,
+        data: {
+          direction, entryPrice, exitPrice,
+          stopLoss: stopLoss || undefined, takeProfit: takeProfit || undefined,
+          lotSize, result: computedResult.result, pips: computedResult.pips,
+          notes: notes.trim() || undefined, tradeDate,
+        },
+      });
+      qc.invalidateQueries({ queryKey: getGetBacktestTradesQueryKey(session.id) });
+      toast({ description: "Trade aggiunto." });
+      resetForm();
+      setShowForm(false);
+    } catch {
+      toast({ description: "Errore.", variant: "destructive" });
+    }
+  };
+
+  const handleDeleteTrade = async (id: number) => {
+    if (!confirm("Eliminare questo trade?")) return;
+    await deleteTrade.mutateAsync({ id });
+    qc.invalidateQueries({ queryKey: getGetBacktestTradesQueryKey(session.id) });
+  };
+
+  const stats = useMemo(() => {
+    if (!trades || trades.length === 0) return null;
+    const wins = trades.filter((t) => t.result === "win").length;
+    const losses = trades.filter((t) => t.result === "loss").length;
+    const breakevens = trades.filter((t) => t.result === "breakeven").length;
+    const total = trades.length;
+    const winRate = Math.round((wins / total) * 100);
+
+    let totalRR = 0;
+    let rrCount = 0;
+    trades.forEach((t) => {
+      if (t.stopLoss && t.entryPrice) {
+        const entry = parseFloat(t.entryPrice);
+        const sl = parseFloat(t.stopLoss);
+        const exit = parseFloat(t.exitPrice);
+        const risk = Math.abs(entry - sl);
+        if (risk > 0) {
+          const reward = t.direction === "buy" ? exit - entry : entry - exit;
+          totalRR += reward / risk;
+          rrCount++;
+        }
+      }
+    });
+    const avgRR = rrCount > 0 ? (totalRR / rrCount).toFixed(2) : null;
+
+    const totalPips = trades.reduce((sum, t) => sum + parseFloat(t.pips ?? "0"), 0);
+
+    return { total, wins, losses, breakevens, winRate, avgRR, totalPips: totalPips.toFixed(1) };
+  }, [trades]);
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center gap-3">
+        <Button variant="ghost" size="icon" onClick={onBack} className="h-9 w-9 shrink-0">
+          <ArrowLeft className="w-5 h-5" />
+        </Button>
+        <div className="min-w-0">
+          <h3 className="text-lg font-bold truncate">{session.name}</h3>
+          <p className="text-xs text-muted-foreground">
+            {session.pair} · {session.timeframe}
+            {session.strategy && ` · ${session.strategy}`}
+          </p>
+        </div>
+        <Button onClick={() => setShowForm(!showForm)} className="ml-auto shrink-0">
+          <Plus className="w-4 h-4 mr-2" />
+          Trade
+        </Button>
+      </div>
+
+      {showForm && (
+        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
+          <Card>
+            <CardContent className="p-4 space-y-4">
+              <div className="flex gap-2 mb-2">
+                <button
+                  onClick={() => setDirection("buy")}
+                  className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${
+                    direction === "buy" ? "bg-green-500/20 text-green-400 border border-green-500/40" : "bg-secondary/40 text-muted-foreground border border-border/50"
+                  }`}
+                >
+                  BUY
+                </button>
+                <button
+                  onClick={() => setDirection("sell")}
+                  className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${
+                    direction === "sell" ? "bg-red-500/20 text-red-400 border border-red-500/40" : "bg-secondary/40 text-muted-foreground border border-border/50"
+                  }`}
+                >
+                  SELL
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Entry</label>
+                  <Input type="number" step="any" value={entryPrice} onChange={(e) => setEntryPrice(e.target.value)} placeholder="1.08500" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Exit</label>
+                  <Input type="number" step="any" value={exitPrice} onChange={(e) => setExitPrice(e.target.value)} placeholder="1.09000" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Stop Loss</label>
+                  <Input type="number" step="any" value={stopLoss} onChange={(e) => setStopLoss(e.target.value)} placeholder="1.08200" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Take Profit</label>
+                  <Input type="number" step="any" value={takeProfit} onChange={(e) => setTakeProfit(e.target.value)} placeholder="1.09200" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Lotti</label>
+                  <Input type="number" step="0.01" value={lotSize} onChange={(e) => setLotSize(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Data</label>
+                  <Input type="date" value={tradeDate} onChange={(e) => setTradeDate(e.target.value)} />
+                </div>
+              </div>
+
+              <Input placeholder="Note (opzionale)" value={notes} onChange={(e) => setNotes(e.target.value)} />
+
+              {entryPrice && exitPrice && (
+                <div className={`text-center py-2 rounded-lg text-sm font-bold ${
+                  computedResult.result === "win" ? "bg-green-500/10 text-green-400"
+                    : computedResult.result === "loss" ? "bg-red-500/10 text-red-400"
+                    : "bg-yellow-500/10 text-yellow-400"
+                }`}>
+                  {computedResult.result.toUpperCase()} · {computedResult.pips} pips
+                </div>
+              )}
+
+              <div className="flex gap-3 justify-end">
+                <Button variant="ghost" onClick={() => { resetForm(); setShowForm(false); }}>Annulla</Button>
+                <Button onClick={handleAddTrade} disabled={!entryPrice || !exitPrice || createTrade.isPending}>
+                  Aggiungi Trade
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
+      {stats && (
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <StatBox label="Trade" value={stats.total} color="text-foreground" icon={<BarChart3 className="w-4 h-4" />} />
+            <StatBox label="Win Rate" value={`${stats.winRate}%`} color={stats.winRate >= 50 ? "text-green-400" : "text-red-400"} icon={<TrendingUp className="w-4 h-4" />} />
+            <StatBox label="Pips Totali" value={stats.totalPips} color={parseFloat(stats.totalPips) >= 0 ? "text-green-400" : "text-red-400"} icon={<BarChart3 className="w-4 h-4" />} />
+            {stats.avgRR && <StatBox label="R:R Medio" value={stats.avgRR} color={parseFloat(stats.avgRR) >= 1 ? "text-green-400" : "text-orange-400"} icon={<TrendingUp className="w-4 h-4" />} />}
+          </div>
+
+          <div className="rounded-2xl bg-card/60 backdrop-blur-sm border border-border/50 p-4">
+            <div className="flex items-end gap-3">
+              <div className="flex-1">
+                <div className="h-3 rounded-full bg-secondary/40 overflow-hidden flex">
+                  {stats.wins > 0 && <div className="h-full bg-green-500" style={{ width: `${(stats.wins / stats.total) * 100}%` }} />}
+                  {stats.breakevens > 0 && <div className="h-full bg-yellow-500" style={{ width: `${(stats.breakevens / stats.total) * 100}%` }} />}
+                  {stats.losses > 0 && <div className="h-full bg-red-500" style={{ width: `${(stats.losses / stats.total) * 100}%` }} />}
+                </div>
+              </div>
+              <span className="text-xs text-muted-foreground shrink-0">{stats.wins}W / {stats.losses}L / {stats.breakevens}BE</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isLoading ? (
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => <div key={i} className="h-16 rounded-xl bg-white/5 animate-pulse" />)}
+        </div>
+      ) : !trades || trades.length === 0 ? (
+        <Card className="border-dashed border-white/10">
+          <CardContent className="p-10 text-center">
+            <FlaskConical className="w-10 h-10 mx-auto mb-3 opacity-20" />
+            <p className="text-muted-foreground">Nessun trade. Aggiungi il primo trade per iniziare il backtest.</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-2">
+          <AnimatePresence>
+            {trades.map((trade, idx) => (
+              <motion.div
+                key={trade.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ delay: idx * 0.03 }}
+                className="rounded-xl border border-border/50 bg-card/40 p-3 flex items-center gap-3 group hover:border-primary/30 transition-colors"
+              >
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
+                  trade.direction === "buy" ? "bg-green-500/15" : "bg-red-500/15"
+                }`}>
+                  {trade.direction === "buy"
+                    ? <TrendingUp className="w-4 h-4 text-green-400" />
+                    : <TrendingDown className="w-4 h-4 text-red-400" />}
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span className="font-mono">{trade.entryPrice} → {trade.exitPrice}</span>
+                    {trade.stopLoss && <span className="text-red-400/60">SL {trade.stopLoss}</span>}
+                  </div>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className={`text-sm font-bold ${
+                      trade.result === "win" ? "text-green-400" : trade.result === "loss" ? "text-red-400" : "text-yellow-400"
+                    }`}>
+                      {trade.result === "win" ? "+" : trade.result === "loss" ? "" : ""}{trade.pips ?? "0"} pips
+                    </span>
+                    <span className="text-[10px] text-muted-foreground/60">
+                      {format(parseISO(trade.tradeDate), "d MMM", { locale: it })}
+                    </span>
+                    {trade.notes && <span className="text-[10px] text-muted-foreground/50 truncate">{trade.notes}</span>}
+                  </div>
+                </div>
+
+                <div className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase shrink-0 ${
+                  trade.result === "win" ? "bg-green-500/15 text-green-400"
+                    : trade.result === "loss" ? "bg-red-500/15 text-red-400"
+                    : "bg-yellow-500/15 text-yellow-400"
+                }`}>
+                  {trade.result}
+                </div>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="opacity-0 group-hover:opacity-100 h-7 w-7 p-0 text-destructive hover:bg-destructive/10 shrink-0"
+                  onClick={() => handleDeleteTrade(trade.id)}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </Button>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StatBox({ label, value, color, icon }: { label: string; value: string | number; color: string; icon: React.ReactNode }) {
+  return (
+    <div className="rounded-2xl bg-card/60 backdrop-blur-sm border border-border/50 p-3 sm:p-4 text-center">
+      <div className="flex items-center justify-center gap-1.5 mb-1">
+        <span className={color}>{icon}</span>
+        <span className="text-[10px] sm:text-[11px] uppercase tracking-wider font-medium text-muted-foreground">{label}</span>
+      </div>
+      <p className={`text-xl sm:text-2xl font-mono font-bold ${color}`}>{value}</p>
+    </div>
+  );
+}
+
+export default function Backtest() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const { data: sessions, isLoading } = useGetBacktestSessions();
+  const deleteMutation = useDeleteBacktestSession();
+  const [showNew, setShowNew] = useState(false);
+  const [activeSession, setActiveSession] = useState<BacktestSession | null>(null);
+
+  const handleDelete = async (id: number) => {
+    if (!confirm("Eliminare questa sessione e tutti i trade?")) return;
+    await deleteMutation.mutateAsync({ id });
+    qc.invalidateQueries({ queryKey: getGetBacktestSessionsQueryKey() });
+    toast({ description: "Sessione eliminata." });
+  };
+
+  if (activeSession) {
+    return (
+      <PageLayout>
+        <SessionDetail session={activeSession} onBack={() => setActiveSession(null)} />
+      </PageLayout>
+    );
+  }
+
+  return (
+    <PageLayout>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl sm:text-3xl font-bold font-mono flex items-center gap-2">
+            <FlaskConical className="w-7 h-7 text-primary" />
+            Backtest
+          </h2>
+          <p className="text-muted-foreground mt-1">Testa le tue strategie registrando trade ipotetici.</p>
+        </div>
+        <Button onClick={() => setShowNew(!showNew)}>
+          <Plus className="w-4 h-4 mr-2" />
+          Nuova Sessione
+        </Button>
+      </div>
+
+      <AnimatePresence>
+        {showNew && (
+          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
+            <NewSessionForm onClose={() => setShowNew(false)} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {isLoading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[1, 2, 3].map((i) => <div key={i} className="h-40 rounded-2xl bg-white/5 animate-pulse" />)}
+        </div>
+      ) : !sessions || sessions.length === 0 ? (
+        <Card className="border-dashed border-white/10">
+          <CardContent className="p-16 text-center">
+            <FlaskConical className="w-12 h-12 mx-auto mb-4 opacity-20" />
+            <h3 className="text-xl font-bold mb-2">Nessuna sessione di backtest</h3>
+            <p className="text-muted-foreground max-w-md mx-auto mb-6">
+              Crea una sessione per iniziare a testare le tue strategie di trading.
+            </p>
+            <Button onClick={() => setShowNew(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Prima Sessione
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <AnimatePresence>
+            {sessions.map((session, idx) => (
+              <motion.div
+                key={session.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ delay: idx * 0.05 }}
+                onClick={() => setActiveSession(session)}
+                className="glass-card rounded-2xl p-4 sm:p-5 cursor-pointer group hover:border-primary/50 transition-colors relative"
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <h3 className="text-base font-bold group-hover:text-primary transition-colors">{session.name}</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {session.pair} · {session.timeframe}
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="opacity-0 group-hover:opacity-100 h-7 w-7 p-0 text-destructive hover:bg-destructive/10 shrink-0"
+                    onClick={(e) => { e.stopPropagation(); handleDelete(session.id); }}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+
+                {session.strategy && (
+                  <p className="text-xs text-muted-foreground/70 mb-3 truncate">
+                    Strategia: {session.strategy}
+                  </p>
+                )}
+
+                <div className="flex items-center justify-between mt-auto pt-3 border-t border-border/30">
+                  <span className="text-[10px] text-muted-foreground/50">
+                    {format(parseISO(session.createdAt), "d MMM yyyy", { locale: it })}
+                  </span>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+      )}
+    </PageLayout>
+  );
+}
