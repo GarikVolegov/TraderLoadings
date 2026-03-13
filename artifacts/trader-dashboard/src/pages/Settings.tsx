@@ -253,27 +253,7 @@ function BackgroundSettings() {
   );
 }
 
-function AuthSection() {
-  const { isAuthenticated, isLoading, login } = useAuth();
-
-  if (isLoading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <LogIn className="w-5 h-5 text-primary" />
-            Account
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">Caricamento...</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (isAuthenticated) return null;
-
+function AuthSection({ login }: { login: () => void }) {
   return (
     <Card>
       <CardHeader>
@@ -296,7 +276,7 @@ function AuthSection() {
 }
 
 export default function Settings() {
-  const { isAuthenticated, logout } = useAuth();
+  const { isAuthenticated, isLoading, login, logout } = useAuth();
 
   return (
     <PageLayout>
@@ -305,9 +285,9 @@ export default function Settings() {
           <ProfileWidget />
         </motion.div>
 
-        {!isAuthenticated && (
+        {!isAuthenticated && !isLoading && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-            <AuthSection />
+            <AuthSection login={login} />
           </motion.div>
         )}
 
