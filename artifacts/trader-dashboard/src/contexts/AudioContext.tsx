@@ -87,7 +87,8 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     if (newMode === "off") {
       stopOscillators();
     } else {
-      const config = AUDIO_MODES[newMode];
+      const config = AUDIO_MODES[newMode as keyof typeof AUDIO_MODES];
+      if (!config) return;
       void startFrequencies(config.baseFreq, config.beatFreq, volumeRef.current).catch(() => {});
     }
     setModeState(newMode);

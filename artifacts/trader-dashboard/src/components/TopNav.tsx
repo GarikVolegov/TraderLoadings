@@ -31,16 +31,16 @@ export function TopNav() {
       <div className="flex items-center gap-2">
         {/* Audio indicator */}
         <button
-          onClick={() => setMode(isPlaying ? "off" : "focus")}
+          onClick={() => setMode(isPlaying ? "off" : "deepfocus")}
           className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
             isPlaying
               ? "bg-primary/20 text-primary border border-primary/40"
               : "bg-card/50 text-muted-foreground border border-border hover:border-primary/30"
           }`}
-          title={isPlaying ? `${mode === "relax" ? "Rilassamento" : "Focus"} attivo` : "Audio off"}
+          title={isPlaying ? `${mode === "alpha" ? "Rilassamento" : "Focus"} attivo` : "Audio off"}
         >
           {isPlaying ? <Volume2 className="w-3.5 h-3.5 animate-pulse" /> : <VolumeX className="w-3.5 h-3.5" />}
-          {isPlaying ? (mode === "relax" ? "Relax" : "Focus") : "Audio"}
+          {isPlaying ? (mode === "alpha" ? "Relax" : "Focus") : "Audio"}
         </button>
 
         <nav className="flex items-center gap-1 bg-card/50 backdrop-blur-md p-1.5 rounded-xl border border-border">
