@@ -10,6 +10,7 @@ import { useBackground } from "@/contexts/BackgroundContext";
 import { useGetUserSettings, useUpdateUserSettings, getGetUserSettingsQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@workspace/replit-auth-web";
 
 const FONT_OPTIONS = [
   { value: "inter", label: "Inter", sample: "font-['Inter']" },
@@ -253,12 +254,25 @@ function BackgroundSettings() {
 }
 
 function AuthSection() {
-  const handleLogin = () => {
-    window.location.href = `api/login?returnTo=${encodeURIComponent(window.location.origin + import.meta.env.BASE_URL)}`;
-  };
-  const handleLogout = () => {
-    window.location.href = `api/logout`;
-  };
+  const { isAuthenticated, isLoading, login } = useAuth();
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <LogIn className="w-5 h-5 text-primary" />
+            Account
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">Caricamento...</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (isAuthenticated) return null;
 
   return (
     <Card>
@@ -272,22 +286,18 @@ function AuthSection() {
         <p className="text-sm text-muted-foreground">
           Accedi per mantenere i dati sincronizzati e restare collegato su questo dispositivo.
         </p>
-        <div className="flex gap-2">
-          <Button onClick={handleLogin} className="flex-1">
-            <LogIn className="w-4 h-4 mr-2" />
-            Accedi
-          </Button>
-          <Button onClick={handleLogout} variant="outline" className="flex-1">
-            <LogOut className="w-4 h-4 mr-2" />
-            Esci
-          </Button>
-        </div>
+        <Button onClick={login} className="w-full">
+          <LogIn className="w-4 h-4 mr-2" />
+          Accedi
+        </Button>
       </CardContent>
     </Card>
   );
 }
 
 export default function Settings() {
+  const { isAuthenticated, logout } = useAuth();
+
   return (
     <PageLayout>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -295,9 +305,11 @@ export default function Settings() {
           <ProfileWidget />
         </motion.div>
 
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-          <AuthSection />
-        </motion.div>
+        {!isAuthenticated && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+            <AuthSection />
+          </motion.div>
+        )}
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
           <AudioPlayer />
@@ -315,6 +327,24 @@ export default function Settings() {
           <BackgroundSettings />
         </motion.div>
       </div>
+
+      {isAuthenticated && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.35 }}
+          className="mt-8"
+        >
+          <Button
+            onClick={logout}
+            variant="outline"
+            className="w-full border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive"
+          >
+            <LogOut className="w-4 h-4 mr-2" />
+            Esci
+          </Button>
+        </motion.div>
+      )}
     </PageLayout>
   );
 }
