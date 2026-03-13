@@ -73,24 +73,29 @@ export default function ChartReplay({ symbol, interval, onTradesChange }: ChartR
   const playingRef = useRef(false);
   const speedRef = useRef(speed);
   const visibleCountRef = useRef(visibleCount);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => { speedRef.current = speed; }, [speed]);
   useEffect(() => { visibleCountRef.current = visibleCount; }, [visibleCount]);
 
   useEffect(() => {
     const s = symbol.replace("/", "");
+    const controller = new AbortController();
     setLoading(true);
     setError(null);
     setVisibleCount(START_CANDLES);
     setTrades([]);
     setOpenTrade(null);
 
-    fetch(`${API_BASE}/api/backtest/candles?symbol=${s}&interval=${interval}`)
+    fetch(`${API_BASE}/api/backtest/candles?symbol=${s}&interval=${interval}`, {
+      signal: controller.signal,
+    })
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json() as Promise<{ candles: CandleRaw[] }>;
       })
       .then((data) => {
+        if (controller.signal.aborted) return;
         const candles: CandlestickData<Time>[] = data.candles.map((c) => ({
           time: c.time as Time,
           open: c.open,
@@ -102,9 +107,12 @@ export default function ChartReplay({ symbol, interval, onTradesChange }: ChartR
         setLoading(false);
       })
       .catch((err: unknown) => {
+        if (controller.signal.aborted) return;
         setError(err instanceof Error ? err.message : "Errore caricamento dati");
         setLoading(false);
       });
+
+    return () => controller.abort();
   }, [symbol, interval]);
 
   const visibleCandles = useMemo(
@@ -321,11 +329,17 @@ export default function ChartReplay({ symbol, interval, onTradesChange }: ChartR
       }
       advanceCandle(1);
       const delay = Math.max(50, 500 / speedRef.current);
-      setTimeout(tick, delay);
+      timerRef.current = setTimeout(tick, delay);
     };
     tick();
 
-    return () => { playingRef.current = false; };
+    return () => {
+      playingRef.current = false;
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+    };
   }, [isPlaying, advanceCandle, allCandles.length]);
 
   const handleBuy = () => {

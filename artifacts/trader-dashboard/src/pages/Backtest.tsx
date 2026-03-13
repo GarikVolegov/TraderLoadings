@@ -118,6 +118,7 @@ function SessionDetail({ session, onBack }: { session: BacktestSession; onBack: 
   const deleteTrade = useDeleteBacktestTrade();
   const [mode, setMode] = useState<"chart" | "manual">("chart");
   const [pendingChartTrades, setPendingChartTrades] = useState<Array<{
+    id: number;
     direction: "buy" | "sell";
     entryPrice: number;
     exitPrice?: number;
@@ -172,7 +173,10 @@ function SessionDetail({ session, onBack }: { session: BacktestSession; onBack: 
     }
   };
 
+  const [savedTradeIds, setSavedTradeIds] = useState<Set<number>>(new Set());
+
   const handleSaveChartTrades = async (chartTrades: Array<{
+    id: number;
     direction: "buy" | "sell";
     entryPrice: number;
     exitPrice?: number;
@@ -181,29 +185,39 @@ function SessionDetail({ session, onBack }: { session: BacktestSession; onBack: 
     result?: "win" | "loss" | "breakeven";
     pips?: number;
   }>) => {
-    for (const t of chartTrades) {
-      if (!t.exitPrice || t.result == null) continue;
+    const unsaved = chartTrades.filter((t) => !savedTradeIds.has(t.id) && t.exitPrice && t.result != null);
+    if (unsaved.length === 0) {
+      toast({ description: "Nessun nuovo trade da salvare." });
+      return;
+    }
+    let saved = 0;
+    const newIds = new Set(savedTradeIds);
+    for (const t of unsaved) {
       try {
         await createTrade.mutateAsync({
           id: session.id,
           data: {
             direction: t.direction,
             entryPrice: t.entryPrice.toFixed(5),
-            exitPrice: t.exitPrice.toFixed(5),
+            exitPrice: t.exitPrice!.toFixed(5),
             stopLoss: t.stopLoss?.toFixed(5),
             takeProfit: t.takeProfit?.toFixed(5),
             lotSize: "0.01",
-            result: t.result,
+            result: t.result!,
             pips: (t.pips ?? 0).toFixed(1),
             tradeDate: format(new Date(), "yyyy-MM-dd"),
           },
         });
+        newIds.add(t.id);
+        saved++;
       } catch {
         /* skip failed */
       }
     }
+    setSavedTradeIds(newIds);
+    setPendingChartTrades([]);
     qc.invalidateQueries({ queryKey: getGetBacktestTradesQueryKey(session.id) });
-    toast({ description: `${chartTrades.length} trade salvati dalla sessione chart.` });
+    toast({ description: `${saved} trade salvati.` });
   };
 
   const handleDeleteTrade = async (id: number) => {
@@ -281,7 +295,8 @@ function SessionDetail({ session, onBack }: { session: BacktestSession; onBack: 
             symbol={session.pair}
             interval={session.timeframe}
             onTradesChange={(chartTrades) => {
-              setPendingChartTrades(chartTrades.filter((t) => t.exitPrice != null));
+              const completed = chartTrades.filter((t) => t.exitPrice != null && !savedTradeIds.has(t.id));
+              setPendingChartTrades(completed);
             }}
           />
           {pendingChartTrades.length > 0 && (
