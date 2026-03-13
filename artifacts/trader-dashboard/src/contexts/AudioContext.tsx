@@ -42,42 +42,42 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const startFrequencies = useCallback(async (baseFreq: number, beatFreq: number, vol: number) => {
-    if (!audioCtxRef.current) {
-      audioCtxRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
-    }
-    const ctx = audioCtxRef.current;
-    if (ctx.state === "suspended") {
-      await ctx.resume();
-    }
-    stopOscillators();
+  const startFrequencies = useCallback((baseFreq: number, beatFreq: number, vol: number) => {
+    try {
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+      }
+      const ctx = audioCtxRef.current;
+      if (ctx.state === "suspended") ctx.resume();
+      stopOscillators();
 
-    const gain = ctx.createGain();
-    gain.gain.value = (vol / 100) * 0.08;
-    gain.connect(ctx.destination);
-    gainRef.current = gain;
+      const gain = ctx.createGain();
+      gain.gain.value = (vol / 100) * 0.08;
+      gain.connect(ctx.destination);
+      gainRef.current = gain;
 
-    const panL = ctx.createStereoPanner();
-    panL.pan.value = -1;
-    panL.connect(gain);
+      const panL = ctx.createStereoPanner();
+      panL.pan.value = -1;
+      panL.connect(gain);
 
-    const panR = ctx.createStereoPanner();
-    panR.pan.value = 1;
-    panR.connect(gain);
+      const panR = ctx.createStereoPanner();
+      panR.pan.value = 1;
+      panR.connect(gain);
 
-    const osc1 = ctx.createOscillator();
-    osc1.type = "sine";
-    osc1.frequency.value = baseFreq;
-    osc1.connect(panL);
-    osc1.start();
+      const osc1 = ctx.createOscillator();
+      osc1.type = "sine";
+      osc1.frequency.value = baseFreq;
+      osc1.connect(panL);
+      osc1.start();
 
-    const osc2 = ctx.createOscillator();
-    osc2.type = "sine";
-    osc2.frequency.value = baseFreq + beatFreq;
-    osc2.connect(panR);
-    osc2.start();
+      const osc2 = ctx.createOscillator();
+      osc2.type = "sine";
+      osc2.frequency.value = baseFreq + beatFreq;
+      osc2.connect(panR);
+      osc2.start();
 
-    oscillatorsRef.current = [osc1, osc2];
+      oscillatorsRef.current = [osc1, osc2];
+    } catch {}
   }, [stopOscillators]);
 
   const volumeRef = useRef(volume);
@@ -89,7 +89,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     } else {
       const config = AUDIO_MODES[newMode as keyof typeof AUDIO_MODES];
       if (!config) return;
-      void startFrequencies(config.baseFreq, config.beatFreq, volumeRef.current).catch(() => {});
+      startFrequencies(config.baseFreq, config.beatFreq, volumeRef.current);
     }
     setModeState(newMode);
   }, [stopOscillators, startFrequencies]);
@@ -116,9 +116,9 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       document.removeEventListener("touchstart", tryAutoStart);
     };
 
-    document.addEventListener("click", tryAutoStart, { once: true });
-    document.addEventListener("keydown", tryAutoStart, { once: true });
-    document.addEventListener("touchstart", tryAutoStart, { once: true });
+    document.addEventListener("click", tryAutoStart);
+    document.addEventListener("keydown", tryAutoStart);
+    document.addEventListener("touchstart", tryAutoStart);
 
     return () => {
       document.removeEventListener("click", tryAutoStart);
