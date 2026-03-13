@@ -65,6 +65,14 @@ export interface UpdateProfileRequest {
   avatarUrl?: string | null;
 }
 
+export interface CheckNameResponse {
+  available: boolean;
+}
+
+export interface AvatarResponse {
+  avatarUrl: string;
+}
+
 export interface Mission {
   id: number;
   title: string;
@@ -303,6 +311,14 @@ export type HandleBrowserLoginCallbackParams = {
   code?: string;
   state?: string;
   iss?: string;
+};
+
+export type CheckProfileNameParams = {
+  name: string;
+};
+
+export type UploadProfileAvatarBody = {
+  image: Blob;
 };
 
 export type UploadJournalImageBody = {

@@ -1,47 +1,138 @@
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Trophy, Edit2, Hexagon, Star } from "lucide-react";
+import { Trophy, Edit2, Hexagon, Star, Upload, Sparkles, Check, X, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
-import { useGetProfile, useUpdateProfile, getGetProfileQueryKey } from "@workspace/api-client-react";
+import {
+  useGetProfile,
+  useUpdateProfile,
+  useUploadProfileAvatar,
+  useGenerateProfileAvatar,
+  getGetProfileQueryKey,
+  checkProfileName,
+} from "@workspace/api-client-react";
+
+function useDebounce<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+  return debounced;
+}
 
 export function ProfileWidget() {
   const queryClient = useQueryClient();
   const { data: profile, isLoading } = useGetProfile();
-  
+
   const updateProfileMutation = useUpdateProfile({
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getGetProfileQueryKey() });
         setIsEditModalOpen(false);
-      }
-    }
+      },
+      onError: (err: any) => {
+        if (err?.status === 409) {
+          setNameError("Nome già in uso da un altro utente");
+        }
+      },
+    },
+  });
+
+  const uploadAvatarMutation = useUploadProfileAvatar({
+    mutation: {
+      onSuccess: (data) => {
+        setEditAvatarUrl(data.avatarUrl);
+        queryClient.invalidateQueries({ queryKey: getGetProfileQueryKey() });
+      },
+    },
+  });
+
+  const generateAvatarMutation = useGenerateProfileAvatar({
+    mutation: {
+      onSuccess: (data) => {
+        setEditAvatarUrl(data.avatarUrl);
+        queryClient.invalidateQueries({ queryKey: getGetProfileQueryKey() });
+      },
+    },
   });
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editName, setEditName] = useState("");
   const [editAvatarUrl, setEditAvatarUrl] = useState("");
+  const [nameError, setNameError] = useState("");
+  const [nameAvailable, setNameAvailable] = useState<boolean | null>(null);
+  const [checkingName, setCheckingName] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const debouncedName = useDebounce(editName.trim(), 400);
+
+  const checkName = useCallback(async (name: string) => {
+    if (!name || !profile) return;
+    if (name === profile.name) {
+      setNameAvailable(null);
+      setNameError("");
+      return;
+    }
+    setCheckingName(true);
+    try {
+      const result = await checkProfileName({ name });
+      setNameAvailable(result.available);
+      setNameError(result.available ? "" : "Nome già in uso");
+    } catch {
+      setNameAvailable(null);
+      setNameError("");
+    } finally {
+      setCheckingName(false);
+    }
+  }, [profile]);
+
+  useEffect(() => {
+    if (debouncedName && profile) {
+      checkName(debouncedName);
+    }
+  }, [debouncedName, checkName, profile]);
 
   const handleOpenEdit = () => {
     if (profile) {
       setEditName(profile.name);
       setEditAvatarUrl(profile.avatarUrl || "");
+      setNameError("");
+      setNameAvailable(null);
       setIsEditModalOpen(true);
     }
   };
 
   const handleSaveEdit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (nameAvailable === false) return;
     updateProfileMutation.mutate({
       data: {
-        name: editName,
-        avatarUrl: editAvatarUrl || null
-      }
+        name: editName.trim(),
+        avatarUrl: editAvatarUrl || null,
+      },
     });
   };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    uploadAvatarMutation.mutate({ data: { image: file } });
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleGenerateAvatar = () => {
+    generateAvatarMutation.mutate();
+  };
+
+  const isAvatarBusy = uploadAvatarMutation.isPending || generateAvatarMutation.isPending;
+  const isSaveDisabled =
+    updateProfileMutation.isPending ||
+    nameAvailable === false ||
+    !editName.trim();
 
   if (isLoading || !profile) {
     return (
@@ -57,11 +148,13 @@ export function ProfileWidget() {
   const xpIntoLevel = profile.xp % XP_PER_LEVEL;
   const progressPercentage = Math.min(100, (xpIntoLevel / XP_PER_LEVEL) * 100);
 
+  const currentAvatar = editAvatarUrl || profile.avatarUrl;
+
   return (
     <>
       <Card className="h-full relative overflow-hidden group">
         <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-[80px] pointer-events-none" />
-        
+
         <CardContent className="p-4 sm:p-6 md:p-8 relative z-10 flex flex-col h-full justify-between">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3 sm:gap-5">
@@ -78,7 +171,7 @@ export function ProfileWidget() {
                   {profile.level}
                 </div>
               </div>
-              
+
               <div>
                 <h2 className="text-xl sm:text-2xl font-bold text-foreground font-mono flex items-center gap-2">
                   {profile.name}
@@ -92,25 +185,25 @@ export function ProfileWidget() {
                 </div>
               </div>
             </div>
-            
+
             <div className="hidden md:flex flex-col items-end">
               <Trophy className="w-8 h-8 text-accent/40 mb-2" />
             </div>
           </div>
-          
+
           <div className="mt-4 sm:mt-8 space-y-2 sm:space-y-3">
             <div className="flex justify-between items-end text-sm">
               <span className="font-medium text-muted-foreground flex items-center gap-1">
                 <Hexagon className="w-4 h-4" /> Esperienza (XP)
               </span>
               <span className="font-mono font-bold">
-                <span className="text-primary">{xpIntoLevel}</span> 
+                <span className="text-primary">{xpIntoLevel}</span>
                 <span className="text-muted-foreground"> / {XP_PER_LEVEL}</span>
               </span>
             </div>
-            
+
             <div className="h-3 w-full bg-secondary/80 rounded-full overflow-hidden border border-border shadow-inner">
-              <motion.div 
+              <motion.div
                 className="h-full bg-gradient-to-r from-primary/80 to-primary rounded-full relative"
                 initial={{ width: 0 }}
                 animate={{ width: `${progressPercentage}%` }}
@@ -126,34 +219,103 @@ export function ProfileWidget() {
         </CardContent>
       </Card>
 
-      <Modal 
-        isOpen={isEditModalOpen} 
+      <Modal
+        isOpen={isEditModalOpen}
         onClose={() => !updateProfileMutation.isPending && setIsEditModalOpen(false)}
         title="Modifica Profilo"
       >
-        <form onSubmit={handleSaveEdit} className="space-y-4">
+        <form onSubmit={handleSaveEdit} className="space-y-5">
+          <div className="flex flex-col items-center gap-3">
+            <div className="relative w-24 h-24 rounded-full border-2 border-primary/50 overflow-hidden bg-secondary">
+              {isAvatarBusy && (
+                <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/50">
+                  <Loader2 className="w-6 h-6 text-primary animate-spin" />
+                </div>
+              )}
+              {currentAvatar ? (
+                <img src={currentAvatar} alt="Avatar" className="w-full h-full object-cover" />
+              ) : (
+                <img src={`${import.meta.env.BASE_URL}images/avatar-default.png`} alt="Default" className="w-full h-full object-cover opacity-80" />
+              )}
+            </div>
+
+            <div className="flex gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleFileSelect}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isAvatarBusy}
+              >
+                <Upload className="w-4 h-4 mr-1" />
+                Carica Foto
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleGenerateAvatar}
+                disabled={isAvatarBusy}
+              >
+                {generateAvatarMutation.isPending ? (
+                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                ) : (
+                  <Sparkles className="w-4 h-4 mr-1" />
+                )}
+                Genera con AI
+              </Button>
+            </div>
+          </div>
+
           <div className="space-y-2">
             <label className="text-sm font-medium">Nome Trader</label>
-            <Input 
-              required
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
-              placeholder="Il tuo nome"
-            />
+            <div className="relative">
+              <Input
+                required
+                value={editName}
+                onChange={(e) => {
+                  setEditName(e.target.value);
+                  setNameError("");
+                  setNameAvailable(null);
+                }}
+                placeholder="Il tuo nome"
+                className={nameError ? "border-destructive pr-10" : nameAvailable === true ? "border-primary pr-10" : "pr-10"}
+              />
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                {checkingName && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
+                {!checkingName && nameAvailable === true && <Check className="w-4 h-4 text-primary" />}
+                {!checkingName && nameAvailable === false && <X className="w-4 h-4 text-destructive" />}
+              </div>
+            </div>
+            {nameError && (
+              <p className="text-xs text-destructive">{nameError}</p>
+            )}
+            {nameAvailable === true && (
+              <p className="text-xs text-primary">Nome disponibile</p>
+            )}
           </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Avatar URL (opzionale)</label>
-            <Input 
-              value={editAvatarUrl}
-              onChange={(e) => setEditAvatarUrl(e.target.value)}
-              placeholder="https://..."
-            />
-          </div>
-          <div className="pt-4 flex justify-end gap-3">
-            <Button type="button" variant="outline" onClick={() => setIsEditModalOpen(false)} disabled={updateProfileMutation.isPending}>
+
+          <div className="pt-2 flex justify-end gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsEditModalOpen(false)}
+              disabled={updateProfileMutation.isPending}
+            >
               Annulla
             </Button>
-            <Button type="submit" isLoading={updateProfileMutation.isPending}>
+            <Button
+              type="submit"
+              isLoading={updateProfileMutation.isPending}
+              disabled={isSaveDisabled}
+            >
               Salva Modifiche
             </Button>
           </div>

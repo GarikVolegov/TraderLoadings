@@ -23,7 +23,7 @@ Professional forex/stock trading web dashboard. pnpm workspace monorepo using Ty
 - **Journal (Diario)**: Trade journal entries with images, plus Idee and Obiettivi tabs. Awards 75 XP per entry + auto-completes "Journaling del Trade" mission
 - **Checklist**: Customizable pre-trade checklist with progress tracking
 - **News**: Real-time macro news (gold/USD/forex) via RSS feeds (Seeking Alpha, CNBC) with optional Perplexity AI enhancement. Server cache 10min, manual refresh bypasses cache. Keyword filter: gold/XAU/USD/DXY/Fed/CPI/inflation/treasury/nonfarm
-- **Settings**: Profile with XP/level, account auth (Replit Auth), binaural audio player (5 presets: Alpha 10Hz, Theta 6Hz, Beta 18Hz, Gamma 40Hz, Deep Focus 14Hz with auto-start), font selector (Inter/JetBrains Mono/Roboto/Space Grotesk/IBM Plex Sans), background darkness slider (0-90%), customizable background image upload
+- **Settings**: Profile with XP/level + avatar (upload from device or AI-generated via gpt-image-1) + unique username validation, account auth (Replit Auth), binaural audio player (5 presets: Alpha 10Hz, Theta 6Hz, Beta 18Hz, Gamma 40Hz, Deep Focus 14Hz with auto-start), font selector (Inter/JetBrains Mono/Roboto/Space Grotesk/IBM Plex Sans), background darkness slider (0-90%), customizable background image upload
 - **Auth**: Replit Auth (OIDC/PKCE) — sessions stored in DB `sessions` table. Multi-user data isolation via userId column on all data tables
 - **Audio**: Binaural beats with stereo panning (left/right ear separation). Auto-starts Alpha mode on first user interaction
 
@@ -39,6 +39,7 @@ artifacts-monorepo/
 │   ├── api-client-react/   # Generated React Query hooks
 │   ├── api-zod/            # Generated Zod schemas from OpenAPI
 │   ├── db/                 # Drizzle ORM schema + DB connection
+│   ├── integrations-openai-ai-server/  # OpenAI AI integration (gpt-image-1 for avatars)
 │   └── replit-auth-web/    # Auth hook for browser (useAuth)
 ├── scripts/
 └── ...
@@ -46,7 +47,7 @@ artifacts-monorepo/
 
 ## DB Tables
 
-- `profile` — trader name, XP, level, userId
+- `profile` — trader name (unique per authenticated user), avatarUrl, XP, level, userId. Has partial unique index on `lower(name)` where `user_id IS NOT NULL`
 - `missions` — daily missions with XP rewards, userId
 - `journal_entries` + `journal_images` — trading journal, userId
 - `ideas` — ideas (type=idea) and goals (type=goal) for journal tabs, userId
@@ -57,7 +58,7 @@ artifacts-monorepo/
 ## API Routes
 
 All mounted at `/api`. All data routes filter by `req.user?.id` for multi-user isolation:
-- `GET/PUT /profile`
+- `GET/PUT /profile`, `GET /profile/check-name?name=X`, `POST /profile/avatar` (upload), `POST /profile/avatar/generate` (AI)
 - `GET /missions`, `POST /missions/:id/complete`
 - `GET/POST /journal`, `GET/PUT/DELETE /journal/:id`, `POST /journal/:id/images`, `DELETE /journal/:id/images/:imageId`
 - `GET/POST /ideas`, `PUT/DELETE /ideas/:id`
@@ -69,6 +70,7 @@ All mounted at `/api`. All data routes filter by `req.user?.id` for multi-user i
 ## Secrets Required
 
 - `PERPLEXITY_API_KEY` — (optional) Perplexity AI for enhanced macro news. RSS feeds work without it.
+- `AI_INTEGRATIONS_OPENAI_BASE_URL` / `AI_INTEGRATIONS_OPENAI_API_KEY` — auto-provisioned by Replit AI Integrations for avatar generation
 - `DATABASE_URL` — auto-provided by Replit
 - `REPL_ID` — auto-provided by Replit
 

@@ -123,6 +123,35 @@ export const UpdateProfileResponse = zod.object({
 });
 
 /**
+ * @summary Check if a profile name is available
+ */
+export const CheckProfileNameQueryParams = zod.object({
+  name: zod.coerce.string(),
+});
+
+export const CheckProfileNameResponse = zod.object({
+  available: zod.boolean(),
+});
+
+/**
+ * @summary Upload a profile avatar image
+ */
+export const UploadProfileAvatarBody = zod.object({
+  image: zod.instanceof(File),
+});
+
+export const UploadProfileAvatarResponse = zod.object({
+  avatarUrl: zod.string(),
+});
+
+/**
+ * @summary Generate a unique AI avatar
+ */
+export const GenerateProfileAvatarResponse = zod.object({
+  avatarUrl: zod.string(),
+});
+
+/**
  * @summary Get daily missions
  */
 export const GetMissionsResponseItem = zod.object({

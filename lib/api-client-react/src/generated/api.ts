@@ -18,7 +18,10 @@ import type {
 
 import type {
   AuthUserEnvelope,
+  AvatarResponse,
   BeginBrowserLoginParams,
+  CheckNameResponse,
+  CheckProfileNameParams,
   ChecklistItem,
   CompleteMissionResponse,
   CreateChecklistItemRequest,
@@ -44,6 +47,7 @@ import type {
   UploadBackgroundResponse,
   UploadImageResponse,
   UploadJournalImageBody,
+  UploadProfileAvatarBody,
   UserProfile,
   UserSettings,
 } from "./api.schemas";
@@ -815,6 +819,272 @@ export const useUpdateProfile = <
   TContext
 > => {
   return useMutation(getUpdateProfileMutationOptions(options));
+};
+
+/**
+ * @summary Check if a profile name is available
+ */
+export const getCheckProfileNameUrl = (params: CheckProfileNameParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/profile/check-name?${stringifiedParams}`
+    : `/api/profile/check-name`;
+};
+
+export const checkProfileName = async (
+  params: CheckProfileNameParams,
+  options?: RequestInit,
+): Promise<CheckNameResponse> => {
+  return customFetch<CheckNameResponse>(getCheckProfileNameUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getCheckProfileNameQueryKey = (
+  params?: CheckProfileNameParams,
+) => {
+  return [`/api/profile/check-name`, ...(params ? [params] : [])] as const;
+};
+
+export const getCheckProfileNameQueryOptions = <
+  TData = Awaited<ReturnType<typeof checkProfileName>>,
+  TError = ErrorType<unknown>,
+>(
+  params: CheckProfileNameParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof checkProfileName>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getCheckProfileNameQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof checkProfileName>>
+  > = ({ signal }) => checkProfileName(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof checkProfileName>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type CheckProfileNameQueryResult = NonNullable<
+  Awaited<ReturnType<typeof checkProfileName>>
+>;
+export type CheckProfileNameQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Check if a profile name is available
+ */
+
+export function useCheckProfileName<
+  TData = Awaited<ReturnType<typeof checkProfileName>>,
+  TError = ErrorType<unknown>,
+>(
+  params: CheckProfileNameParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof checkProfileName>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getCheckProfileNameQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Upload a profile avatar image
+ */
+export const getUploadProfileAvatarUrl = () => {
+  return `/api/profile/avatar`;
+};
+
+export const uploadProfileAvatar = async (
+  uploadProfileAvatarBody: UploadProfileAvatarBody,
+  options?: RequestInit,
+): Promise<AvatarResponse> => {
+  const formData = new FormData();
+  formData.append(`image`, uploadProfileAvatarBody.image);
+
+  return customFetch<AvatarResponse>(getUploadProfileAvatarUrl(), {
+    ...options,
+    method: "POST",
+    body: formData,
+  });
+};
+
+export const getUploadProfileAvatarMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof uploadProfileAvatar>>,
+    TError,
+    { data: BodyType<UploadProfileAvatarBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof uploadProfileAvatar>>,
+  TError,
+  { data: BodyType<UploadProfileAvatarBody> },
+  TContext
+> => {
+  const mutationKey = ["uploadProfileAvatar"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof uploadProfileAvatar>>,
+    { data: BodyType<UploadProfileAvatarBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return uploadProfileAvatar(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UploadProfileAvatarMutationResult = NonNullable<
+  Awaited<ReturnType<typeof uploadProfileAvatar>>
+>;
+export type UploadProfileAvatarMutationBody = BodyType<UploadProfileAvatarBody>;
+export type UploadProfileAvatarMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Upload a profile avatar image
+ */
+export const useUploadProfileAvatar = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof uploadProfileAvatar>>,
+    TError,
+    { data: BodyType<UploadProfileAvatarBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof uploadProfileAvatar>>,
+  TError,
+  { data: BodyType<UploadProfileAvatarBody> },
+  TContext
+> => {
+  return useMutation(getUploadProfileAvatarMutationOptions(options));
+};
+
+/**
+ * @summary Generate a unique AI avatar
+ */
+export const getGenerateProfileAvatarUrl = () => {
+  return `/api/profile/avatar/generate`;
+};
+
+export const generateProfileAvatar = async (
+  options?: RequestInit,
+): Promise<AvatarResponse> => {
+  return customFetch<AvatarResponse>(getGenerateProfileAvatarUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getGenerateProfileAvatarMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateProfileAvatar>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof generateProfileAvatar>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["generateProfileAvatar"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof generateProfileAvatar>>,
+    void
+  > = () => {
+    return generateProfileAvatar(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type GenerateProfileAvatarMutationResult = NonNullable<
+  Awaited<ReturnType<typeof generateProfileAvatar>>
+>;
+
+export type GenerateProfileAvatarMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Generate a unique AI avatar
+ */
+export const useGenerateProfileAvatar = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateProfileAvatar>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof generateProfileAvatar>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getGenerateProfileAvatarMutationOptions(options));
 };
 
 /**
