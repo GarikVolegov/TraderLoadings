@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks, subMonths, addWeeks, addMonths, isWithinInterval } from "date-fns";
 import { it } from "date-fns/locale";
-import { Plus, Edit2, Trash2, Image as ImageIcon, CalendarDays, Tag, Lightbulb, Target, BookOpen, Check } from "lucide-react";
+import { Plus, Edit2, Trash2, Image as ImageIcon, CalendarDays, Tag, Lightbulb, Target, BookOpen, Check, TrendingUp, TrendingDown, Minus, ChevronLeft, ChevronRight, BarChart3, Calendar } from "lucide-react";
 import { PageLayout } from "@/components/PageLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -22,7 +22,7 @@ import {
   type JournalEntry,
 } from "@workspace/api-client-react";
 
-type Tab = "trades" | "idee" | "obiettivi";
+type Tab = "trades" | "idee" | "obiettivi" | "recap-settimanale" | "recap-mensile";
 
 function TradesTab() {
   const { toast } = useToast();
@@ -276,11 +276,230 @@ function IdeasTab({ type }: { type: "idea" | "goal" }) {
   );
 }
 
+function RecapTab({ mode }: { mode: "week" | "month" }) {
+  const { data: entries, isLoading } = useGetJournalEntries();
+  const [offset, setOffset] = useState(0);
+
+  const periodInfo = useMemo(() => {
+    const base = mode === "week"
+      ? (offset === 0 ? new Date() : (offset > 0 ? addWeeks(new Date(), offset) : subWeeks(new Date(), Math.abs(offset))))
+      : (offset === 0 ? new Date() : (offset > 0 ? addMonths(new Date(), offset) : subMonths(new Date(), Math.abs(offset))));
+
+    const start = mode === "week"
+      ? startOfWeek(base, { weekStartsOn: 1 })
+      : startOfMonth(base);
+    const end = mode === "week"
+      ? endOfWeek(base, { weekStartsOn: 1 })
+      : endOfMonth(base);
+
+    const label = mode === "week"
+      ? `${format(start, "d MMM", { locale: it })} - ${format(end, "d MMM yyyy", { locale: it })}`
+      : format(start, "MMMM yyyy", { locale: it });
+
+    return { start, end, label };
+  }, [mode, offset]);
+
+  const stats = useMemo(() => {
+    if (!entries) return null;
+
+    const filtered = entries.filter((e) => {
+      const d = parseISO(e.tradeDate);
+      return isWithinInterval(d, { start: periodInfo.start, end: periodInfo.end });
+    });
+
+    const wins = filtered.filter((e) => e.result === "win").length;
+    const losses = filtered.filter((e) => e.result === "loss").length;
+    const breakevens = filtered.filter((e) => e.result === "breakeven").length;
+    const total = filtered.length;
+    const winRate = total > 0 ? Math.round((wins / total) * 100) : 0;
+
+    const tagMap = new Map<string, number>();
+    filtered.forEach((e) => {
+      if (e.tags) {
+        e.tags.split(",").forEach((t) => {
+          const tag = t.trim();
+          if (tag) tagMap.set(tag, (tagMap.get(tag) ?? 0) + 1);
+        });
+      }
+    });
+    const topTags = Array.from(tagMap.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5);
+
+    const dailyMap = new Map<string, { wins: number; losses: number; breakevens: number }>();
+    filtered.forEach((e) => {
+      const dayKey = format(parseISO(e.tradeDate), "EEE d", { locale: it });
+      const existing = dailyMap.get(dayKey) ?? { wins: 0, losses: 0, breakevens: 0 };
+      if (e.result === "win") existing.wins++;
+      else if (e.result === "loss") existing.losses++;
+      else existing.breakevens++;
+      dailyMap.set(dayKey, existing);
+    });
+
+    return { total, wins, losses, breakevens, winRate, topTags, dailyBreakdown: Array.from(dailyMap.entries()), trades: filtered };
+  }, [entries, periodInfo]);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="h-24 rounded-2xl bg-white/5 animate-pulse" />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <Button variant="ghost" size="icon" onClick={() => setOffset((o) => o - 1)} className="h-9 w-9">
+          <ChevronLeft className="w-5 h-5" />
+        </Button>
+        <h3 className="text-base sm:text-lg font-bold capitalize">{periodInfo.label}</h3>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setOffset((o) => o + 1)}
+          disabled={offset >= 0}
+          className="h-9 w-9"
+        >
+          <ChevronRight className="w-5 h-5" />
+        </Button>
+      </div>
+
+      {!stats || stats.total === 0 ? (
+        <Card className="border-dashed border-white/10">
+          <CardContent className="p-10 text-center">
+            <BarChart3 className="w-10 h-10 mx-auto mb-3 opacity-20" />
+            <p className="text-muted-foreground">Nessun trade in questo periodo.</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <StatCard label="Totale Trade" value={stats.total} icon={<BarChart3 className="w-4 h-4" />} color="text-foreground" />
+            <StatCard label="Win" value={stats.wins} icon={<TrendingUp className="w-4 h-4" />} color="text-green-400" />
+            <StatCard label="Loss" value={stats.losses} icon={<TrendingDown className="w-4 h-4" />} color="text-red-400" />
+            <StatCard label="Break Even" value={stats.breakevens} icon={<Minus className="w-4 h-4" />} color="text-yellow-400" />
+          </div>
+
+          <div className="rounded-2xl bg-card/60 backdrop-blur-sm border border-border/50 p-4 sm:p-6">
+            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3">Win Rate</p>
+            <div className="flex items-end gap-3">
+              <span className={`text-4xl sm:text-5xl font-mono font-bold ${stats.winRate >= 50 ? "text-green-400" : "text-red-400"}`}>
+                {stats.winRate}%
+              </span>
+              <span className="text-sm text-muted-foreground mb-1.5">
+                ({stats.wins}W / {stats.losses}L / {stats.breakevens}BE)
+              </span>
+            </div>
+            <div className="mt-3 h-3 rounded-full bg-secondary/40 overflow-hidden flex">
+              {stats.wins > 0 && (
+                <div
+                  className="h-full bg-green-500 transition-all duration-500"
+                  style={{ width: `${(stats.wins / stats.total) * 100}%` }}
+                />
+              )}
+              {stats.breakevens > 0 && (
+                <div
+                  className="h-full bg-yellow-500 transition-all duration-500"
+                  style={{ width: `${(stats.breakevens / stats.total) * 100}%` }}
+                />
+              )}
+              {stats.losses > 0 && (
+                <div
+                  className="h-full bg-red-500 transition-all duration-500"
+                  style={{ width: `${(stats.losses / stats.total) * 100}%` }}
+                />
+              )}
+            </div>
+          </div>
+
+          {stats.dailyBreakdown.length > 0 && (
+            <div className="rounded-2xl bg-card/60 backdrop-blur-sm border border-border/50 p-4 sm:p-6">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-4">Breakdown Giornaliero</p>
+              <div className="space-y-2.5">
+                {stats.dailyBreakdown.map(([day, data]) => {
+                  const dayTotal = data.wins + data.losses + data.breakevens;
+                  return (
+                    <div key={day} className="flex items-center gap-3">
+                      <span className="text-xs font-medium text-muted-foreground w-16 shrink-0 capitalize">{day}</span>
+                      <div className="flex-1 h-6 rounded-md bg-secondary/30 overflow-hidden flex">
+                        {data.wins > 0 && (
+                          <div
+                            className="h-full bg-green-500/80 flex items-center justify-center"
+                            style={{ width: `${(data.wins / dayTotal) * 100}%` }}
+                          >
+                            {data.wins > 0 && <span className="text-[10px] font-bold text-white">{data.wins}W</span>}
+                          </div>
+                        )}
+                        {data.breakevens > 0 && (
+                          <div
+                            className="h-full bg-yellow-500/80 flex items-center justify-center"
+                            style={{ width: `${(data.breakevens / dayTotal) * 100}%` }}
+                          >
+                            <span className="text-[10px] font-bold text-white">{data.breakevens}BE</span>
+                          </div>
+                        )}
+                        {data.losses > 0 && (
+                          <div
+                            className="h-full bg-red-500/80 flex items-center justify-center"
+                            style={{ width: `${(data.losses / dayTotal) * 100}%` }}
+                          >
+                            <span className="text-[10px] font-bold text-white">{data.losses}L</span>
+                          </div>
+                        )}
+                      </div>
+                      <span className="text-xs text-muted-foreground w-6 text-right">{dayTotal}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {stats.topTags.length > 0 && (
+            <div className="rounded-2xl bg-card/60 backdrop-blur-sm border border-border/50 p-4 sm:p-6">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3">Tag Più Usati</p>
+              <div className="flex flex-wrap gap-2">
+                {stats.topTags.map(([tag, count]) => (
+                  <span
+                    key={tag}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-medium border border-primary/20"
+                  >
+                    <Tag className="w-3 h-3" />
+                    {tag}
+                    <span className="bg-primary/20 px-1.5 py-0.5 rounded text-[10px] font-bold">{count}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function StatCard({ label, value, icon, color }: { label: string; value: number; icon: React.ReactNode; color: string }) {
+  return (
+    <div className="rounded-2xl bg-card/60 backdrop-blur-sm border border-border/50 p-4 text-center">
+      <div className={`flex items-center justify-center gap-1.5 mb-1 ${color}`}>
+        {icon}
+        <span className="text-[11px] uppercase tracking-wider font-medium text-muted-foreground">{label}</span>
+      </div>
+      <p className={`text-2xl sm:text-3xl font-mono font-bold ${color}`}>{value}</p>
+    </div>
+  );
+}
+
 export default function Journal() {
   const [tab, setTab] = useState<Tab>("trades");
 
   const tabs: { id: Tab; label: string; icon: typeof BookOpen }[] = [
     { id: "trades", label: "Trade", icon: BookOpen },
+    { id: "recap-settimanale", label: "Sett.", icon: BarChart3 },
+    { id: "recap-mensile", label: "Mese", icon: Calendar },
     { id: "idee", label: "Idee", icon: Lightbulb },
     { id: "obiettivi", label: "Obiettivi", icon: Target },
   ];
@@ -294,15 +513,14 @@ export default function Journal() {
         </div>
       </div>
 
-      {/* Tab Bar */}
-      <div className="flex items-center gap-1 bg-card/50 backdrop-blur-md p-1.5 rounded-xl border border-border w-fit">
+      <div className="flex items-center gap-1 bg-card/50 backdrop-blur-md p-1.5 rounded-xl border border-border w-fit overflow-x-auto">
         {tabs.map(t => {
           const Icon = t.icon;
           return (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+              className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 whitespace-nowrap ${
                 tab === t.id
                   ? "bg-primary/10 text-primary shadow-[inset_0_0_20px_rgba(34,197,94,0.1)]"
                   : "text-muted-foreground hover:text-foreground hover:bg-white/5"
@@ -324,6 +542,8 @@ export default function Journal() {
           transition={{ duration: 0.2 }}
         >
           {tab === "trades" && <TradesTab />}
+          {tab === "recap-settimanale" && <RecapTab mode="week" />}
+          {tab === "recap-mensile" && <RecapTab mode="month" />}
           {tab === "idee" && <IdeasTab type="idea" />}
           {tab === "obiettivi" && <IdeasTab type="goal" />}
         </motion.div>
