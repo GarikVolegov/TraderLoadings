@@ -3,8 +3,7 @@ import { Newspaper, TrendingUp, TrendingDown, Minus, RefreshCw, ExternalLink, Rs
 import { PageLayout } from "@/components/PageLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useGetMacroNews, getGetMacroNewsQueryKey } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import { it } from "date-fns/locale";
 
@@ -56,11 +55,23 @@ function TimeAgo({ iso }: { iso?: string | null }) {
 
 export default function News() {
   const qc = useQueryClient();
-  const { data, isLoading, isFetching } = useGetMacroNews();
-  const newsData = data as NewsData | undefined;
+  const { data, isLoading, isFetching, refetch } = useQuery<NewsData>({
+    queryKey: ["macro-news"],
+    queryFn: async () => {
+      const res = await fetch("api/news", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch news");
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+  const newsData = data;
 
-  const handleRefresh = () => {
-    qc.invalidateQueries({ queryKey: getGetMacroNewsQueryKey() });
+  const handleRefresh = async () => {
+    const res = await fetch("api/news?nocache=1", { credentials: "include" });
+    if (res.ok) {
+      const freshData = await res.json();
+      qc.setQueryData(["macro-news"], freshData);
+    }
   };
 
   const sourceLabel = newsData?.source === "ai" ? "Perplexity AI" : "RSS Feed in tempo reale";

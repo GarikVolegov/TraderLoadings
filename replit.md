@@ -22,7 +22,7 @@ Professional forex/stock trading web dashboard. pnpm workspace monorepo using Ty
 - **Dashboard**: Real-time clock with trading sessions (Asian/London/NY), lot-size calculator (formula: (€/pips)/11), daily missions with XP/levels
 - **Journal (Diario)**: Trade journal entries with images, plus Idee and Obiettivi tabs
 - **Checklist**: Customizable pre-trade checklist with progress tracking
-- **News**: Real-time macro news (gold/USD) via Perplexity API — requires `PERPLEXITY_API_KEY` secret
+- **News**: Real-time macro news (gold/USD/forex) via RSS feeds (Seeking Alpha, CNBC) with optional Perplexity AI enhancement. Server cache 10min, manual refresh bypasses cache.
 - **Settings**: Profile with XP/level, account auth (Replit Auth), binaural audio player (persistent background audio), customizable background image upload
 - **Auth**: Replit Auth (OIDC/PKCE) — sessions stored in DB `sessions` table
 
@@ -61,13 +61,13 @@ All mounted at `/api`:
 - `GET/POST /journal`, `GET/PUT/DELETE /journal/:id`, `POST /journal/:id/images`, `DELETE /journal/:id/images/:imageId`
 - `GET/POST /ideas`, `PUT/DELETE /ideas/:id`
 - `GET/POST /checklist`, `PUT/DELETE /checklist/:id`
-- `GET /news` — Perplexity AI macro news (cached 15 min)
+- `GET /news` — Macro news via RSS feeds (Seeking Alpha, CNBC) + optional Perplexity AI. Cached 10min, `?nocache=1` bypasses cache
 - `GET/PUT /settings`, `POST /settings/background`
 - `GET /auth/user`, `GET /login`, `GET /callback`, `GET /logout`
 
 ## Secrets Required
 
-- `PERPLEXITY_API_KEY` — Perplexity AI for macro news feature
+- `PERPLEXITY_API_KEY` — (optional) Perplexity AI for enhanced macro news. RSS feeds work without it.
 - `DATABASE_URL` — auto-provided by Replit
 - `REPL_ID` — auto-provided by Replit
 

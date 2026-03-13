@@ -53,7 +53,9 @@ export function ProfileWidget() {
     );
   }
 
-  const progressPercentage = Math.min(100, (profile.xp / profile.xpToNextLevel) * 100);
+  const XP_PER_LEVEL = 500;
+  const xpIntoLevel = profile.xp % XP_PER_LEVEL;
+  const progressPercentage = Math.min(100, (xpIntoLevel / XP_PER_LEVEL) * 100);
 
   return (
     <>
@@ -102,8 +104,8 @@ export function ProfileWidget() {
                 <Hexagon className="w-4 h-4" /> Esperienza (XP)
               </span>
               <span className="font-mono font-bold">
-                <span className="text-primary">{profile.xp}</span> 
-                <span className="text-muted-foreground"> / {profile.xpToNextLevel}</span>
+                <span className="text-primary">{xpIntoLevel}</span> 
+                <span className="text-muted-foreground"> / {XP_PER_LEVEL}</span>
               </span>
             </div>
             
@@ -118,7 +120,7 @@ export function ProfileWidget() {
               </motion.div>
             </div>
             <p className="text-xs text-muted-foreground text-right font-mono">
-              {profile.xpToNextLevel - profile.xp} XP al prossimo livello
+              {profile.xpToNextLevel} XP al prossimo livello
             </p>
           </div>
         </CardContent>

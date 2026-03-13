@@ -15,11 +15,9 @@ let cache: { data: unknown; ts: number } | null = null;
 const CACHE_TTL = 10 * 60 * 1000; // 10 min
 
 function extractCDATA(block: string, tag: string): string {
-  return (
-    block.match(new RegExp(`<${tag}><!\[CDATA\[([\\s\\S]*?)\]\]><\/${tag}>`))?.[1] ||
-    block.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\/${tag}>`))?.[1] ||
-    ""
-  );
+  const cdataRe = new RegExp(`<${tag}><!\\[CDATA\\[([\\s\\S]*?)\\]\\]><\\/${tag}>`);
+  const plainRe = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`);
+  return cdataRe.exec(block)?.[1] || plainRe.exec(block)?.[1] || "";
 }
 
 function decodeHtml(str: string): string {
@@ -78,7 +76,7 @@ async function fetchFeed(url: string, sourceName: string): Promise<NewsArticle[]
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const xml = await res.text();
-  if (xml.trim().startsWith("<!DOCTYPE") || xml.includes("<html")) {
+  if (xml.trim().startsWith("<!DOCTYPE") || xml.trim().startsWith("<html")) {
     throw new Error("Received HTML instead of RSS");
   }
   return parseRSS(xml, sourceName);
@@ -87,15 +85,20 @@ async function fetchFeed(url: string, sourceName: string): Promise<NewsArticle[]
 async function fetchRSSNews(): Promise<NewsArticle[]> {
   const feeds = [
     { url: "https://seekingalpha.com/tag/gold.xml", source: "Seeking Alpha – Gold" },
-    { url: "https://seekingalpha.com/tag/us-dollar.xml", source: "Seeking Alpha – USD" },
+    { url: "https://seekingalpha.com/tag/forex.xml", source: "Seeking Alpha – Forex" },
     { url: "https://www.cnbc.com/id/20409666/device/rss/rss.html", source: "CNBC Markets" },
     { url: "https://www.cnbc.com/id/15839135/device/rss/rss.html", source: "CNBC Finance" },
   ];
 
   const results = await Promise.allSettled(feeds.map((f) => fetchFeed(f.url, f.source)));
   const all: NewsArticle[] = [];
-  for (const r of results) {
-    if (r.status === "fulfilled") all.push(...r.value);
+  for (let i = 0; i < results.length; i++) {
+    const r = results[i];
+    if (r.status === "fulfilled") {
+      all.push(...r.value);
+    } else {
+      console.error(`[news] Feed ${feeds[i].source} failed:`, r.reason);
+    }
   }
 
   // Filter only relevant articles about gold, dollar, macro, forex
@@ -161,8 +164,9 @@ Return ONLY this JSON (no markdown): {"articles":[{"title":"...","summary":"2-3 
   }
 }
 
-router.get("/news", async (_req, res) => {
-  if (cache && Date.now() - cache.ts < CACHE_TTL) {
+router.get("/news", async (req, res) => {
+  const noCache = req.query.nocache === "1";
+  if (!noCache && cache && Date.now() - cache.ts < CACHE_TTL) {
     res.json(cache.data);
     return;
   }
@@ -171,7 +175,6 @@ router.get("/news", async (_req, res) => {
   let articles: NewsArticle[] = [];
   let source: "ai" | "rss" = "rss";
 
-  // Try Perplexity AI first
   if (apiKey) {
     const aiArticles = await tryPerplexity(apiKey);
     if (aiArticles && aiArticles.length > 0) {
@@ -180,12 +183,11 @@ router.get("/news", async (_req, res) => {
     }
   }
 
-  // Fall back to RSS feeds
   if (source !== "ai") {
     try {
       articles = await fetchRSSNews();
-    } catch (err) {
-      console.error("RSS fetch error:", err);
+    } catch {
+      articles = [];
     }
   }
 
