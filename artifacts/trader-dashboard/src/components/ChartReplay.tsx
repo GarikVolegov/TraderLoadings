@@ -1,8 +1,12 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import {
   createChart,
+  createSeriesMarkers,
+  candlestickSeries as CandlestickSeriesDef,
+  lineSeries as LineSeriesDef,
   type IChartApi,
   type ISeriesApi,
+  type ISeriesMarkersPluginApi,
   type CandlestickData,
   type Time,
   ColorType,
@@ -55,6 +59,7 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const slLineRef = useRef<ISeriesApi<"Line"> | null>(null);
   const tpLineRef = useRef<ISeriesApi<"Line"> | null>(null);
+  const markersRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
 
   const [activeInterval, setActiveInterval] = useState(initialInterval);
   const [allCandles, setAllCandles] = useState<CandlestickData<Time>[]>([]);
@@ -167,7 +172,7 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
   }, [allCandles]);
 
   useEffect(() => {
-    if (!chartContainerRef.current) return;
+    if (!chartContainerRef.current || loading) return;
 
     const chart = createChart(chartContainerRef.current, {
       layout: {
@@ -197,7 +202,7 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
       handleScroll: { vertTouchDrag: false },
     });
 
-    const candleSeries = chart.addCandlestickSeries({
+    const candleSeries = chart.addSeries(CandlestickSeriesDef, {
       upColor: "#10b981",
       downColor: "#ef4444",
       borderUpColor: "#10b981",
@@ -206,7 +211,9 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
       wickDownColor: "#ef4444",
     });
 
-    const slLine = chart.addLineSeries({
+    const seriesMarkers = createSeriesMarkers(candleSeries);
+
+    const slLine = chart.addSeries(LineSeriesDef, {
       color: "#ef4444",
       lineWidth: 1,
       lineStyle: 2,
@@ -215,7 +222,7 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
       lastValueVisible: false,
     });
 
-    const tpLine = chart.addLineSeries({
+    const tpLine = chart.addSeries(LineSeriesDef, {
       color: "#10b981",
       lineWidth: 1,
       lineStyle: 2,
@@ -228,6 +235,7 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
     candleSeriesRef.current = candleSeries;
     slLineRef.current = slLine;
     tpLineRef.current = tpLine;
+    markersRef.current = seriesMarkers;
 
     const handleResize = () => {
       if (chartContainerRef.current) {
@@ -243,8 +251,9 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
       candleSeriesRef.current = null;
       slLineRef.current = null;
       tpLineRef.current = null;
+      markersRef.current = null;
     };
-  }, []);
+  }, [loading]);
 
   useEffect(() => {
     if (!candleSeriesRef.current || visibleCandles.length === 0) return;
@@ -277,7 +286,7 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
     }
 
     markers.sort((a, b) => (a.time as number) - (b.time as number));
-    candleSeriesRef.current.setMarkers(markers);
+    markersRef.current?.setMarkers(markers);
 
     if (openTrade && slLineRef.current && tpLineRef.current) {
       const first = visibleCandles[0];
@@ -492,24 +501,6 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
 
   const progress = replayCandles.length > 0 ? Math.round((revealedCount / replayCandles.length) * 100) : 0;
 
-  if (loading) {
-    return (
-      <div className="rounded-2xl bg-card/60 border border-border/50 p-8 text-center">
-        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-        <p className="text-sm text-muted-foreground">Caricamento dati {symbol} {activeInterval}...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="rounded-2xl bg-card/60 border border-red-500/30 p-8 text-center">
-        <p className="text-red-400 text-sm mb-2">Errore: {error}</p>
-        <p className="text-xs text-muted-foreground">Verifica che il simbolo sia supportato.</p>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-3">
       <div className="rounded-2xl bg-card/60 backdrop-blur-sm border border-border/50 overflow-hidden">
@@ -518,13 +509,15 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
             <div className="flex items-center gap-2">
               <span className="text-xs font-mono font-bold text-primary">{symbol}</span>
               <span className="text-[10px] text-muted-foreground">{activeInterval}</span>
-              <span className="text-[10px] text-muted-foreground">
-                {revealedCount}/{replayCandles.length}
-              </span>
+              {!loading && (
+                <span className="text-[10px] text-muted-foreground">
+                  {revealedCount}/{replayCandles.length}
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] text-muted-foreground">{currentDate}</span>
-              <span className="text-xs font-mono font-bold">{currentPrice.toFixed(5)}</span>
+              {!loading && <span className="text-[10px] text-muted-foreground">{currentDate}</span>}
+              {!loading && <span className="text-xs font-mono font-bold">{currentPrice.toFixed(5)}</span>}
               <button
                 onClick={() => setShowDatePicker(!showDatePicker)}
                 className={`p-1 rounded hover:bg-white/5 ${showDatePicker ? "text-primary" : "text-muted-foreground"}`}
@@ -582,13 +575,27 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
           </div>
         )}
 
-        <div
-          ref={chartContainerRef}
-          className="w-full"
-          style={{ height: "clamp(280px, 45vh, 500px)" }}
-        />
+        <div className="relative" style={{ height: "clamp(280px, 45vh, 500px)" }}>
+          {loading && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center z-10">
+              <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mb-3" />
+              <p className="text-sm text-muted-foreground">Caricamento {symbol} {activeInterval}...</p>
+            </div>
+          )}
+          {error && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center z-10">
+              <p className="text-red-400 text-sm mb-2">Errore: {error}</p>
+              <p className="text-xs text-muted-foreground">Verifica che il simbolo sia supportato.</p>
+            </div>
+          )}
+          <div
+            ref={chartContainerRef}
+            className="w-full h-full"
+            style={{ visibility: loading || error ? "hidden" : "visible" }}
+          />
+        </div>
 
-        <div className="px-3 py-2 border-t border-border/30">
+        {!loading && !error && <div className="px-3 py-2 border-t border-border/30">
           <div className="h-1 rounded-full bg-secondary/40 overflow-hidden mb-2">
             <div
               className="h-full bg-primary/60 transition-all duration-200"
@@ -662,10 +669,10 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
               <RotateCcw className="w-3.5 h-3.5" />
             </Button>
           </div>
-        </div>
+        </div>}
       </div>
 
-      <div className="flex gap-2">
+      {!loading && !error && <div className="flex gap-2">
         <Button
           onClick={handleBuy}
           disabled={!!openTrade || isPlaying}
@@ -682,7 +689,7 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
           <TrendingDown className="w-4 h-4 mr-2" />
           SELL
         </Button>
-      </div>
+      </div>}
 
       {openTrade && (
         <div className="rounded-2xl bg-card/60 backdrop-blur-sm border border-primary/30 p-3 space-y-3">
