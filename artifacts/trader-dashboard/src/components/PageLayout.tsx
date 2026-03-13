@@ -1,6 +1,7 @@
 import { type ReactNode } from "react";
 import { useBackground } from "@/contexts/BackgroundContext";
 import { TopNav } from "./TopNav";
+import { BottomNav } from "./BottomNav";
 
 interface PageLayoutProps {
   children: ReactNode;
@@ -10,7 +11,7 @@ export function PageLayout({ children }: PageLayoutProps) {
   const { backgroundUrl, darkness } = useBackground();
 
   return (
-    <div className="min-h-screen relative bg-background pb-6 sm:pb-12">
+    <div className="min-h-screen relative bg-background pb-20">
       <div className="fixed inset-0 z-0 pointer-events-none select-none">
         {backgroundUrl ? (
           <img
@@ -33,10 +34,11 @@ export function PageLayout({ children }: PageLayoutProps) {
           />
         )}
       </div>
-      <div className="relative z-10 max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-4 sm:pt-8 space-y-4 sm:space-y-8">
+      <div className="relative z-10 max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-2 sm:pt-4 space-y-4 sm:space-y-6">
         <TopNav />
         {children}
       </div>
+      <BottomNav />
     </div>
   );
 }

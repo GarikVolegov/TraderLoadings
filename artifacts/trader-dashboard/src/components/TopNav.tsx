@@ -1,126 +1,76 @@
-import { Link, useRoute } from "wouter";
+import { Link } from "wouter";
 import { motion } from "framer-motion";
-import { LayoutDashboard, BookOpen, Settings, CheckSquare, Newspaper, Volume2, VolumeX, MessageCircle } from "lucide-react";
+import { Settings, Volume2, VolumeX } from "lucide-react";
 import { useAudio } from "@/contexts/AudioContext";
-import { useGetUnreadCount } from "@workspace/api-client-react";
+import { useGetEconomicCalendar } from "@workspace/api-client-react";
+import { useMemo } from "react";
 
 export function TopNav() {
-  const [isDash] = useRoute("/");
-  const [isJournal] = useRoute("/journal");
-  const [isChecklist] = useRoute("/checklist");
-  const [isNews] = useRoute("/news");
-  const [isChat] = useRoute("/chat");
-  const [isSettings] = useRoute("/settings");
   const { mode, setMode } = useAudio();
-  const { data: unreadData } = useGetUnreadCount({ query: { refetchInterval: 5000 } });
-  const unreadCount = unreadData?.count ?? 0;
-
   const isPlaying = mode !== "off";
+
+  const { data: events } = useGetEconomicCalendar({});
+
+  const tickerItems = useMemo(() => {
+    if (!events || events.length === 0) return [];
+    return events
+      .filter((e) => e.impact === "High" || e.impact === "Medium")
+      .slice(0, 10)
+      .map((e) => {
+        const flag = e.country === "USD" ? "🇺🇸" : e.country === "EUR" ? "🇪🇺" : e.country === "GBP" ? "🇬🇧" : e.country === "JPY" ? "🇯🇵" : "📊";
+        return `${flag} ${e.country}: ${e.title}`;
+      });
+  }, [events]);
 
   return (
     <motion.header
-      initial={{ opacity: 0, y: -20 }}
+      initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4"
+      className="flex items-center gap-2 h-10"
     >
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 bg-primary/20 rounded-xl border border-primary/50 flex items-center justify-center">
-          <div className="w-4 h-4 bg-primary rounded-sm rotate-45 shadow-[0_0_10px_rgba(34,197,94,0.8)]" />
-        </div>
-        <h1 className="text-2xl font-bold font-mono tracking-tight bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">
-          Trader<span className="text-primary">Loading</span>
-        </h1>
+      <div className="flex-1 min-w-0 overflow-hidden relative">
+        {tickerItems.length > 0 ? (
+          <div className="overflow-hidden whitespace-nowrap mask-fade">
+            <div className="inline-flex animate-marquee gap-8">
+              {tickerItems.map((item, i) => (
+                <span key={i} className="text-xs text-muted-foreground font-medium">
+                  {item}
+                </span>
+              ))}
+              {tickerItems.map((item, i) => (
+                <span key={`dup-${i}`} className="text-xs text-muted-foreground font-medium">
+                  {item}
+                </span>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <span className="text-xs text-muted-foreground">Caricamento news...</span>
+        )}
       </div>
 
-      <div className="flex items-center gap-2">
-        {/* Audio indicator */}
-        <button
-          onClick={() => setMode(isPlaying ? "off" : "deepfocus")}
-          className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-            isPlaying
-              ? "bg-primary/20 text-primary border border-primary/40"
-              : "bg-card/50 text-muted-foreground border border-border hover:border-primary/30"
-          }`}
-          title={isPlaying ? `${mode === "alpha" ? "Rilassamento" : "Focus"} attivo` : "Audio off"}
-        >
-          {isPlaying ? <Volume2 className="w-3.5 h-3.5 animate-pulse" /> : <VolumeX className="w-3.5 h-3.5" />}
-          {isPlaying ? (mode === "alpha" ? "Relax" : "Focus") : "Audio"}
-        </button>
+      <h1 className="text-sm font-bold font-mono tracking-widest whitespace-nowrap bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">
+        TRADER<span className="text-primary">LOADING</span>
+      </h1>
 
-        <nav className="flex items-center gap-0.5 sm:gap-1 bg-card/50 backdrop-blur-md p-1 sm:p-1.5 rounded-xl border border-border">
-          <Link
-            href="/"
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-              isDash
-                ? "bg-primary/10 text-primary shadow-[inset_0_0_20px_rgba(34,197,94,0.1)]"
-                : "text-muted-foreground hover:text-foreground hover:bg-white/5"
-            }`}
-          >
-            <LayoutDashboard className="w-4 h-4" />
-            <span className="hidden sm:inline">Dashboard</span>
-          </Link>
-          <Link
-            href="/journal"
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-              isJournal
-                ? "bg-primary/10 text-primary shadow-[inset_0_0_20px_rgba(34,197,94,0.1)]"
-                : "text-muted-foreground hover:text-foreground hover:bg-white/5"
-            }`}
-          >
-            <BookOpen className="w-4 h-4" />
-            <span className="hidden sm:inline">Diario</span>
-          </Link>
-          <Link
-            href="/checklist"
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-              isChecklist
-                ? "bg-primary/10 text-primary shadow-[inset_0_0_20px_rgba(34,197,94,0.1)]"
-                : "text-muted-foreground hover:text-foreground hover:bg-white/5"
-            }`}
-          >
-            <CheckSquare className="w-4 h-4" />
-            <span className="hidden sm:inline">Checklist</span>
-          </Link>
-          <Link
-            href="/news"
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-              isNews
-                ? "bg-primary/10 text-primary shadow-[inset_0_0_20px_rgba(34,197,94,0.1)]"
-                : "text-muted-foreground hover:text-foreground hover:bg-white/5"
-            }`}
-          >
-            <Newspaper className="w-4 h-4" />
-            <span className="hidden sm:inline">News</span>
-          </Link>
-          <Link
-            href="/chat"
-            className={`relative flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-              isChat
-                ? "bg-primary/10 text-primary shadow-[inset_0_0_20px_rgba(34,197,94,0.1)]"
-                : "text-muted-foreground hover:text-foreground hover:bg-white/5"
-            }`}
-          >
-            <MessageCircle className="w-4 h-4" />
-            <span className="hidden sm:inline">Chat</span>
-            {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full px-1">
-                {unreadCount > 99 ? "99+" : unreadCount}
-              </span>
-            )}
-          </Link>
-          <Link
-            href="/settings"
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-              isSettings
-                ? "bg-primary/10 text-primary shadow-[inset_0_0_20px_rgba(34,197,94,0.1)]"
-                : "text-muted-foreground hover:text-foreground hover:bg-white/5"
-            }`}
-          >
-            <Settings className="w-4 h-4" />
-            <span className="hidden sm:inline">Impostazioni</span>
-          </Link>
-        </nav>
-      </div>
+      <button
+        onClick={() => setMode(isPlaying ? "off" : "deepfocus")}
+        className={`flex items-center justify-center w-8 h-8 rounded-lg transition-all shrink-0 ${
+          isPlaying
+            ? "bg-primary/20 text-primary border border-primary/40"
+            : "bg-card/50 text-muted-foreground border border-border hover:border-primary/30"
+        }`}
+        title={isPlaying ? `${mode === "alpha" ? "Rilassamento" : "Focus"} attivo` : "Audio off"}
+      >
+        {isPlaying ? <Volume2 className="w-3.5 h-3.5 animate-pulse" /> : <VolumeX className="w-3.5 h-3.5" />}
+      </button>
+
+      <Link
+        href="/settings"
+        className="flex items-center justify-center w-8 h-8 rounded-lg bg-card/50 text-muted-foreground border border-border hover:border-primary/30 hover:text-foreground transition-all shrink-0"
+      >
+        <Settings className="w-4 h-4" />
+      </Link>
     </motion.header>
   );
 }

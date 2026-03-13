@@ -133,4 +133,16 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+  .animate-marquee {
+    animation: marquee 30s linear infinite;
+  }
+  .mask-fade {
+    mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%);
+  }
+}
+
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
 }
