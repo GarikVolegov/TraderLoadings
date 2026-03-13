@@ -75,14 +75,14 @@ export function MissionsWidget() {
 
   return (
     <Card className="h-full relative overflow-hidden">
-      <CardHeader className="flex flex-row items-center justify-between pb-4 border-b border-border/50 bg-secondary/10">
-        <CardTitle className="flex items-center gap-2">
-          <Target className="w-5 h-5 text-accent" />
+      <CardHeader className="flex flex-row items-center justify-between pb-3 sm:pb-4 px-3 sm:px-6 pt-3 sm:pt-6 border-b border-border/50 bg-secondary/10">
+        <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+          <Target className="w-4 h-4 sm:w-5 sm:h-5 text-accent" />
           Missioni Giornaliere
         </CardTitle>
-        <div className="flex items-center gap-2 bg-primary/10 px-3 py-1.5 rounded-full border border-primary/20">
-          <Zap className="w-4 h-4 text-primary" />
-          <span className="text-sm font-bold text-primary font-mono">+{totalEarnedXp} XP Oggi</span>
+        <div className="flex items-center gap-1.5 sm:gap-2 bg-primary/10 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full border border-primary/20">
+          <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />
+          <span className="text-xs sm:text-sm font-bold text-primary font-mono">+{totalEarnedXp} XP</span>
         </div>
       </CardHeader>
       
@@ -103,18 +103,18 @@ export function MissionsWidget() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: idx * 0.1 }}
                 key={mission.id} 
-                className={`p-4 md:p-6 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between transition-colors hover:bg-secondary/20 ${mission.completed ? 'opacity-60 grayscale' : ''}`}
+                className={`p-3 sm:p-4 md:p-6 flex flex-col sm:flex-row gap-3 sm:gap-4 items-start sm:items-center justify-between transition-colors hover:bg-secondary/20 ${mission.completed ? 'opacity-60 grayscale' : ''}`}
               >
-                <div className="flex items-start gap-4">
-                  <div className="mt-1">
+                <div className="flex items-start gap-3 sm:gap-4">
+                  <div className="mt-0.5 sm:mt-1">
                     {mission.completed ? (
-                      <CheckCircle2 className="w-6 h-6 text-primary" />
+                      <CheckCircle2 className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
                     ) : (
-                      <Circle className="w-6 h-6 text-muted-foreground" />
+                      <Circle className="w-5 h-5 sm:w-6 sm:h-6 text-muted-foreground" />
                     )}
                   </div>
                   <div>
-                    <h4 className={`text-lg font-semibold ${mission.completed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
+                    <h4 className={`text-base sm:text-lg font-semibold ${mission.completed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
                       {mission.title}
                     </h4>
                     <p className="text-sm text-muted-foreground mt-1 max-w-xl">

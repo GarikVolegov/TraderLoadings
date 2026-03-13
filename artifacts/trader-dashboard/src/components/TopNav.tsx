@@ -17,7 +17,7 @@ export function TopNav() {
     <motion.header
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+      className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4"
     >
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 bg-primary/20 rounded-xl border border-primary/50 flex items-center justify-center">
@@ -43,7 +43,7 @@ export function TopNav() {
           {isPlaying ? (mode === "alpha" ? "Relax" : "Focus") : "Audio"}
         </button>
 
-        <nav className="flex items-center gap-1 bg-card/50 backdrop-blur-md p-1.5 rounded-xl border border-border">
+        <nav className="flex items-center gap-0.5 sm:gap-1 bg-card/50 backdrop-blur-md p-1 sm:p-1.5 rounded-xl border border-border">
           <Link
             href="/"
             className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${

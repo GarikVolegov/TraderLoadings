@@ -66,7 +66,7 @@ export default function Checklist() {
     <PageLayout>
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold font-mono">Checklist Pre-Trade</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold font-mono">Checklist Pre-Trade</h2>
           <p className="text-muted-foreground mt-1">Verifica ogni passaggio prima di entrare in trade.</p>
         </div>
         {total > 0 && (
@@ -100,10 +100,10 @@ export default function Checklist() {
             Aggiungi Voce
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="flex gap-3">
+        <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+          <div className="flex gap-2 sm:gap-3">
             <Input
-              placeholder="es. Ho controllato le news macroeconomiche..."
+              placeholder="es. Ho controllato le news..."
               value={newText}
               onChange={(e) => setNewText(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleAdd()}
@@ -111,7 +111,7 @@ export default function Checklist() {
             />
             <Button onClick={handleAdd} disabled={!newText.trim() || createMutation.isPending}>
               <Plus className="w-4 h-4 mr-1" />
-              Aggiungi
+              <span className="hidden sm:inline">Aggiungi</span>
             </Button>
           </div>
         </CardContent>

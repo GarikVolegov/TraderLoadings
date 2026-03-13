@@ -62,12 +62,12 @@ export function ProfileWidget() {
       <Card className="h-full relative overflow-hidden group">
         <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-[80px] pointer-events-none" />
         
-        <CardContent className="p-6 md:p-8 relative z-10 flex flex-col h-full justify-between">
+        <CardContent className="p-4 sm:p-6 md:p-8 relative z-10 flex flex-col h-full justify-between">
           <div className="flex items-start justify-between">
-            <div className="flex items-center gap-5">
+            <div className="flex items-center gap-3 sm:gap-5">
               <div className="relative">
                 <div className="absolute inset-0 bg-primary/20 blur-md rounded-full" />
-                <div className="w-20 h-20 rounded-full border-2 border-primary/50 overflow-hidden relative z-10 bg-secondary">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full border-2 border-primary/50 overflow-hidden relative z-10 bg-secondary">
                   {profile.avatarUrl ? (
                     <img src={profile.avatarUrl} alt={profile.name} className="w-full h-full object-cover" />
                   ) : (
@@ -80,7 +80,7 @@ export function ProfileWidget() {
               </div>
               
               <div>
-                <h2 className="text-2xl font-bold text-foreground font-mono flex items-center gap-2">
+                <h2 className="text-xl sm:text-2xl font-bold text-foreground font-mono flex items-center gap-2">
                   {profile.name}
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={handleOpenEdit}>
                     <Edit2 className="w-4 h-4" />
@@ -98,7 +98,7 @@ export function ProfileWidget() {
             </div>
           </div>
           
-          <div className="mt-8 space-y-3">
+          <div className="mt-4 sm:mt-8 space-y-2 sm:space-y-3">
             <div className="flex justify-between items-end text-sm">
               <span className="font-medium text-muted-foreground flex items-center gap-1">
                 <Hexagon className="w-4 h-4" /> Esperienza (XP)

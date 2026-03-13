@@ -81,7 +81,7 @@ export default function News() {
     <PageLayout>
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold font-mono">Notizie Macro</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold font-mono">Notizie Macro</h2>
           <p className="text-muted-foreground mt-1">News su oro (XAU) e dollaro (USD) in tempo reale.</p>
         </div>
         <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isFetching}>
@@ -119,7 +119,7 @@ export default function News() {
                 transition={{ delay: idx * 0.07 }}
               >
                 <Card className="glass-card hover:border-primary/40 transition-all duration-200 group">
-                  <CardContent className="p-5">
+                  <CardContent className="p-3 sm:p-5">
                     <div className="flex items-start justify-between gap-4 mb-2">
                       <h3 className="font-bold text-base leading-snug group-hover:text-primary transition-colors flex-1">
                         {article.url ? (

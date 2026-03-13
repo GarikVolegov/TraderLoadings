@@ -54,7 +54,7 @@ function TradesTab() {
 
   return (
     <>
-      <div className="flex justify-end mb-6">
+      <div className="flex justify-end mb-4 sm:mb-6">
         <Button onClick={() => { setEditingEntry(null); setIsModalOpen(true); }}>
           <Plus className="w-4 h-4 mr-2" />
           Nuovo Trade
@@ -62,13 +62,13 @@ function TradesTab() {
       </div>
 
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {[1, 2, 3].map(i => (
             <div key={i} className="glass-card h-64 rounded-2xl animate-pulse bg-white/5" />
           ))}
         </div>
       ) : entries && entries.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           <AnimatePresence>
             {entries
               .sort((a, b) => new Date(b.tradeDate).getTime() - new Date(a.tradeDate).getTime())
@@ -81,7 +81,7 @@ function TradesTab() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95 }}
                     transition={{ delay: idx * 0.05 }}
-                    className="glass-card rounded-2xl p-5 flex flex-col group hover:border-primary/50 transition-colors"
+                    className="glass-card rounded-2xl p-3 sm:p-5 flex flex-col group hover:border-primary/50 transition-colors"
                   >
                     <div className="flex justify-between items-start mb-3">
                       <div className="flex items-center gap-2 text-sm text-muted-foreground font-medium">
@@ -289,7 +289,7 @@ export default function Journal() {
     <PageLayout>
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold font-mono">Diario</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold font-mono">Diario</h2>
           <p className="text-muted-foreground mt-1">Registra trade, idee e obiettivi di trading.</p>
         </div>
       </div>

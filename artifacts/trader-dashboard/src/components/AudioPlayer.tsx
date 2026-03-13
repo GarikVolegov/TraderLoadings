@@ -9,10 +9,10 @@ export function AudioPlayer() {
   const { mode, volume, setMode, setVolume } = useAudio();
 
   return (
-    <Card className="p-5 border-primary/20 bg-card/50 backdrop-blur-sm">
-      <div className="flex items-center gap-3 mb-5">
-        <Volume2 className="w-5 h-5 text-primary" />
-        <h3 className="text-lg font-semibold">Audio Binaural</h3>
+    <Card className="p-3 sm:p-5 border-primary/20 bg-card/50 backdrop-blur-sm">
+      <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-5">
+        <Volume2 className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+        <h3 className="text-base sm:text-lg font-semibold">Audio Binaural</h3>
         {mode !== "off" && (
           <span className="ml-auto text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full border border-primary/30 animate-pulse">
             {AUDIO_MODES[mode].label} attivo
@@ -20,7 +20,7 @@ export function AudioPlayer() {
         )}
       </div>
 
-      <div className="grid grid-cols-3 gap-2 mb-4">
+      <div className="grid grid-cols-3 gap-1.5 sm:gap-2 mb-3 sm:mb-4">
         {MODE_KEYS.map(id => {
           const cfg = AUDIO_MODES[id];
           const active = mode === id;
@@ -30,7 +30,7 @@ export function AudioPlayer() {
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
               onClick={() => setMode(active ? "off" : id)}
-              className={`px-2 py-2.5 rounded-lg font-medium text-sm transition-all flex flex-col items-center gap-0.5 ${
+              className={`px-1.5 sm:px-2 py-2 sm:py-2.5 rounded-lg font-medium text-xs sm:text-sm transition-all flex flex-col items-center gap-0.5 ${
                 active
                   ? "bg-primary/20 text-primary border border-primary/40"
                   : "bg-card border border-border hover:border-primary/30 text-foreground"
@@ -50,13 +50,13 @@ export function AudioPlayer() {
           whileHover={{ scale: 1.03 }}
           whileTap={{ scale: 0.97 }}
           onClick={() => setMode("off")}
-          className={`px-2 py-2.5 rounded-lg font-medium text-sm transition-all flex flex-col items-center justify-center gap-1 ${
+          className={`px-1.5 sm:px-2 py-2 sm:py-2.5 rounded-lg font-medium text-xs sm:text-sm transition-all flex flex-col items-center justify-center gap-1 ${
             mode === "off"
               ? "bg-destructive/20 text-destructive border border-destructive/40"
               : "bg-card border border-border hover:border-destructive/30 text-foreground"
           }`}
         >
-          <VolumeX className="w-5 h-5" />
+          <VolumeX className="w-4 h-4 sm:w-5 sm:h-5" />
           <span>Stop</span>
         </motion.button>
       </div>

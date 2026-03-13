@@ -26,10 +26,10 @@ export function LotCalculatorWidget() {
         </CardTitle>
       </CardHeader>
 
-      <CardContent className="space-y-5">
-        <div className="space-y-3">
+      <CardContent className="space-y-3 sm:space-y-5 px-3 sm:px-6 pb-3 sm:pb-6">
+        <div className="space-y-2 sm:space-y-3">
           <div>
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider block mb-1.5">
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider block mb-1">
               Rischio (€)
             </label>
             <Input
@@ -37,12 +37,12 @@ export function LotCalculatorWidget() {
               placeholder="es. 100"
               value={riskEuro}
               onChange={(e) => setRiskEuro(e.target.value)}
-              className="text-lg"
+              className="text-base sm:text-lg"
             />
           </div>
 
           <div>
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider block mb-1.5">
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider block mb-1">
               Stop Loss (pips)
             </label>
             <Input
@@ -50,14 +50,14 @@ export function LotCalculatorWidget() {
               placeholder="es. 15"
               value={stopLossPips}
               onChange={(e) => setStopLossPips(e.target.value)}
-              className="text-lg"
+              className="text-base sm:text-lg"
             />
           </div>
         </div>
 
-        <div className="rounded-xl border border-border bg-background/50 p-5 text-center">
+        <div className="rounded-xl border border-border bg-background/50 p-3 sm:p-5 text-center">
           <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">Lottaggio</p>
-          <div className="text-5xl font-mono font-bold">
+          <div className="text-4xl sm:text-5xl font-mono font-bold">
             {lotSize ?? "0.00"}
           </div>
           <p className="text-xs text-muted-foreground/60 font-mono mt-1">(€ / pips) / 11</p>

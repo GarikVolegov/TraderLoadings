@@ -10,7 +10,7 @@ export function PageLayout({ children }: PageLayoutProps) {
   const { backgroundUrl, darkness } = useBackground();
 
   return (
-    <div className="min-h-screen relative bg-background pb-12">
+    <div className="min-h-screen relative bg-background pb-6 sm:pb-12">
       <div className="fixed inset-0 z-0 pointer-events-none select-none">
         {backgroundUrl ? (
           <img
@@ -33,7 +33,7 @@ export function PageLayout({ children }: PageLayoutProps) {
           />
         )}
       </div>
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 space-y-8">
+      <div className="relative z-10 max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-4 sm:pt-8 space-y-4 sm:space-y-8">
         <TopNav />
         {children}
       </div>

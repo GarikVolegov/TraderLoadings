@@ -286,7 +286,7 @@ export default function Settings() {
 
   return (
     <PageLayout>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
           <ProfileWidget />
         </motion.div>
@@ -319,7 +319,7 @@ export default function Settings() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.35 }}
-          className="mt-8"
+          className="mt-4 sm:mt-8"
         >
           <Button
             onClick={logout}

@@ -82,47 +82,47 @@ export function ClockWidget() {
         <div className="w-64 h-64 rounded-full bg-primary blur-[100px]" />
       </div>
       
-      <CardContent className="p-6 md:p-8">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-8">
+      <CardContent className="p-3 sm:p-6 md:p-8">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4 sm:gap-8">
           {/* Digital Clock */}
           <div className="flex flex-col items-center md:items-start z-10">
-            <p className="text-muted-foreground font-medium mb-1 uppercase tracking-widest text-sm">Tempo Locale</p>
-            <div className="text-6xl md:text-7xl font-mono font-bold tracking-tighter text-foreground drop-shadow-[0_0_10px_rgba(255,255,255,0.1)]">
+            <p className="text-muted-foreground font-medium mb-0.5 sm:mb-1 uppercase tracking-widest text-xs sm:text-sm">Tempo Locale</p>
+            <div className="text-5xl sm:text-6xl md:text-7xl font-mono font-bold tracking-tighter text-foreground drop-shadow-[0_0_10px_rgba(255,255,255,0.1)]">
               {format(time, "HH:mm:ss")}
             </div>
-            <p className="text-primary/80 mt-2 font-mono font-medium">
+            <p className="text-primary/80 mt-1 sm:mt-2 font-mono font-medium text-sm">
               UTC: {format(new Date(time.getTime() + time.getTimezoneOffset() * 60000), "HH:mm:ss")}
             </p>
           </div>
 
           {/* Session Indicators */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 w-full md:w-auto z-10">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 w-full md:w-auto z-10">
             {sessions.map((session) => (
               <div 
                 key={session.id}
                 className={cn(
-                  "relative flex flex-col items-center justify-center p-4 rounded-xl border transition-all duration-500",
+                  "relative flex flex-col items-center justify-center p-2 sm:p-4 rounded-xl border transition-all duration-500",
                   session.active 
                     ? `bg-secondary/80 ${session.glowClass} scale-105` 
                     : "bg-secondary/30 border-border/50 opacity-60"
                 )}
               >
-                <div className="flex items-center gap-2 mb-2">
+                <div className="flex items-center gap-1 sm:gap-2 mb-1 sm:mb-2">
                   <div 
                     className={cn(
-                      "w-3 h-3 rounded-full transition-all duration-300", 
+                      "w-2 h-2 sm:w-3 sm:h-3 rounded-full transition-all duration-300", 
                       session.colorClass,
                       session.active && "animate-pulse shadow-[0_0_8px_currentColor]"
                     )} 
                   />
                   <span className={cn(
-                    "font-bold text-sm tracking-wide",
+                    "font-bold text-xs sm:text-sm tracking-wide",
                     session.active ? "text-foreground" : "text-muted-foreground"
                   )}>
                     {session.name}
                   </span>
                 </div>
-                <span className="text-xs font-mono text-muted-foreground">{session.timeRange}</span>
+                <span className="text-[10px] sm:text-xs font-mono text-muted-foreground">{session.timeRange}</span>
                 
                 {session.active && (
                   <motion.div 
