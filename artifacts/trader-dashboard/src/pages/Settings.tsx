@@ -5,7 +5,7 @@ import { ProfileWidget } from "@/components/ProfileWidget";
 import { AudioPlayer } from "@/components/AudioPlayer";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Image, Upload, X, LogIn, LogOut, RefreshCw, Type, Sun } from "lucide-react";
+import { Image, Upload, X, LogIn, LogOut, UserPlus, RefreshCw, Type, Sun } from "lucide-react";
 import { useBackground } from "@/contexts/BackgroundContext";
 import { useGetUserSettings, useUpdateUserSettings, getGetUserSettingsQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -264,12 +264,18 @@ function AuthSection({ login }: { login: () => void }) {
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-muted-foreground">
-          Accedi per mantenere i dati sincronizzati e restare collegato su questo dispositivo.
+          Hai già un account? Accedi per sincronizzare i tuoi dati. Sei nuovo? Registrati per iniziare.
         </p>
-        <Button onClick={login} className="w-full">
-          <LogIn className="w-4 h-4 mr-2" />
-          Accedi
-        </Button>
+        <div className="grid grid-cols-2 gap-3">
+          <Button onClick={login} className="w-full">
+            <LogIn className="w-4 h-4 mr-2" />
+            Accedi
+          </Button>
+          <Button onClick={login} variant="outline" className="w-full">
+            <UserPlus className="w-4 h-4 mr-2" />
+            Registrati
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
