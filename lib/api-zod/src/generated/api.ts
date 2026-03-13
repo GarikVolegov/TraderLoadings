@@ -413,24 +413,63 @@ export const GetMacroNewsResponse = zod.object({
 /**
  * @summary Get user settings
  */
+export const getUserSettingsResponseBackgroundDarknessMin = 0;
+export const getUserSettingsResponseBackgroundDarknessMax = 90;
+
 export const GetUserSettingsResponse = zod.object({
   id: zod.number(),
   backgroundUrl: zod.string().nullish(),
   backgroundType: zod.enum(["default", "custom"]),
+  fontChoice: zod.enum([
+    "inter",
+    "jetbrains",
+    "roboto",
+    "space-grotesk",
+    "ibm-plex",
+  ]),
+  backgroundDarkness: zod
+    .number()
+    .min(getUserSettingsResponseBackgroundDarknessMin)
+    .max(getUserSettingsResponseBackgroundDarknessMax),
 });
 
 /**
  * @summary Update user settings
  */
+export const updateUserSettingsBodyBackgroundDarknessMin = 0;
+export const updateUserSettingsBodyBackgroundDarknessMax = 90;
+
 export const UpdateUserSettingsBody = zod.object({
   backgroundUrl: zod.string().nullish(),
-  backgroundType: zod.enum(["default", "custom"]),
+  backgroundType: zod.enum(["default", "custom"]).optional(),
+  fontChoice: zod
+    .enum(["inter", "jetbrains", "roboto", "space-grotesk", "ibm-plex"])
+    .optional(),
+  backgroundDarkness: zod
+    .number()
+    .min(updateUserSettingsBodyBackgroundDarknessMin)
+    .max(updateUserSettingsBodyBackgroundDarknessMax)
+    .optional(),
 });
+
+export const updateUserSettingsResponseBackgroundDarknessMin = 0;
+export const updateUserSettingsResponseBackgroundDarknessMax = 90;
 
 export const UpdateUserSettingsResponse = zod.object({
   id: zod.number(),
   backgroundUrl: zod.string().nullish(),
   backgroundType: zod.enum(["default", "custom"]),
+  fontChoice: zod.enum([
+    "inter",
+    "jetbrains",
+    "roboto",
+    "space-grotesk",
+    "ibm-plex",
+  ]),
+  backgroundDarkness: zod
+    .number()
+    .min(updateUserSettingsResponseBackgroundDarknessMin)
+    .max(updateUserSettingsResponseBackgroundDarknessMax),
 });
 
 /**

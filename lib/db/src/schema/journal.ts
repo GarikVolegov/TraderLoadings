@@ -9,6 +9,7 @@ export const journalEntriesTable = pgTable("journal_entries", {
   tradeDate: text("trade_date").notNull(),
   result: text("result").notNull().default("none"),
   tags: text("tags"),
+  userId: text("user_id"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

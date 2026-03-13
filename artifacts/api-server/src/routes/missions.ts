@@ -2,8 +2,8 @@ import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { missionsTable, profileTable } from "@workspace/db";
 import { GetMissionsResponse, CompleteMissionParams, CompleteMissionResponse } from "@workspace/api-zod";
-import { eq, and } from "drizzle-orm";
-import { getOrCreateProfile, computeLevel } from "./profile.js";
+import { eq, and, isNull } from "drizzle-orm";
+import { getOrCreateProfile, computeLevel, getUserId } from "./profile.js";
 
 const router: IRouter = Router();
 
@@ -15,9 +15,10 @@ const DAILY_MISSIONS = [
   { title: "Gestione del Rischio", description: "Usa il calcolatore di lotti per ogni trade della giornata", xpReward: 125 },
 ];
 
-async function ensureTodayMissions() {
+async function ensureTodayMissions(userId: string | null) {
   const today = new Date().toISOString().slice(0, 10);
-  const existing = await db.select().from(missionsTable).where(eq(missionsTable.missionDate, today));
+  const userFilter = userId ? eq(missionsTable.userId, userId) : isNull(missionsTable.userId);
+  const existing = await db.select().from(missionsTable).where(and(eq(missionsTable.missionDate, today), userFilter));
 
   if (existing.length === 0) {
     await db.insert(missionsTable).values(
@@ -25,16 +26,18 @@ async function ensureTodayMissions() {
         ...m,
         completed: false,
         missionDate: today,
+        userId,
       }))
     );
-    return await db.select().from(missionsTable).where(eq(missionsTable.missionDate, today));
+    return await db.select().from(missionsTable).where(and(eq(missionsTable.missionDate, today), userFilter));
   }
 
   return existing;
 }
 
-router.get("/missions", async (_req, res) => {
-  const missions = await ensureTodayMissions();
+router.get("/missions", async (req, res) => {
+  const userId = getUserId(req);
+  const missions = await ensureTodayMissions(userId);
 
   const data = GetMissionsResponse.parse(
     missions.map((m) => ({
@@ -50,13 +53,15 @@ router.get("/missions", async (_req, res) => {
 });
 
 router.post("/missions/:id/complete", async (req, res) => {
+  const userId = getUserId(req);
   const { id } = CompleteMissionParams.parse({ id: Number(req.params.id) });
 
   const today = new Date().toISOString().slice(0, 10);
+  const userFilter = userId ? eq(missionsTable.userId, userId) : isNull(missionsTable.userId);
   const [mission] = await db
     .select()
     .from(missionsTable)
-    .where(and(eq(missionsTable.id, id), eq(missionsTable.missionDate, today)));
+    .where(and(eq(missionsTable.id, id), eq(missionsTable.missionDate, today), userFilter));
 
   if (!mission) {
     res.status(404).json({ error: "Mission not found" });
@@ -74,7 +79,7 @@ router.post("/missions/:id/complete", async (req, res) => {
     .where(eq(missionsTable.id, id))
     .returning();
 
-  const profile = await getOrCreateProfile();
+  const profile = await getOrCreateProfile(userId);
   const newXp = profile.xp + mission.xpReward;
   const oldLevel = computeLevel(profile.xp).level;
 

@@ -5,11 +5,119 @@ import { ProfileWidget } from "@/components/ProfileWidget";
 import { AudioPlayer } from "@/components/AudioPlayer";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Image, Upload, X, LogIn, LogOut, RefreshCw } from "lucide-react";
+import { Image, Upload, X, LogIn, LogOut, RefreshCw, Type, Sun } from "lucide-react";
 import { useBackground } from "@/contexts/BackgroundContext";
 import { useGetUserSettings, useUpdateUserSettings, getGetUserSettingsQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+
+const FONT_OPTIONS = [
+  { value: "inter", label: "Inter", sample: "font-['Inter']" },
+  { value: "jetbrains", label: "JetBrains Mono", sample: "font-['JetBrains_Mono']" },
+  { value: "roboto", label: "Roboto", sample: "font-['Roboto']" },
+  { value: "space-grotesk", label: "Space Grotesk", sample: "font-['Space_Grotesk']" },
+  { value: "ibm-plex", label: "IBM Plex Sans", sample: "font-['IBM_Plex_Sans']" },
+];
+
+function FontSettings() {
+  const { fontChoice, setFontChoice } = useBackground();
+  const updateMutation = useUpdateUserSettings();
+  const qc = useQueryClient();
+  const { toast } = useToast();
+
+  const handleFontChange = async (value: string) => {
+    setFontChoice(value);
+    try {
+      await updateMutation.mutateAsync({ data: { fontChoice: value } });
+      qc.invalidateQueries({ queryKey: getGetUserSettingsQueryKey() });
+      toast({ description: "Font aggiornato." });
+    } catch {
+      toast({ description: "Errore nell'aggiornamento del font.", variant: "destructive" });
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Type className="w-5 h-5 text-primary" />
+          Font
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {FONT_OPTIONS.map(opt => (
+          <motion.button
+            key={opt.value}
+            whileHover={{ scale: 1.01 }}
+            whileTap={{ scale: 0.99 }}
+            onClick={() => handleFontChange(opt.value)}
+            className={`w-full px-4 py-3 rounded-lg text-left transition-all flex items-center justify-between ${
+              fontChoice === opt.value
+                ? "bg-primary/15 border border-primary/40 text-primary"
+                : "bg-card border border-border hover:border-primary/30 text-foreground"
+            }`}
+          >
+            <span style={{ fontFamily: opt.label }}>{opt.label}</span>
+            {fontChoice === opt.value && (
+              <span className="text-xs bg-primary/20 px-2 py-0.5 rounded-full">Attivo</span>
+            )}
+          </motion.button>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
+function DarknessSettings() {
+  const { darkness, setDarkness } = useBackground();
+  const updateMutation = useUpdateUserSettings();
+  const qc = useQueryClient();
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  const handleChange = (value: number) => {
+    setDarkness(value);
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      try {
+        await updateMutation.mutateAsync({ data: { backgroundDarkness: value } });
+        qc.invalidateQueries({ queryKey: getGetUserSettingsQueryKey() });
+      } catch {}
+    }, 500);
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Sun className="w-5 h-5 text-primary" />
+          Oscuramento Sfondo
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex justify-between text-sm text-muted-foreground">
+          <span>Chiaro</span>
+          <span className="font-mono text-foreground">{darkness}%</span>
+          <span>Scuro</span>
+        </div>
+        <input
+          type="range"
+          min="0"
+          max="90"
+          value={darkness}
+          onChange={(e) => handleChange(Number(e.target.value))}
+          className="w-full h-2 bg-border rounded-lg appearance-none cursor-pointer accent-primary"
+        />
+        <div className="rounded-lg overflow-hidden border border-border aspect-[3/1] relative">
+          <div className="absolute inset-0 bg-gradient-to-r from-primary/30 to-accent/30" />
+          <div className="absolute inset-0 bg-background" style={{ opacity: darkness / 100 }} />
+          <div className="absolute inset-0 flex items-center justify-center text-xs text-foreground/70">
+            Anteprima oscuramento
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 function BackgroundSettings() {
   const { backgroundUrl, setBackgroundUrl } = useBackground();
@@ -196,6 +304,14 @@ export default function Settings() {
         </motion.div>
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+          <FontSettings />
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
+          <DarknessSettings />
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
           <BackgroundSettings />
         </motion.div>
       </div>

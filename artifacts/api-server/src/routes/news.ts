@@ -101,8 +101,7 @@ async function fetchRSSNews(): Promise<NewsArticle[]> {
     }
   }
 
-  // Filter only relevant articles about gold, dollar, macro, forex
-  const keywords = /gold|xau|dollar|usd|forex|fed|rate|inflation|macro|silver|euro|yen|gbp|powell|treasury|yield|gdp|cpi/i;
+  const keywords = /gold|xau|dollar|usd|dxy|fed|fomc|powell|treasury|yield|inflation|gdp|cpi|nonfarm|payroll|rate\s*(cut|hike|decision)|central\s*bank|monetary\s*policy/i;
   const filtered = all.filter((a) => keywords.test(a.title) || keywords.test(a.summary));
 
   // Deduplicate by title prefix

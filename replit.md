@@ -20,11 +20,12 @@ Professional forex/stock trading web dashboard. pnpm workspace monorepo using Ty
 ## Features
 
 - **Dashboard**: Real-time clock with trading sessions (Asian/London/NY), lot-size calculator (formula: (€/pips)/11), daily missions with XP/levels
-- **Journal (Diario)**: Trade journal entries with images, plus Idee and Obiettivi tabs
+- **Journal (Diario)**: Trade journal entries with images, plus Idee and Obiettivi tabs. Awards 75 XP per entry + auto-completes "Journaling del Trade" mission
 - **Checklist**: Customizable pre-trade checklist with progress tracking
-- **News**: Real-time macro news (gold/USD/forex) via RSS feeds (Seeking Alpha, CNBC) with optional Perplexity AI enhancement. Server cache 10min, manual refresh bypasses cache.
-- **Settings**: Profile with XP/level, account auth (Replit Auth), binaural audio player (persistent background audio), customizable background image upload
-- **Auth**: Replit Auth (OIDC/PKCE) — sessions stored in DB `sessions` table
+- **News**: Real-time macro news (gold/USD/forex) via RSS feeds (Seeking Alpha, CNBC) with optional Perplexity AI enhancement. Server cache 10min, manual refresh bypasses cache. Keyword filter: gold/XAU/USD/DXY/Fed/CPI/inflation/treasury/nonfarm
+- **Settings**: Profile with XP/level, account auth (Replit Auth), binaural audio player (5 presets: Alpha 10Hz, Theta 6Hz, Beta 18Hz, Gamma 40Hz, Deep Focus 14Hz with auto-start), font selector (Inter/JetBrains Mono/Roboto/Space Grotesk/IBM Plex Sans), background darkness slider (0-90%), customizable background image upload
+- **Auth**: Replit Auth (OIDC/PKCE) — sessions stored in DB `sessions` table. Multi-user data isolation via userId column on all data tables
+- **Audio**: Binaural beats with stereo panning (left/right ear separation). Auto-starts Alpha mode on first user interaction
 
 ## Structure
 
@@ -45,17 +46,17 @@ artifacts-monorepo/
 
 ## DB Tables
 
-- `profile` — trader name, XP, level
-- `missions` — daily missions with XP rewards
-- `journal_entries` + `journal_images` — trading journal
-- `ideas` — ideas (type=idea) and goals (type=goal) for journal tabs
-- `checklist_items` — customizable pre-trade checklist
-- `user_settings` — background image URL and type
+- `profile` — trader name, XP, level, userId
+- `missions` — daily missions with XP rewards, userId
+- `journal_entries` + `journal_images` — trading journal, userId
+- `ideas` — ideas (type=idea) and goals (type=goal) for journal tabs, userId
+- `checklist_items` — customizable pre-trade checklist, userId
+- `user_settings` — background URL/type, fontChoice, backgroundDarkness, userId
 - `sessions` + `users` — Replit Auth sessions
 
 ## API Routes
 
-All mounted at `/api`:
+All mounted at `/api`. All data routes filter by `req.user?.id` for multi-user isolation:
 - `GET/PUT /profile`
 - `GET /missions`, `POST /missions/:id/complete`
 - `GET/POST /journal`, `GET/PUT/DELETE /journal/:id`, `POST /journal/:id/images`, `DELETE /journal/:id/images/:imageId`

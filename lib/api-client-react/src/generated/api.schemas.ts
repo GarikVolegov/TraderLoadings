@@ -233,10 +233,27 @@ export const UserSettingsBackgroundType = {
   custom: "custom",
 } as const;
 
+export type UserSettingsFontChoice =
+  (typeof UserSettingsFontChoice)[keyof typeof UserSettingsFontChoice];
+
+export const UserSettingsFontChoice = {
+  inter: "inter",
+  jetbrains: "jetbrains",
+  roboto: "roboto",
+  "space-grotesk": "space-grotesk",
+  "ibm-plex": "ibm-plex",
+} as const;
+
 export interface UserSettings {
   id: number;
   backgroundUrl?: string | null;
   backgroundType: UserSettingsBackgroundType;
+  fontChoice: UserSettingsFontChoice;
+  /**
+   * @minimum 0
+   * @maximum 90
+   */
+  backgroundDarkness: number;
 }
 
 export type UpdateUserSettingsRequestBackgroundType =
@@ -247,9 +264,26 @@ export const UpdateUserSettingsRequestBackgroundType = {
   custom: "custom",
 } as const;
 
+export type UpdateUserSettingsRequestFontChoice =
+  (typeof UpdateUserSettingsRequestFontChoice)[keyof typeof UpdateUserSettingsRequestFontChoice];
+
+export const UpdateUserSettingsRequestFontChoice = {
+  inter: "inter",
+  jetbrains: "jetbrains",
+  roboto: "roboto",
+  "space-grotesk": "space-grotesk",
+  "ibm-plex": "ibm-plex",
+} as const;
+
 export interface UpdateUserSettingsRequest {
   backgroundUrl?: string | null;
-  backgroundType: UpdateUserSettingsRequestBackgroundType;
+  backgroundType?: UpdateUserSettingsRequestBackgroundType;
+  fontChoice?: UpdateUserSettingsRequestFontChoice;
+  /**
+   * @minimum 0
+   * @maximum 90
+   */
+  backgroundDarkness?: number;
 }
 
 export interface UploadBackgroundResponse {

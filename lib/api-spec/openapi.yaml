@@ -976,9 +976,18 @@ components:
         backgroundType:
           type: string
           enum: [default, custom]
+        fontChoice:
+          type: string
+          enum: [inter, jetbrains, roboto, space-grotesk, ibm-plex]
+        backgroundDarkness:
+          type: integer
+          minimum: 0
+          maximum: 90
       required:
         - id
         - backgroundType
+        - fontChoice
+        - backgroundDarkness
 
     UpdateUserSettingsRequest:
       type: object
@@ -989,8 +998,13 @@ components:
         backgroundType:
           type: string
           enum: [default, custom]
-      required:
-        - backgroundType
+        fontChoice:
+          type: string
+          enum: [inter, jetbrains, roboto, space-grotesk, ibm-plex]
+        backgroundDarkness:
+          type: integer
+          minimum: 0
+          maximum: 90
 
     UploadBackgroundResponse:
       type: object

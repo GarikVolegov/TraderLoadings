@@ -10,6 +10,7 @@ export const missionsTable = pgTable("missions", {
   completed: boolean("completed").notNull().default(false),
   completedAt: timestamp("completed_at"),
   missionDate: text("mission_date").notNull(),
+  userId: text("user_id"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

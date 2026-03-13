@@ -1,26 +1,43 @@
-import { createContext, useContext, useRef, useState, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useState, useRef, useCallback, useEffect, type ReactNode } from "react";
 
-type FrequencyMode = "relax" | "focus" | "off";
+export type AudioMode = "alpha" | "theta" | "beta" | "gamma" | "deepfocus" | "off";
 
-interface AudioContextValue {
-  mode: FrequencyMode;
-  volume: number;
-  setVolume: (v: number) => void;
-  setMode: (m: FrequencyMode) => void;
+interface AudioModeConfig {
+  label: string;
+  description: string;
+  baseFreq: number;
+  beatFreq: number;
+  icon: string;
 }
 
-const AudioCtx = createContext<AudioContextValue | null>(null);
+export const AUDIO_MODES: Record<Exclude<AudioMode, "off">, AudioModeConfig> = {
+  alpha: { label: "Alpha", description: "Concentrazione rilassata · 10 Hz", baseFreq: 200, beatFreq: 10, icon: "🧘" },
+  theta: { label: "Theta", description: "Meditazione profonda · 6 Hz", baseFreq: 180, beatFreq: 6, icon: "🌊" },
+  beta: { label: "Beta", description: "Attenzione attiva · 18 Hz", baseFreq: 210, beatFreq: 18, icon: "⚡" },
+  gamma: { label: "Gamma", description: "Peak performance · 40 Hz", baseFreq: 220, beatFreq: 40, icon: "🔥" },
+  deepfocus: { label: "Deep Focus", description: "Focus profondo · 14 Hz", baseFreq: 195, beatFreq: 14, icon: "🎯" },
+};
+
+interface AudioContextType {
+  mode: AudioMode;
+  setMode: (m: AudioMode) => void;
+  volume: number;
+  setVolume: (v: number) => void;
+}
+
+const AudioCtx = createContext<AudioContextType | null>(null);
 
 export function AudioProvider({ children }: { children: ReactNode }) {
-  const [mode, setModeState] = useState<FrequencyMode>("off");
-  const [volume, setVolumeState] = useState(50);
+  const [mode, setModeState] = useState<AudioMode>("off");
+  const [volume, setVolumeState] = useState(40);
+  const audioCtxRef = useRef<AudioContext | null>(null);
   const oscillatorsRef = useRef<OscillatorNode[] | null>(null);
   const gainRef = useRef<GainNode | null>(null);
-  const audioCtxRef = useRef<AudioContext | null>(null);
+  const hasAutoStarted = useRef(false);
 
-  const stopFrequencies = useCallback(() => {
+  const stopOscillators = useCallback(() => {
     if (oscillatorsRef.current) {
-      oscillatorsRef.current.forEach(osc => { try { osc.stop(); } catch (_) {} });
+      oscillatorsRef.current.forEach(osc => { try { osc.stop(); } catch {} });
       oscillatorsRef.current = null;
     }
   }, []);
@@ -30,45 +47,79 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       audioCtxRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
     }
     const ctx = audioCtxRef.current;
-    stopFrequencies();
+    if (ctx.state === "suspended") ctx.resume();
+    stopOscillators();
 
-    if (!gainRef.current) {
-      gainRef.current = ctx.createGain();
-      gainRef.current.connect(ctx.destination);
-    }
-    gainRef.current.gain.value = (vol / 100) * 0.1;
+    const gain = ctx.createGain();
+    gain.gain.value = (vol / 100) * 0.08;
+    gain.connect(ctx.destination);
+    gainRef.current = gain;
+
+    const panL = ctx.createStereoPanner();
+    panL.pan.value = -1;
+    panL.connect(gain);
+
+    const panR = ctx.createStereoPanner();
+    panR.pan.value = 1;
+    panR.connect(gain);
 
     const osc1 = ctx.createOscillator();
-    const osc2 = ctx.createOscillator();
+    osc1.type = "sine";
     osc1.frequency.value = baseFreq;
-    osc2.frequency.value = baseFreq + beatFreq;
-    osc1.connect(gainRef.current);
-    osc2.connect(gainRef.current);
+    osc1.connect(panL);
     osc1.start();
-    osc2.start();
-    oscillatorsRef.current = [osc1, osc2];
-  }, [stopFrequencies]);
 
-  const setMode = useCallback((newMode: FrequencyMode) => {
+    const osc2 = ctx.createOscillator();
+    osc2.type = "sine";
+    osc2.frequency.value = baseFreq + beatFreq;
+    osc2.connect(panR);
+    osc2.start();
+
+    oscillatorsRef.current = [osc1, osc2];
+  }, [stopOscillators]);
+
+  const setMode = useCallback((newMode: AudioMode) => {
     if (newMode === "off") {
-      stopFrequencies();
-    } else if (newMode === "relax") {
-      startFrequencies(200, 8, volume);
-    } else if (newMode === "focus") {
-      startFrequencies(220, 40, volume);
+      stopOscillators();
+    } else {
+      const config = AUDIO_MODES[newMode];
+      startFrequencies(config.baseFreq, config.beatFreq, volume);
     }
     setModeState(newMode);
-  }, [volume, stopFrequencies, startFrequencies]);
+  }, [volume, stopOscillators, startFrequencies]);
 
   const setVolume = useCallback((v: number) => {
     setVolumeState(v);
     if (gainRef.current) {
-      gainRef.current.gain.value = (v / 100) * 0.1;
+      gainRef.current.gain.value = (v / 100) * 0.08;
     }
   }, []);
 
+  useEffect(() => {
+    if (hasAutoStarted.current) return;
+
+    const tryAutoStart = () => {
+      if (hasAutoStarted.current) return;
+      hasAutoStarted.current = true;
+      setMode("alpha");
+      document.removeEventListener("click", tryAutoStart);
+      document.removeEventListener("keydown", tryAutoStart);
+      document.removeEventListener("touchstart", tryAutoStart);
+    };
+
+    document.addEventListener("click", tryAutoStart, { once: true });
+    document.addEventListener("keydown", tryAutoStart, { once: true });
+    document.addEventListener("touchstart", tryAutoStart, { once: true });
+
+    return () => {
+      document.removeEventListener("click", tryAutoStart);
+      document.removeEventListener("keydown", tryAutoStart);
+      document.removeEventListener("touchstart", tryAutoStart);
+    };
+  }, [setMode]);
+
   return (
-    <AudioCtx.Provider value={{ mode, volume, setVolume, setMode }}>
+    <AudioCtx.Provider value={{ mode, setMode, volume, setVolume }}>
       {children}
     </AudioCtx.Provider>
   );

@@ -1,8 +1,8 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request } from "express";
 import { db } from "@workspace/db";
 import { profileTable } from "@workspace/db";
 import { UpdateProfileBody, UpdateProfileResponse, GetProfileResponse } from "@workspace/api-zod";
-import { eq } from "drizzle-orm";
+import { eq, isNull } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -15,8 +15,13 @@ function computeLevel(xp: number) {
   return { level, xpToNextLevel };
 }
 
-async function getOrCreateProfile() {
-  const profiles = await db.select().from(profileTable).limit(1);
+function getUserId(req: Request): string | null {
+  return req.user?.id ?? null;
+}
+
+async function getOrCreateProfile(userId: string | null) {
+  const where = userId ? eq(profileTable.userId, userId) : isNull(profileTable.userId);
+  const profiles = await db.select().from(profileTable).where(where).limit(1);
   if (profiles.length > 0) return profiles[0];
 
   const [created] = await db.insert(profileTable).values({
@@ -24,12 +29,14 @@ async function getOrCreateProfile() {
     avatarUrl: null,
     xp: 0,
     level: 1,
+    userId,
   }).returning();
   return created;
 }
 
-router.get("/profile", async (_req, res) => {
-  const profile = await getOrCreateProfile();
+router.get("/profile", async (req, res) => {
+  const userId = getUserId(req);
+  const profile = await getOrCreateProfile(userId);
   const { level, xpToNextLevel } = computeLevel(profile.xp);
 
   const data = GetProfileResponse.parse({
@@ -44,8 +51,9 @@ router.get("/profile", async (_req, res) => {
 });
 
 router.put("/profile", async (req, res) => {
+  const userId = getUserId(req);
   const body = UpdateProfileBody.parse(req.body);
-  const profile = await getOrCreateProfile();
+  const profile = await getOrCreateProfile(userId);
 
   const [updated] = await db.update(profileTable)
     .set({ name: body.name, avatarUrl: body.avatarUrl ?? null })
@@ -64,5 +72,5 @@ router.put("/profile", async (req, res) => {
   res.json(data);
 });
 
-export { getOrCreateProfile, computeLevel };
+export { getOrCreateProfile, computeLevel, getUserId };
 export default router;

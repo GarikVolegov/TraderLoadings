@@ -6,9 +6,16 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { UserSettingsBackgroundType } from "./userSettingsBackgroundType";
+import type { UserSettingsFontChoice } from "./userSettingsFontChoice";
 
 export interface UserSettings {
   id: number;
   backgroundUrl?: string | null;
   backgroundType: UserSettingsBackgroundType;
+  fontChoice: UserSettingsFontChoice;
+  /**
+   * @minimum 0
+   * @maximum 90
+   */
+  backgroundDarkness: number;
 }

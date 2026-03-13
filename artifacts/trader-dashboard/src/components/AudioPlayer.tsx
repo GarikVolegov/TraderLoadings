@@ -1,7 +1,9 @@
 import { motion } from "framer-motion";
 import { Card } from "@/components/ui/card";
-import { Volume2, Pause, Play } from "lucide-react";
-import { useAudio } from "@/contexts/AudioContext";
+import { Volume2, Pause, Play, VolumeX } from "lucide-react";
+import { useAudio, AUDIO_MODES, type AudioMode } from "@/contexts/AudioContext";
+
+const MODE_KEYS = Object.keys(AUDIO_MODES) as Exclude<AudioMode, "off">[];
 
 export function AudioPlayer() {
   const { mode, volume, setMode, setVolume } = useAudio();
@@ -13,41 +15,50 @@ export function AudioPlayer() {
         <h3 className="text-lg font-semibold">Audio Binaural</h3>
         {mode !== "off" && (
           <span className="ml-auto text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full border border-primary/30 animate-pulse">
-            {mode === "relax" ? "Rilassamento" : "Focus"} attivo
+            {AUDIO_MODES[mode].label} attivo
           </span>
         )}
       </div>
 
       <div className="grid grid-cols-3 gap-2 mb-4">
-        {[
-          { id: "relax" as const, label: "Rilassamento", sub: "8 Hz" },
-          { id: "focus" as const, label: "Focus", sub: "40 Hz" },
-          { id: "off" as const, label: "Stop", sub: "" },
-        ].map(btn => (
-          <motion.button
-            key={btn.id}
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            onClick={() => setMode(btn.id)}
-            className={`px-3 py-2.5 rounded-lg font-medium text-sm transition-all flex flex-col items-center gap-0.5 ${
-              mode === btn.id
-                ? btn.id === "off"
-                  ? "bg-destructive/20 text-destructive border border-destructive/40"
-                  : "bg-primary/20 text-primary border border-primary/40"
-                : "bg-card border border-border hover:border-primary/30 text-foreground"
-            }`}
-          >
-            <div className="flex items-center gap-1.5">
-              {mode === btn.id && btn.id !== "off"
-                ? <Pause className="w-3.5 h-3.5" />
-                : btn.id !== "off"
-                ? <Play className="w-3.5 h-3.5" />
-                : null}
-              {btn.label}
-            </div>
-            {btn.sub && <span className="text-xs opacity-60">{btn.sub}</span>}
-          </motion.button>
-        ))}
+        {MODE_KEYS.map(id => {
+          const cfg = AUDIO_MODES[id];
+          const active = mode === id;
+          return (
+            <motion.button
+              key={id}
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={() => setMode(active ? "off" : id)}
+              className={`px-2 py-2.5 rounded-lg font-medium text-sm transition-all flex flex-col items-center gap-0.5 ${
+                active
+                  ? "bg-primary/20 text-primary border border-primary/40"
+                  : "bg-card border border-border hover:border-primary/30 text-foreground"
+              }`}
+            >
+              <span className="text-base">{cfg.icon}</span>
+              <div className="flex items-center gap-1">
+                {active ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+                <span>{cfg.label}</span>
+              </div>
+              <span className="text-[10px] opacity-60 leading-tight text-center">{cfg.description}</span>
+            </motion.button>
+          );
+        })}
+
+        <motion.button
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.97 }}
+          onClick={() => setMode("off")}
+          className={`px-2 py-2.5 rounded-lg font-medium text-sm transition-all flex flex-col items-center justify-center gap-1 ${
+            mode === "off"
+              ? "bg-destructive/20 text-destructive border border-destructive/40"
+              : "bg-card border border-border hover:border-destructive/30 text-foreground"
+          }`}
+        >
+          <VolumeX className="w-5 h-5" />
+          <span>Stop</span>
+        </motion.button>
       </div>
 
       <div>

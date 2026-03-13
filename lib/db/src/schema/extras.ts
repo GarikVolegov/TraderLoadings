@@ -5,6 +5,7 @@ export const ideasTable = pgTable("ideas", {
   type: text("type").notNull().default("idea"),
   content: text("content").notNull(),
   completed: boolean("completed").notNull().default(false),
+  userId: text("user_id"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -13,6 +14,7 @@ export const checklistItemsTable = pgTable("checklist_items", {
   text: text("text").notNull(),
   completed: boolean("completed").notNull().default(false),
   order: integer("order").notNull().default(0),
+  userId: text("user_id"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -20,6 +22,9 @@ export const userSettingsTable = pgTable("user_settings", {
   id: serial("id").primaryKey(),
   backgroundUrl: text("background_url"),
   backgroundType: text("background_type").notNull().default("default"),
+  fontChoice: text("font_choice").notNull().default("inter"),
+  backgroundDarkness: integer("background_darkness").notNull().default(60),
+  userId: text("user_id"),
 });
 
 export type Idea = typeof ideasTable.$inferSelect;
