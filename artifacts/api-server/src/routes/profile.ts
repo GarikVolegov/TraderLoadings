@@ -117,6 +117,7 @@ router.get("/profile", async (req, res) => {
 router.put("/profile", async (req, res) => {
   const userId = getUserId(req);
   const body = UpdateProfileBody.parse(req.body);
+  body.name = body.name.trim();
   const profile = await getOrCreateProfile(userId);
 
   if (userId && body.name !== profile.name) {
