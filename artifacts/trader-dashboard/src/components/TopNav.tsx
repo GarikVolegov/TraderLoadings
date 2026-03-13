@@ -1,10 +1,11 @@
 import { Link, useRoute } from "wouter";
 import { motion } from "framer-motion";
-import { LayoutDashboard, BookOpen } from "lucide-react";
+import { LayoutDashboard, BookOpen, Settings } from "lucide-react";
 
 export function TopNav() {
   const [isDash] = useRoute("/");
   const [isJournal] = useRoute("/journal");
+  const [isSettings] = useRoute("/settings");
 
   return (
     <motion.header 
@@ -17,7 +18,7 @@ export function TopNav() {
           <div className="w-4 h-4 bg-primary rounded-sm rotate-45 shadow-[0_0_10px_rgba(34,197,94,0.8)]" />
         </div>
         <h1 className="text-2xl font-bold font-mono tracking-tight bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">
-          Trader<span className="text-primary">Dash</span>
+          Trader<span className="text-primary">Loading</span>
         </h1>
       </div>
 
@@ -43,6 +44,17 @@ export function TopNav() {
         >
           <BookOpen className="w-4 h-4" />
           Diario
+        </Link>
+        <Link 
+          href="/settings" 
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+            isSettings 
+              ? 'bg-primary/10 text-primary shadow-[inset_0_0_20px_rgba(34,197,94,0.1)]' 
+              : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
+          }`}
+        >
+          <Settings className="w-4 h-4" />
+          Impostazioni
         </Link>
       </nav>
     </motion.header>

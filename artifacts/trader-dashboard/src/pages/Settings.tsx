@@ -1,9 +1,10 @@
 import { motion } from "framer-motion";
-import { ClockWidget } from "@/components/ClockWidget";
-import { MissionsWidget } from "@/components/MissionsWidget";
 import { TopNav } from "@/components/TopNav";
+import { ProfileWidget } from "@/components/ProfileWidget";
+import { LotCalculatorWidget } from "@/components/LotCalculatorWidget";
+import { AudioPlayer } from "@/components/AudioPlayer";
 
-export default function Dashboard() {
+export default function Settings() {
   return (
     <div className="min-h-screen relative bg-background pb-12">
       {/* Background Graphic */}
@@ -19,22 +20,39 @@ export default function Dashboard() {
         
         <TopNav />
 
-        {/* Top Section: Clock & Sessions */}
+        <motion.h2
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-3xl font-bold text-foreground"
+        >
+          Impostazioni
+        </motion.h2>
+
+        {/* Profile Section */}
         <motion.section 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
         >
-          <ClockWidget />
+          <ProfileWidget />
         </motion.section>
 
-        {/* Bottom Section: Missions */}
+        {/* Lot Calculator Section */}
         <motion.section 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
         >
-          <MissionsWidget />
+          <LotCalculatorWidget />
+        </motion.section>
+
+        {/* Audio Player Section */}
+        <motion.section 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+        >
+          <AudioPlayer />
         </motion.section>
         
       </div>
