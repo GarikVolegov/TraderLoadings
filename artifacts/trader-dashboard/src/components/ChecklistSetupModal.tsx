@@ -34,7 +34,7 @@ export function ChecklistSetupModal() {
     setAdding(true);
     try {
       for (const text of DEFAULT_CHECKLIST_ITEMS) {
-        await createMutation.mutateAsync({ data: { text, completed: false } });
+        await createMutation.mutateAsync({ data: { text, completed: true } });
       }
       qc.invalidateQueries({ queryKey: getGetChecklistQueryKey() });
       setShow(false);
