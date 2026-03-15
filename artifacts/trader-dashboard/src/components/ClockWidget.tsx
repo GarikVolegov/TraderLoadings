@@ -91,13 +91,19 @@ export function ClockWidget() {
       
       <CardContent className="p-1.5 sm:p-2 md:p-3 z-10">
         <div className="flex items-center justify-center gap-2 sm:gap-3 md:gap-4">
-          <div className="flex flex-col items-start z-10 min-w-0">
-            <p className="text-muted-foreground font-medium uppercase tracking-widest text-[9px] sm:text-xs leading-none">
-              {format(time, "d EEEE", { locale: it })}
-            </p>
+          <div className="flex flex-col items-center z-10">
             <div className="text-xl sm:text-2xl md:text-3xl font-mono font-bold tracking-tighter text-foreground drop-shadow-[0_0_10px_rgba(255,255,255,0.1)]">
               {format(time, "HH:mm:ss")}
             </div>
+          </div>
+
+          <div className="flex flex-col items-center z-10">
+            <p className="text-muted-foreground font-medium uppercase tracking-widest text-[9px] sm:text-xs leading-tight">
+              {format(time, "d")}
+            </p>
+            <p className="text-muted-foreground font-medium uppercase tracking-widest text-[8px] sm:text-[9px] leading-tight">
+              {format(time, "EEEE", { locale: it })}
+            </p>
           </div>
 
           {activeSession && activeColors && (
