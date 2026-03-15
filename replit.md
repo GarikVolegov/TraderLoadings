@@ -19,12 +19,12 @@ Professional forex/stock trading web dashboard. pnpm workspace monorepo using Ty
 
 ## Features
 
-- **Dashboard**: Real-time clock with active trading session indicator, lot-size calculator (customizable divisor via Settings), daily missions with XP/levels
+- **Dashboard**: Real-time clock with active trading session indicator and rotating trading quotes, lot-size calculator (customizable divisor via Settings), daily missions with XP/levels, checklist pill-badge summary
 - **Backtest (FX Replay style)**: Chart replay on real historical data (TradingView lightweight-charts). Candlestick replay with Play/Pause/Step controls (1x/2x/5x/10x speed). BUY/SELL trade placement with click-to-set SL/TP on chart. Auto-closes trades on SL/TP hit during replay. Session management, trade history, real-time P&L and stats (win rate, pips, W/L). Manual trade entry mode also available. Data from Yahoo Finance (EUR/USD, GBP/USD, XAU/USD, US30, NAS100, BTC/USD, etc.), cached 1 hour on backend.
 - **Journal (Diario)**: Trade journal entries with images, plus Idee and Obiettivi tabs. Awards 75 XP per entry + auto-completes "Journaling del Trade" mission
 - **Checklist**: Customizable pre-trade checklist with progress tracking
 - **News**: Real-time macro news (gold/USD/forex) via RSS feeds (Seeking Alpha, CNBC) with optional Perplexity AI enhancement. Server cache 10min, manual refresh bypasses cache. Keyword filter: gold/XAU/USD/DXY/Fed/CPI/inflation/treasury/nonfarm
-- **Settings**: Profile with XP/level + avatar (upload from device or AI-generated via gpt-image-1) + unique username validation, account auth (Replit Auth), binaural audio player (5 presets: Alpha 10Hz, Theta 6Hz, Beta 18Hz, Gamma 40Hz, Deep Focus 14Hz with auto-start), font selector (Inter/JetBrains Mono/Roboto/Space Grotesk/IBM Plex Sans), background darkness slider (0-90%), customizable background image upload, **Trading settings** (customize session names/times/visibility, lot calculator divisor)
+- **Settings**: Profile with XP/level + avatar (upload from device or AI-generated via gpt-image-1) + unique username validation, account auth (Replit Auth), binaural audio player (5 presets: Alpha 10Hz, Theta 6Hz, Beta 18Hz, Gamma 40Hz, Deep Focus 14Hz with auto-start), font selector (Inter/JetBrains Mono/Roboto/Space Grotesk/IBM Plex Sans), background darkness slider (0-90%), customizable background image upload, **Trading settings** (customize session names/times/visibility, lot calculator divisor), **Mission Templates** (custom daily missions CRUD), **Trading Quotes** (custom quotes CRUD, defaults to 10 built-in Italian quotes)
 - **Chat E2EE**: End-to-end encrypted chat between friends. ECDH key exchange (P-256), AES-GCM encryption, private keys stored in IndexedDB. Friendship system with search, requests, accept/reject, remove. Real-time polling (3-5s). Unread badge in nav.
 - **Auth**: Replit Auth (OIDC/PKCE) — sessions stored in DB `sessions` table. Multi-user data isolation via userId column on all data tables
 - **Audio**: Binaural beats with stereo panning (left/right ear separation). Auto-starts Alpha mode on first user interaction
@@ -60,6 +60,8 @@ artifacts-monorepo/
 - `friendships` — userId, friendId, status (pending/accepted), createdAt. Unique index on (userId, friendId)
 - `chat_messages` — senderId, receiverId, ciphertext (base64), iv (base64), read flag, createdAt
 - `user_public_keys` — userId (unique), publicKeyJwk (JSON string), createdAt
+- `mission_templates` — custom daily mission templates (title, description, xpReward), userId. Used by ensureTodayMissions when user has templates
+- `quotes` — custom trading quotes (text, author), userId. Random quote shown in ClockWidget, falls back to 10 built-in defaults
 - `sessions` + `users` — Replit Auth sessions
 
 ## API Routes
@@ -79,6 +81,8 @@ All mounted at `/api`. All data routes filter by `req.user?.id` for multi-user i
 - `GET /backtest/sessions`, `POST /backtest/sessions`, `DELETE /backtest/sessions/:id`
 - `GET /backtest/sessions/:id/trades`, `POST /backtest/sessions/:id/trades`, `DELETE /backtest/trades/:id`
 - `GET /backtest/candles?symbol=EURUSD&interval=H1` — historical OHLC data from Yahoo Finance, cached 1h
+- `GET/POST /mission-templates`, `PUT/DELETE /mission-templates/:id`
+- `GET/POST /quotes`, `PUT/DELETE /quotes/:id`, `GET /quotes/random`
 - `GET /auth/user`, `GET /login`, `GET /callback`, `GET /logout`
 
 ## Secrets Required

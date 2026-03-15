@@ -17,3 +17,16 @@ export const missionsTable = pgTable("missions", {
 export const insertMissionSchema = createInsertSchema(missionsTable).omit({ id: true, createdAt: true });
 export type InsertMission = z.infer<typeof insertMissionSchema>;
 export type Mission = typeof missionsTable.$inferSelect;
+
+export const missionTemplatesTable = pgTable("mission_templates", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  xpReward: integer("xp_reward").notNull().default(50),
+  userId: text("user_id"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertMissionTemplateSchema = createInsertSchema(missionTemplatesTable).omit({ id: true, createdAt: true });
+export type InsertMissionTemplate = z.infer<typeof insertMissionTemplateSchema>;
+export type MissionTemplate = typeof missionTemplatesTable.$inferSelect;

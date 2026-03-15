@@ -1,13 +1,13 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { missionsTable, profileTable } from "@workspace/db";
+import { missionsTable, missionTemplatesTable, profileTable } from "@workspace/db";
 import { GetMissionsResponse, CompleteMissionParams, CompleteMissionResponse } from "@workspace/api-zod";
 import { eq, and, isNull } from "drizzle-orm";
 import { getOrCreateProfile, computeLevel, getUserId } from "./profile.js";
 
 const router: IRouter = Router();
 
-const DAILY_MISSIONS = [
+const DEFAULT_MISSIONS = [
   { title: "Analisi Pre-Mercato", description: "Studia i livelli chiave prima dell'apertura della sessione di Londra", xpReward: 100 },
   { title: "Rispetta lo Stop Loss", description: "Esegui un trade rispettando il tuo stop loss calcolato", xpReward: 150 },
   { title: "Journaling del Trade", description: "Registra almeno un trade con entry, exit e motivazione", xpReward: 75 },
@@ -21,8 +21,15 @@ async function ensureTodayMissions(userId: string | null) {
   const existing = await db.select().from(missionsTable).where(and(eq(missionsTable.missionDate, today), userFilter));
 
   if (existing.length === 0) {
+    const templateFilter = userId ? eq(missionTemplatesTable.userId, userId) : isNull(missionTemplatesTable.userId);
+    const userTemplates = await db.select().from(missionTemplatesTable).where(templateFilter);
+
+    const missionsToCreate = userTemplates.length > 0
+      ? userTemplates.map((t) => ({ title: t.title, description: t.description, xpReward: t.xpReward }))
+      : DEFAULT_MISSIONS;
+
     await db.insert(missionsTable).values(
-      DAILY_MISSIONS.map((m) => ({
+      missionsToCreate.map((m) => ({
         ...m,
         completed: false,
         missionDate: today,

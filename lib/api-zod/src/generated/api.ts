@@ -152,6 +152,120 @@ export const GenerateProfileAvatarResponse = zod.object({
 });
 
 /**
+ * @summary Get user mission templates
+ */
+export const GetMissionTemplatesResponseItem = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  description: zod.string(),
+  xpReward: zod.number(),
+  createdAt: zod.string().optional(),
+});
+export const GetMissionTemplatesResponse = zod.array(
+  GetMissionTemplatesResponseItem,
+);
+
+/**
+ * @summary Create a mission template
+ */
+export const CreateMissionTemplateBody = zod.object({
+  title: zod.string(),
+  description: zod.string(),
+  xpReward: zod.number(),
+});
+
+/**
+ * @summary Update a mission template
+ */
+export const UpdateMissionTemplateParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateMissionTemplateBody = zod.object({
+  title: zod.string(),
+  description: zod.string(),
+  xpReward: zod.number(),
+});
+
+export const UpdateMissionTemplateResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  description: zod.string(),
+  xpReward: zod.number(),
+  createdAt: zod.string().optional(),
+});
+
+/**
+ * @summary Delete a mission template
+ */
+export const DeleteMissionTemplateParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteMissionTemplateResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
+ * @summary Get user quotes
+ */
+export const GetQuotesResponseItem = zod.object({
+  id: zod.number(),
+  text: zod.string(),
+  author: zod.string(),
+  createdAt: zod.string(),
+});
+export const GetQuotesResponse = zod.array(GetQuotesResponseItem);
+
+/**
+ * @summary Create a quote
+ */
+export const CreateQuoteBody = zod.object({
+  text: zod.string(),
+  author: zod.string(),
+});
+
+/**
+ * @summary Update a quote
+ */
+export const UpdateQuoteParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateQuoteBody = zod.object({
+  text: zod.string(),
+  author: zod.string(),
+});
+
+export const UpdateQuoteResponse = zod.object({
+  id: zod.number(),
+  text: zod.string(),
+  author: zod.string(),
+  createdAt: zod.string(),
+});
+
+/**
+ * @summary Delete a quote
+ */
+export const DeleteQuoteParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteQuoteResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
+ * @summary Get a random quote (user or default)
+ */
+export const GetRandomQuoteResponse = zod.object({
+  id: zod.number(),
+  text: zod.string(),
+  author: zod.string(),
+  createdAt: zod.string(),
+});
+
+/**
  * @summary Get daily missions
  */
 export const GetMissionsResponseItem = zod.object({

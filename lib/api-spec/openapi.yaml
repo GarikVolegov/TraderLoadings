@@ -33,6 +33,8 @@ tags:
     description: E2E encrypted chat
   - name: backtest
     description: Backtesting sessions and trades
+  - name: quotes
+    description: Custom trading quotes
 paths:
   /healthz:
     get:
@@ -255,6 +257,167 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
+
+  /mission-templates:
+    get:
+      operationId: getMissionTemplates
+      tags: [missions]
+      summary: Get user mission templates
+      responses:
+        "200":
+          description: List of mission templates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MissionTemplate"
+    post:
+      operationId: createMissionTemplate
+      tags: [missions]
+      summary: Create a mission template
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMissionTemplateRequest"
+      responses:
+        "201":
+          description: Created template
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MissionTemplate"
+
+  /mission-templates/{id}:
+    put:
+      operationId: updateMissionTemplate
+      tags: [missions]
+      summary: Update a mission template
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMissionTemplateRequest"
+      responses:
+        "200":
+          description: Updated template
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MissionTemplate"
+    delete:
+      operationId: deleteMissionTemplate
+      tags: [missions]
+      summary: Delete a mission template
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteResponse"
+
+  /quotes:
+    get:
+      operationId: getQuotes
+      tags: [quotes]
+      summary: Get user quotes
+      responses:
+        "200":
+          description: List of quotes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Quote"
+    post:
+      operationId: createQuote
+      tags: [quotes]
+      summary: Create a quote
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateQuoteRequest"
+      responses:
+        "201":
+          description: Created quote
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quote"
+
+  /quotes/{id}:
+    put:
+      operationId: updateQuote
+      tags: [quotes]
+      summary: Update a quote
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateQuoteRequest"
+      responses:
+        "200":
+          description: Updated quote
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quote"
+    delete:
+      operationId: deleteQuote
+      tags: [quotes]
+      summary: Delete a quote
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteResponse"
+
+  /quotes/random:
+    get:
+      operationId: getRandomQuote
+      tags: [quotes]
+      summary: Get a random quote (user or default)
+      responses:
+        "200":
+          description: A random quote
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quote"
 
   /missions:
     get:
@@ -1199,6 +1362,67 @@ components:
         - description
         - xpReward
         - completed
+
+    MissionTemplate:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        xpReward:
+          type: integer
+        createdAt:
+          type: string
+      required:
+        - id
+        - title
+        - description
+        - xpReward
+
+    CreateMissionTemplateRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        xpReward:
+          type: integer
+      required:
+        - title
+        - description
+        - xpReward
+
+    Quote:
+      type: object
+      properties:
+        id:
+          type: integer
+        text:
+          type: string
+        author:
+          type: string
+        createdAt:
+          type: string
+      required:
+        - id
+        - text
+        - author
+        - createdAt
+
+    CreateQuoteRequest:
+      type: object
+      properties:
+        text:
+          type: string
+        author:
+          type: string
+      required:
+        - text
+        - author
 
     CompleteMissionResponse:
       type: object

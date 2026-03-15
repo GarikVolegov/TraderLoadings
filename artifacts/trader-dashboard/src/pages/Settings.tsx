@@ -8,9 +8,9 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { Image, Upload, X, LogIn, LogOut, UserPlus, RefreshCw, Type, Sun, TrendingUp } from "lucide-react";
+import { Image, Upload, X, LogIn, LogOut, UserPlus, RefreshCw, Type, Sun, TrendingUp, Target, Plus, Pencil, Trash2, Quote } from "lucide-react";
 import { useBackground, DEFAULT_TRADING_SESSIONS, DEFAULT_LOT_DIVISOR, type TradingSessionConfig } from "@/contexts/BackgroundContext";
-import { useGetUserSettings, useUpdateUserSettings, getGetUserSettingsQueryKey } from "@workspace/api-client-react";
+import { useGetUserSettings, useUpdateUserSettings, getGetUserSettingsQueryKey, useGetMissionTemplates, useCreateMissionTemplate, useUpdateMissionTemplate, useDeleteMissionTemplate, getGetMissionTemplatesQueryKey, useGetQuotes, useCreateQuote, useUpdateQuote, useDeleteQuote, getGetQuotesQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@workspace/replit-auth-web";
@@ -399,6 +399,261 @@ function TradingSettings() {
   );
 }
 
+function QuotesSettings() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const { data: quotes, isLoading } = useGetQuotes();
+  const createMutation = useCreateQuote();
+  const updateMutation = useUpdateQuote();
+  const deleteMutation = useDeleteQuote();
+  const [newText, setNewText] = useState("");
+  const [newAuthor, setNewAuthor] = useState("");
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editText, setEditText] = useState("");
+  const [editAuthor, setEditAuthor] = useState("");
+
+  const invalidate = () => qc.invalidateQueries({ queryKey: getGetQuotesQueryKey() });
+
+  const handleAdd = async () => {
+    if (!newText.trim()) return;
+    try {
+      await createMutation.mutateAsync({ data: { text: newText.trim(), author: newAuthor.trim() || "Anonimo" } });
+      setNewText("");
+      setNewAuthor("");
+      invalidate();
+      toast({ description: "Citazione aggiunta." });
+    } catch {
+      toast({ description: "Errore nell'aggiunta.", variant: "destructive" });
+    }
+  };
+
+  const handleUpdate = async (id: number) => {
+    try {
+      await updateMutation.mutateAsync({ id, data: { text: editText, author: editAuthor } });
+      setEditingId(null);
+      invalidate();
+      toast({ description: "Citazione aggiornata." });
+    } catch {
+      toast({ description: "Errore nell'aggiornamento.", variant: "destructive" });
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    try {
+      await deleteMutation.mutateAsync({ id });
+      invalidate();
+      toast({ description: "Citazione eliminata." });
+    } catch {
+      toast({ description: "Errore nell'eliminazione.", variant: "destructive" });
+    }
+  };
+
+  const startEdit = (q: { id: number; text: string; author: string }) => {
+    setEditingId(q.id);
+    setEditText(q.text);
+    setEditAuthor(q.author);
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Quote className="w-5 h-5 text-primary" />
+          Citazioni Trading
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-xs text-muted-foreground">
+          Aggiungi le tue citazioni preferite. Se non ne aggiungi, verranno mostrate quelle predefinite.
+        </p>
+
+        <div className="space-y-2 rounded-lg border border-border p-3">
+          <Input placeholder="Citazione" value={newText} onChange={(e) => setNewText(e.target.value)} className="text-sm" />
+          <div className="flex gap-2">
+            <Input placeholder="Autore" value={newAuthor} onChange={(e) => setNewAuthor(e.target.value)} className="text-sm flex-1" />
+            <Button onClick={handleAdd} disabled={!newText.trim() || createMutation.isPending} size="sm">
+              <Plus className="w-4 h-4 mr-1" />
+              Aggiungi
+            </Button>
+          </div>
+        </div>
+
+        {isLoading ? (
+          <div className="py-4 flex justify-center">
+            <div className="w-6 h-6 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+          </div>
+        ) : !quotes || quotes.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-3">Nessuna citazione personalizzata. Verranno usate quelle predefinite.</p>
+        ) : (
+          <div className="space-y-2">
+            {quotes.map((q) => (
+              <div key={q.id} className="rounded-lg border border-border p-3">
+                {editingId === q.id ? (
+                  <div className="space-y-2">
+                    <Input value={editText} onChange={(e) => setEditText(e.target.value)} className="text-sm" />
+                    <div className="flex gap-2">
+                      <Input value={editAuthor} onChange={(e) => setEditAuthor(e.target.value)} className="text-sm flex-1" />
+                      <Button size="sm" onClick={() => handleUpdate(q.id)} disabled={updateMutation.isPending}>Salva</Button>
+                      <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>Annulla</Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm italic truncate">"{q.text}"</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">— {q.author}</p>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => startEdit(q)}>
+                        <Pencil className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:bg-destructive/10" onClick={() => handleDelete(q.id)}>
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function MissionTemplatesSettings() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const { data: templates, isLoading } = useGetMissionTemplates();
+  const createMutation = useCreateMissionTemplate();
+  const updateMutation = useUpdateMissionTemplate();
+  const deleteMutation = useDeleteMissionTemplate();
+  const [newTitle, setNewTitle] = useState("");
+  const [newDesc, setNewDesc] = useState("");
+  const [newXp, setNewXp] = useState("50");
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDesc, setEditDesc] = useState("");
+  const [editXp, setEditXp] = useState("");
+
+  const invalidate = () => qc.invalidateQueries({ queryKey: getGetMissionTemplatesQueryKey() });
+
+  const handleAdd = async () => {
+    if (!newTitle.trim() || !newDesc.trim()) return;
+    try {
+      await createMutation.mutateAsync({ data: { title: newTitle.trim(), description: newDesc.trim(), xpReward: Number(newXp) || 50 } });
+      setNewTitle("");
+      setNewDesc("");
+      setNewXp("50");
+      invalidate();
+      toast({ description: "Missione aggiunta." });
+    } catch {
+      toast({ description: "Errore nell'aggiunta.", variant: "destructive" });
+    }
+  };
+
+  const handleUpdate = async (id: number) => {
+    try {
+      await updateMutation.mutateAsync({ id, data: { title: editTitle, description: editDesc, xpReward: Number(editXp) || 50 } });
+      setEditingId(null);
+      invalidate();
+      toast({ description: "Missione aggiornata." });
+    } catch {
+      toast({ description: "Errore nell'aggiornamento.", variant: "destructive" });
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    try {
+      await deleteMutation.mutateAsync({ id });
+      invalidate();
+      toast({ description: "Missione eliminata." });
+    } catch {
+      toast({ description: "Errore nell'eliminazione.", variant: "destructive" });
+    }
+  };
+
+  const startEdit = (t: { id: number; title: string; description: string; xpReward: number }) => {
+    setEditingId(t.id);
+    setEditTitle(t.title);
+    setEditDesc(t.description);
+    setEditXp(String(t.xpReward));
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Target className="w-5 h-5 text-primary" />
+          Missioni Giornaliere
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-xs text-muted-foreground">
+          Personalizza le missioni giornaliere. Se non ne aggiungi, verranno usate quelle predefinite.
+        </p>
+
+        <div className="space-y-2 rounded-lg border border-border p-3">
+          <Input placeholder="Titolo missione" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} className="text-sm" />
+          <Input placeholder="Descrizione" value={newDesc} onChange={(e) => setNewDesc(e.target.value)} className="text-sm" />
+          <div className="flex gap-2">
+            <Input type="number" min="1" placeholder="XP" value={newXp} onChange={(e) => setNewXp(e.target.value)} className="text-sm w-24" />
+            <Button onClick={handleAdd} disabled={!newTitle.trim() || !newDesc.trim() || createMutation.isPending} size="sm" className="flex-1">
+              <Plus className="w-4 h-4 mr-1" />
+              Aggiungi
+            </Button>
+          </div>
+        </div>
+
+        {isLoading ? (
+          <div className="py-4 flex justify-center">
+            <div className="w-6 h-6 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+          </div>
+        ) : !templates || templates.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-3">Nessuna missione personalizzata. Verranno usate le 5 predefinite.</p>
+        ) : (
+          <div className="space-y-2">
+            {templates.map((t) => (
+              <div key={t.id} className="rounded-lg border border-border p-3">
+                {editingId === t.id ? (
+                  <div className="space-y-2">
+                    <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="text-sm" />
+                    <Input value={editDesc} onChange={(e) => setEditDesc(e.target.value)} className="text-sm" />
+                    <div className="flex gap-2">
+                      <Input type="number" min="1" value={editXp} onChange={(e) => setEditXp(e.target.value)} className="text-sm w-24" />
+                      <Button size="sm" onClick={() => handleUpdate(t.id)} disabled={updateMutation.isPending}>Salva</Button>
+                      <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>Annulla</Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-sm font-semibold truncate">{t.title}</h4>
+                        <span className="text-xs font-mono text-accent bg-secondary/60 px-1.5 py-0.5 rounded">{t.xpReward} XP</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5 truncate">{t.description}</p>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => startEdit(t)}>
+                        <Pencil className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:bg-destructive/10" onClick={() => handleDelete(t.id)}>
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function AuthSection({ login }: { login: () => void }) {
   return (
     <Card>
@@ -465,6 +720,14 @@ export default function Settings() {
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} className="lg:col-span-2">
           <TradingSettings />
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.38 }}>
+          <MissionTemplatesSettings />
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.41 }}>
+          <QuotesSettings />
         </motion.div>
       </div>
 

@@ -82,6 +82,32 @@ export interface Mission {
   completedAt?: string | null;
 }
 
+export interface MissionTemplate {
+  id: number;
+  title: string;
+  description: string;
+  xpReward: number;
+  createdAt?: string;
+}
+
+export interface CreateMissionTemplateRequest {
+  title: string;
+  description: string;
+  xpReward: number;
+}
+
+export interface Quote {
+  id: number;
+  text: string;
+  author: string;
+  createdAt: string;
+}
+
+export interface CreateQuoteRequest {
+  text: string;
+  author: string;
+}
+
 export interface CompleteMissionResponse {
   mission: Mission;
   profile: UserProfile;

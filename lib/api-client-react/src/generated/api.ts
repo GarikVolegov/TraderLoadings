@@ -34,6 +34,8 @@ import type {
   CreateChecklistItemRequest,
   CreateIdeaRequest,
   CreateJournalEntryRequest,
+  CreateMissionTemplateRequest,
+  CreateQuoteRequest,
   DeleteBacktestSession200,
   DeleteBacktestTrade200,
   DeleteResponse,
@@ -51,12 +53,14 @@ import type {
   JournalEntry,
   LogoutSuccess,
   Mission,
+  MissionTemplate,
   MobileTokenExchangeRequest,
   MobileTokenExchangeSuccess,
   NewsResponse,
   PendingFriendRequest,
   PublicKeyRecord,
   PublicKeyResponse,
+  Quote,
   SavePublicKeyBody,
   SearchUsersParams,
   SendMessageBody,
@@ -1110,6 +1114,735 @@ export const useGenerateProfileAvatar = <
 > => {
   return useMutation(getGenerateProfileAvatarMutationOptions(options));
 };
+
+/**
+ * @summary Get user mission templates
+ */
+export const getGetMissionTemplatesUrl = () => {
+  return `/api/mission-templates`;
+};
+
+export const getMissionTemplates = async (
+  options?: RequestInit,
+): Promise<MissionTemplate[]> => {
+  return customFetch<MissionTemplate[]>(getGetMissionTemplatesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetMissionTemplatesQueryKey = () => {
+  return [`/api/mission-templates`] as const;
+};
+
+export const getGetMissionTemplatesQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMissionTemplates>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMissionTemplates>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetMissionTemplatesQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getMissionTemplates>>
+  > = ({ signal }) => getMissionTemplates({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMissionTemplates>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMissionTemplatesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMissionTemplates>>
+>;
+export type GetMissionTemplatesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get user mission templates
+ */
+
+export function useGetMissionTemplates<
+  TData = Awaited<ReturnType<typeof getMissionTemplates>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMissionTemplates>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMissionTemplatesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a mission template
+ */
+export const getCreateMissionTemplateUrl = () => {
+  return `/api/mission-templates`;
+};
+
+export const createMissionTemplate = async (
+  createMissionTemplateRequest: CreateMissionTemplateRequest,
+  options?: RequestInit,
+): Promise<MissionTemplate> => {
+  return customFetch<MissionTemplate>(getCreateMissionTemplateUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createMissionTemplateRequest),
+  });
+};
+
+export const getCreateMissionTemplateMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createMissionTemplate>>,
+    TError,
+    { data: BodyType<CreateMissionTemplateRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createMissionTemplate>>,
+  TError,
+  { data: BodyType<CreateMissionTemplateRequest> },
+  TContext
+> => {
+  const mutationKey = ["createMissionTemplate"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createMissionTemplate>>,
+    { data: BodyType<CreateMissionTemplateRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createMissionTemplate(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateMissionTemplateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createMissionTemplate>>
+>;
+export type CreateMissionTemplateMutationBody =
+  BodyType<CreateMissionTemplateRequest>;
+export type CreateMissionTemplateMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a mission template
+ */
+export const useCreateMissionTemplate = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createMissionTemplate>>,
+    TError,
+    { data: BodyType<CreateMissionTemplateRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createMissionTemplate>>,
+  TError,
+  { data: BodyType<CreateMissionTemplateRequest> },
+  TContext
+> => {
+  return useMutation(getCreateMissionTemplateMutationOptions(options));
+};
+
+/**
+ * @summary Update a mission template
+ */
+export const getUpdateMissionTemplateUrl = (id: number) => {
+  return `/api/mission-templates/${id}`;
+};
+
+export const updateMissionTemplate = async (
+  id: number,
+  createMissionTemplateRequest: CreateMissionTemplateRequest,
+  options?: RequestInit,
+): Promise<MissionTemplate> => {
+  return customFetch<MissionTemplate>(getUpdateMissionTemplateUrl(id), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createMissionTemplateRequest),
+  });
+};
+
+export const getUpdateMissionTemplateMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateMissionTemplate>>,
+    TError,
+    { id: number; data: BodyType<CreateMissionTemplateRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateMissionTemplate>>,
+  TError,
+  { id: number; data: BodyType<CreateMissionTemplateRequest> },
+  TContext
+> => {
+  const mutationKey = ["updateMissionTemplate"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateMissionTemplate>>,
+    { id: number; data: BodyType<CreateMissionTemplateRequest> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateMissionTemplate(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateMissionTemplateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateMissionTemplate>>
+>;
+export type UpdateMissionTemplateMutationBody =
+  BodyType<CreateMissionTemplateRequest>;
+export type UpdateMissionTemplateMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a mission template
+ */
+export const useUpdateMissionTemplate = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateMissionTemplate>>,
+    TError,
+    { id: number; data: BodyType<CreateMissionTemplateRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateMissionTemplate>>,
+  TError,
+  { id: number; data: BodyType<CreateMissionTemplateRequest> },
+  TContext
+> => {
+  return useMutation(getUpdateMissionTemplateMutationOptions(options));
+};
+
+/**
+ * @summary Delete a mission template
+ */
+export const getDeleteMissionTemplateUrl = (id: number) => {
+  return `/api/mission-templates/${id}`;
+};
+
+export const deleteMissionTemplate = async (
+  id: number,
+  options?: RequestInit,
+): Promise<DeleteResponse> => {
+  return customFetch<DeleteResponse>(getDeleteMissionTemplateUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteMissionTemplateMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteMissionTemplate>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteMissionTemplate>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteMissionTemplate"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteMissionTemplate>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteMissionTemplate(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteMissionTemplateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteMissionTemplate>>
+>;
+
+export type DeleteMissionTemplateMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a mission template
+ */
+export const useDeleteMissionTemplate = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteMissionTemplate>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteMissionTemplate>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteMissionTemplateMutationOptions(options));
+};
+
+/**
+ * @summary Get user quotes
+ */
+export const getGetQuotesUrl = () => {
+  return `/api/quotes`;
+};
+
+export const getQuotes = async (options?: RequestInit): Promise<Quote[]> => {
+  return customFetch<Quote[]>(getGetQuotesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetQuotesQueryKey = () => {
+  return [`/api/quotes`] as const;
+};
+
+export const getGetQuotesQueryOptions = <
+  TData = Awaited<ReturnType<typeof getQuotes>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof getQuotes>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetQuotesQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getQuotes>>> = ({
+    signal,
+  }) => getQuotes({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getQuotes>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetQuotesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getQuotes>>
+>;
+export type GetQuotesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get user quotes
+ */
+
+export function useGetQuotes<
+  TData = Awaited<ReturnType<typeof getQuotes>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof getQuotes>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetQuotesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a quote
+ */
+export const getCreateQuoteUrl = () => {
+  return `/api/quotes`;
+};
+
+export const createQuote = async (
+  createQuoteRequest: CreateQuoteRequest,
+  options?: RequestInit,
+): Promise<Quote> => {
+  return customFetch<Quote>(getCreateQuoteUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createQuoteRequest),
+  });
+};
+
+export const getCreateQuoteMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createQuote>>,
+    TError,
+    { data: BodyType<CreateQuoteRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createQuote>>,
+  TError,
+  { data: BodyType<CreateQuoteRequest> },
+  TContext
+> => {
+  const mutationKey = ["createQuote"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createQuote>>,
+    { data: BodyType<CreateQuoteRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createQuote(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateQuoteMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createQuote>>
+>;
+export type CreateQuoteMutationBody = BodyType<CreateQuoteRequest>;
+export type CreateQuoteMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a quote
+ */
+export const useCreateQuote = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createQuote>>,
+    TError,
+    { data: BodyType<CreateQuoteRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createQuote>>,
+  TError,
+  { data: BodyType<CreateQuoteRequest> },
+  TContext
+> => {
+  return useMutation(getCreateQuoteMutationOptions(options));
+};
+
+/**
+ * @summary Update a quote
+ */
+export const getUpdateQuoteUrl = (id: number) => {
+  return `/api/quotes/${id}`;
+};
+
+export const updateQuote = async (
+  id: number,
+  createQuoteRequest: CreateQuoteRequest,
+  options?: RequestInit,
+): Promise<Quote> => {
+  return customFetch<Quote>(getUpdateQuoteUrl(id), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createQuoteRequest),
+  });
+};
+
+export const getUpdateQuoteMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateQuote>>,
+    TError,
+    { id: number; data: BodyType<CreateQuoteRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateQuote>>,
+  TError,
+  { id: number; data: BodyType<CreateQuoteRequest> },
+  TContext
+> => {
+  const mutationKey = ["updateQuote"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateQuote>>,
+    { id: number; data: BodyType<CreateQuoteRequest> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateQuote(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateQuoteMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateQuote>>
+>;
+export type UpdateQuoteMutationBody = BodyType<CreateQuoteRequest>;
+export type UpdateQuoteMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a quote
+ */
+export const useUpdateQuote = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateQuote>>,
+    TError,
+    { id: number; data: BodyType<CreateQuoteRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateQuote>>,
+  TError,
+  { id: number; data: BodyType<CreateQuoteRequest> },
+  TContext
+> => {
+  return useMutation(getUpdateQuoteMutationOptions(options));
+};
+
+/**
+ * @summary Delete a quote
+ */
+export const getDeleteQuoteUrl = (id: number) => {
+  return `/api/quotes/${id}`;
+};
+
+export const deleteQuote = async (
+  id: number,
+  options?: RequestInit,
+): Promise<DeleteResponse> => {
+  return customFetch<DeleteResponse>(getDeleteQuoteUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteQuoteMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteQuote>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteQuote>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteQuote"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteQuote>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteQuote(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteQuoteMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteQuote>>
+>;
+
+export type DeleteQuoteMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a quote
+ */
+export const useDeleteQuote = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteQuote>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteQuote>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteQuoteMutationOptions(options));
+};
+
+/**
+ * @summary Get a random quote (user or default)
+ */
+export const getGetRandomQuoteUrl = () => {
+  return `/api/quotes/random`;
+};
+
+export const getRandomQuote = async (options?: RequestInit): Promise<Quote> => {
+  return customFetch<Quote>(getGetRandomQuoteUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetRandomQuoteQueryKey = () => {
+  return [`/api/quotes/random`] as const;
+};
+
+export const getGetRandomQuoteQueryOptions = <
+  TData = Awaited<ReturnType<typeof getRandomQuote>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getRandomQuote>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetRandomQuoteQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getRandomQuote>>> = ({
+    signal,
+  }) => getRandomQuote({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getRandomQuote>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetRandomQuoteQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getRandomQuote>>
+>;
+export type GetRandomQuoteQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get a random quote (user or default)
+ */
+
+export function useGetRandomQuote<
+  TData = Awaited<ReturnType<typeof getRandomQuote>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getRandomQuote>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetRandomQuoteQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Get daily missions

@@ -31,6 +31,15 @@ export const userSettingsTable = pgTable("user_settings", {
   calendarImpacts: text("calendar_impacts"),
 });
 
+export const quotesTable = pgTable("quotes", {
+  id: serial("id").primaryKey(),
+  text: text("text").notNull(),
+  author: text("author").notNull().default(""),
+  userId: text("user_id"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export type Idea = typeof ideasTable.$inferSelect;
 export type ChecklistItem = typeof checklistItemsTable.$inferSelect;
 export type UserSetting = typeof userSettingsTable.$inferSelect;
+export type Quote = typeof quotesTable.$inferSelect;

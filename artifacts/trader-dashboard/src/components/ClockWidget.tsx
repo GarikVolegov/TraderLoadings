@@ -1,8 +1,9 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { format } from "date-fns";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { useBackground, type TradingSessionConfig } from "@/contexts/BackgroundContext";
+import { useGetRandomQuote } from "@workspace/api-client-react";
 
 function parseTime(t: string): number {
   const [h, m] = t.split(":").map(Number);
@@ -21,6 +22,18 @@ function isInSession(utcHours: number, session: TradingSessionConfig): boolean {
 export function ClockWidget() {
   const [time, setTime] = useState(new Date());
   const { tradingSessions } = useBackground();
+  const { data: randomQuote } = useGetRandomQuote({ query: { refetchInterval: 60_000 } });
+  const prevSessionRef = useRef<string | null>(null);
+  const notifPermissionRef = useRef<NotificationPermission>("default");
+
+  useEffect(() => {
+    if ("Notification" in window) {
+      notifPermissionRef.current = Notification.permission;
+      if (Notification.permission === "default") {
+        Notification.requestPermission().then((p) => { notifPermissionRef.current = p; });
+      }
+    }
+  }, []);
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
@@ -32,6 +45,19 @@ export function ClockWidget() {
     const enabledSessions = tradingSessions.filter(s => s.enabled);
     return enabledSessions.find(s => isInSession(utcHours, s)) || null;
   }, [time, tradingSessions]);
+
+  useEffect(() => {
+    const sessionName = activeSession?.name || null;
+    if (sessionName && sessionName !== prevSessionRef.current) {
+      if ("Notification" in window && notifPermissionRef.current === "granted") {
+        new Notification(`Sessione ${sessionName} iniziata`, {
+          body: `La sessione ${sessionName} è ora attiva. Buon trading!`,
+          icon: "/favicon.ico",
+        });
+      }
+    }
+    prevSessionRef.current = sessionName;
+  }, [activeSession]);
 
   const colorMap: Record<string, { bg: string; glow: string }> = {
     "session-asian": {
@@ -93,6 +119,19 @@ export function ClockWidget() {
             </div>
           )}
         </div>
+
+        {randomQuote && (
+          <div className="mt-3 sm:mt-4 pt-3 border-t border-border/20 z-10">
+            <p className="text-sm sm:text-base italic text-muted-foreground/80 leading-relaxed">
+              "{randomQuote.text}"
+            </p>
+            {randomQuote.author && (
+              <p className="text-xs sm:text-sm text-accent/70 mt-1 font-medium">
+                — {randomQuote.author}
+              </p>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

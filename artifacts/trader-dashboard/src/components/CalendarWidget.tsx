@@ -1,8 +1,8 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { Calendar, RefreshCw, TrendingUp, ChevronDown, ChevronUp, SlidersHorizontal } from "lucide-react";
+import { Calendar, RefreshCw, TrendingUp, ChevronDown, ChevronUp, SlidersHorizontal, Target, CheckCircle2, Circle } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useGetEconomicCalendar, getGetEconomicCalendarQueryKey, useUpdateUserSettings } from "@workspace/api-client-react";
+import { useGetEconomicCalendar, getGetEconomicCalendarQueryKey, useUpdateUserSettings, useGetMissions } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useBackground } from "@/contexts/BackgroundContext";
 
@@ -27,6 +27,7 @@ export function CalendarWidget() {
   const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set());
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [now, setNow] = useState(() => new Date());
+  const { data: missions } = useGetMissions();
 
   useEffect(() => {
     const interval = setInterval(() => setNow(new Date()), 60_000);
@@ -267,6 +268,43 @@ export function CalendarWidget() {
             </div>
           )}
         </div>
+
+        {missions && missions.length > 0 && (
+          <div className="pt-3 border-t border-border/30">
+            <p className="text-xs font-semibold text-accent uppercase tracking-wider mb-2 flex items-center gap-1.5">
+              <Target className="w-3.5 h-3.5" />
+              Missioni di Oggi
+            </p>
+            <div className="space-y-1">
+              {missions.map((m) => (
+                <div
+                  key={m.id}
+                  className={`rounded-lg border p-2.5 flex items-center gap-3 transition-colors ${
+                    m.completed
+                      ? "bg-primary/5 border-primary/20 opacity-60"
+                      : "bg-secondary/20 border-accent/20 hover:bg-secondary/40"
+                  }`}
+                >
+                  <div className="shrink-0">
+                    {m.completed ? (
+                      <CheckCircle2 className="w-4 h-4 text-primary" />
+                    ) : (
+                      <Circle className="w-4 h-4 text-muted-foreground" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-medium truncate ${m.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                      {m.title}
+                    </p>
+                  </div>
+                  <span className="text-xs font-mono font-bold text-accent bg-secondary/60 px-1.5 py-0.5 rounded shrink-0">
+                    {m.xpReward} XP
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
