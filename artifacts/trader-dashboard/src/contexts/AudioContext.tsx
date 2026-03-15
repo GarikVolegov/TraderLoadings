@@ -31,7 +31,7 @@ const AudioCtx = createContext<AudioContextType | null>(null);
 export function AudioProvider({ children }: { children: ReactNode }) {
   const { setCurrentStep, completeLoading } = useLoading();
   const [mode, setModeState] = useState<AudioMode>("off");
-  const [volume, setVolumeState] = useState(60);
+  const [volume, setVolumeState] = useState(40);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const oscillatorsRef = useRef<OscillatorNode[] | null>(null);
   const gainRef = useRef<GainNode | null>(null);
@@ -153,16 +153,22 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       document.removeEventListener("touchstart", tryAutoStart, true);
     };
 
-    document.addEventListener("click", tryAutoStart, true);
-    document.addEventListener("keydown", tryAutoStart, true);
-    document.addEventListener("touchstart", tryAutoStart, true);
+    // Try immediately on mount
+    tryAutoStart();
+    
+    // Fallback: retry on user interaction if initial attempt didn't work
+    if (!hasAutoStarted.current) {
+      document.addEventListener("click", tryAutoStart, true);
+      document.addEventListener("keydown", tryAutoStart, true);
+      document.addEventListener("touchstart", tryAutoStart, true);
+    }
 
     return () => {
       document.removeEventListener("click", tryAutoStart, true);
       document.removeEventListener("keydown", tryAutoStart, true);
       document.removeEventListener("touchstart", tryAutoStart, true);
     };
-  }, []);
+  }, [setCurrentStep, completeLoading]);
 
   return (
     <AudioCtx.Provider value={{ mode, setMode, volume, setVolume }}>
