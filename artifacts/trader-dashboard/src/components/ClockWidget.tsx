@@ -1,9 +1,8 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { format } from "date-fns";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { useBackground, type TradingSessionConfig } from "@/contexts/BackgroundContext";
-import { useGetRandomQuote } from "@workspace/api-client-react";
 
 function parseTime(t: string): number {
   const [h, m] = t.split(":").map(Number);
@@ -22,7 +21,6 @@ function isInSession(utcHours: number, session: TradingSessionConfig): boolean {
 export function ClockWidget() {
   const [time, setTime] = useState(new Date());
   const { tradingSessions } = useBackground();
-  const { data: randomQuote } = useGetRandomQuote({ query: { staleTime: 3600_000 } });
   const prevSessionRef = useRef<string | null>(null);
   const notifPermissionRef = useRef<NotificationPermission>("default");
 
@@ -120,18 +118,6 @@ export function ClockWidget() {
           )}
         </div>
 
-        {randomQuote && (
-          <div className="mt-3 sm:mt-4 pt-3 border-t border-border/20 z-10">
-            <p className="text-sm sm:text-base italic text-muted-foreground/80 leading-relaxed">
-              "{randomQuote.text}"
-            </p>
-            {randomQuote.author && (
-              <p className="text-xs sm:text-sm text-accent/70 mt-1 font-medium">
-                — {randomQuote.author}
-              </p>
-            )}
-          </div>
-        )}
       </CardContent>
     </Card>
   );

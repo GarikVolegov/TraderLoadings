@@ -8,5 +8,5 @@
 
 export interface CreateQuoteRequest {
   text: string;
-  author: string;
+  author?: string;
 }

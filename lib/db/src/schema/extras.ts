@@ -34,7 +34,7 @@ export const userSettingsTable = pgTable("user_settings", {
 export const quotesTable = pgTable("quotes", {
   id: serial("id").primaryKey(),
   text: text("text").notNull(),
-  author: text("author").notNull().default(""),
+  author: text("author"),
   userId: text("user_id"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });

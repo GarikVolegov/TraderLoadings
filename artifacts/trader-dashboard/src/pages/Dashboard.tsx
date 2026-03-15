@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { PageLayout } from "@/components/PageLayout";
 import { ClockWidget } from "@/components/ClockWidget";
+import { QuoteWidget } from "@/components/QuoteWidget";
 import { MissionsWidget } from "@/components/MissionsWidget";
 import { LotCalculatorWidget } from "@/components/LotCalculatorWidget";
 import { LeaderboardWidget } from "@/components/LeaderboardWidget";
@@ -16,6 +17,14 @@ export default function Dashboard() {
         transition={{ delay: 0.1 }}
       >
         <ClockWidget />
+      </motion.section>
+
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.12 }}
+      >
+        <QuoteWidget />
       </motion.section>
 
       <motion.section

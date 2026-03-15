@@ -26,7 +26,7 @@ router.get("/quotes", async (req, res) => {
     quotes.map((q) => ({
       id: q.id,
       text: q.text,
-      author: q.author,
+      author: q.author ?? null,
       createdAt: q.createdAt.toISOString(),
     }))
   );
@@ -42,7 +42,7 @@ router.get("/quotes/random", async (req, res) => {
 
   if (userQuotes.length > 0) {
     const pick = userQuotes[dayIndex % userQuotes.length];
-    res.json({ id: pick.id, text: pick.text, author: pick.author, createdAt: pick.createdAt.toISOString() });
+    res.json({ id: pick.id, text: pick.text, author: pick.author ?? null, createdAt: pick.createdAt.toISOString() });
   } else {
     const pick = DEFAULT_QUOTES[dayIndex % DEFAULT_QUOTES.length];
     res.json({ id: 0, text: pick.text, author: pick.author, createdAt: new Date().toISOString() });
@@ -53,20 +53,20 @@ router.post("/quotes", async (req, res) => {
   const userId = getUserId(req);
   const { text, author } = req.body;
 
-  if (!text || author == null) {
-    res.status(400).json({ error: "text and author are required" });
+  if (!text) {
+    res.status(400).json({ error: "text is required" });
     return;
   }
 
   const [created] = await db
     .insert(quotesTable)
-    .values({ text, author, userId })
+    .values({ text, author: author || null, userId })
     .returning();
 
   res.status(201).json({
     id: created.id,
     text: created.text,
-    author: created.author,
+    author: created.author ?? null,
     createdAt: created.createdAt.toISOString(),
   });
 });
@@ -91,7 +91,7 @@ router.put("/quotes/:id", async (req, res) => {
     .update(quotesTable)
     .set({
       text: text ?? existing.text,
-      author: author ?? existing.author,
+      author: author !== undefined ? (author || null) : existing.author,
     })
     .where(eq(quotesTable.id, id))
     .returning();
@@ -99,7 +99,7 @@ router.put("/quotes/:id", async (req, res) => {
   res.json({
     id: updated.id,
     text: updated.text,
-    author: updated.author,
+    author: updated.author ?? null,
     createdAt: updated.createdAt.toISOString(),
   });
 });

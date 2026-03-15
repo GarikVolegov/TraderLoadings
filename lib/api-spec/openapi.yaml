@@ -1405,12 +1405,12 @@ components:
           type: string
         author:
           type: string
+          nullable: true
         createdAt:
           type: string
       required:
         - id
         - text
-        - author
         - createdAt
 
     CreateQuoteRequest:
@@ -1422,7 +1422,6 @@ components:
           type: string
       required:
         - text
-        - author
 
     CompleteMissionResponse:
       type: object

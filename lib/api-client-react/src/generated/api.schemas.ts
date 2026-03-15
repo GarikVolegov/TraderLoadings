@@ -99,13 +99,13 @@ export interface CreateMissionTemplateRequest {
 export interface Quote {
   id: number;
   text: string;
-  author: string;
+  author?: string | null;
   createdAt: string;
 }
 
 export interface CreateQuoteRequest {
   text: string;
-  author: string;
+  author?: string;
 }
 
 export interface CompleteMissionResponse {

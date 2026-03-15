@@ -417,7 +417,7 @@ function QuotesSettings() {
   const handleAdd = async () => {
     if (!newText.trim()) return;
     try {
-      await createMutation.mutateAsync({ data: { text: newText.trim(), author: newAuthor.trim() || "Anonimo" } });
+      await createMutation.mutateAsync({ data: { text: newText.trim(), author: newAuthor.trim() || undefined } });
       setNewText("");
       setNewAuthor("");
       invalidate();
@@ -448,10 +448,10 @@ function QuotesSettings() {
     }
   };
 
-  const startEdit = (q: { id: number; text: string; author: string }) => {
+  const startEdit = (q: { id: number; text: string; author?: string | null }) => {
     setEditingId(q.id);
     setEditText(q.text);
-    setEditAuthor(q.author);
+    setEditAuthor(q.author ?? "");
   };
 
   return (
@@ -500,8 +500,8 @@ function QuotesSettings() {
                 ) : (
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm italic truncate">"{q.text}"</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">— {q.author}</p>
+                      <p className="text-sm italic truncate">&ldquo;{q.text}&rdquo;</p>
+                      {q.author && <p className="text-xs text-muted-foreground mt-0.5">— {q.author}</p>}
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => startEdit(q)}>

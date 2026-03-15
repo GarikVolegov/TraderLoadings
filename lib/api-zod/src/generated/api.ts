@@ -212,7 +212,7 @@ export const DeleteMissionTemplateResponse = zod.object({
 export const GetQuotesResponseItem = zod.object({
   id: zod.number(),
   text: zod.string(),
-  author: zod.string(),
+  author: zod.string().nullish(),
   createdAt: zod.string(),
 });
 export const GetQuotesResponse = zod.array(GetQuotesResponseItem);
@@ -222,7 +222,7 @@ export const GetQuotesResponse = zod.array(GetQuotesResponseItem);
  */
 export const CreateQuoteBody = zod.object({
   text: zod.string(),
-  author: zod.string(),
+  author: zod.string().optional(),
 });
 
 /**
@@ -234,13 +234,13 @@ export const UpdateQuoteParams = zod.object({
 
 export const UpdateQuoteBody = zod.object({
   text: zod.string(),
-  author: zod.string(),
+  author: zod.string().optional(),
 });
 
 export const UpdateQuoteResponse = zod.object({
   id: zod.number(),
   text: zod.string(),
-  author: zod.string(),
+  author: zod.string().nullish(),
   createdAt: zod.string(),
 });
 
@@ -261,7 +261,7 @@ export const DeleteQuoteResponse = zod.object({
 export const GetRandomQuoteResponse = zod.object({
   id: zod.number(),
   text: zod.string(),
-  author: zod.string(),
+  author: zod.string().nullish(),
   createdAt: zod.string(),
 });
 
