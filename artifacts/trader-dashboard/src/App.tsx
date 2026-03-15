@@ -23,6 +23,7 @@ import News from "./pages/News";
 import Chat from "./pages/Chat";
 import Backtest from "./pages/Backtest";
 import Tools from "./pages/Tools";
+import Zen from "./pages/Zen";
 import NotFound from "./pages/not-found";
 
 const queryClient = new QueryClient({
@@ -44,6 +45,7 @@ function Router() {
       <Route path="/chat" component={Chat} />
       <Route path="/backtest" component={Backtest} />
       <Route path="/tools" component={Tools} />
+      <Route path="/zen" component={Zen} />
       <Route path="/settings" component={Settings} />
       <Route component={NotFound} />
     </Switch>

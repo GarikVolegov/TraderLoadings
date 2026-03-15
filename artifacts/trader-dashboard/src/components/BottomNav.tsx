@@ -1,5 +1,5 @@
 import { Link, useRoute } from "wouter";
-import { LayoutDashboard, BookOpen, TrendingDown, MessageCircle, Wrench } from "lucide-react";
+import { LayoutDashboard, BookOpen, TrendingDown, MessageCircle, Wrench, Brain } from "lucide-react";
 import { useGetUnreadCount } from "@workspace/api-client-react";
 
 const NAV_ITEMS = [
@@ -7,6 +7,7 @@ const NAV_ITEMS = [
   { href: "/journal", icon: BookOpen, label: "Diario" },
   { href: "/backtest", icon: TrendingDown, label: "Backtest" },
   { href: "/tools", icon: Wrench, label: "Strumenti" },
+  { href: "/zen", icon: Brain, label: "Zen" },
   { href: "/chat", icon: MessageCircle, label: "Chat" },
 ] as const;
 
