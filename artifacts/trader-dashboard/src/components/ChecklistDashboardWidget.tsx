@@ -1,12 +1,11 @@
 import { ClipboardCheck, ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
+import { Link } from "wouter";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useGetChecklist } from "@workspace/api-client-react";
-import { useLocation } from "wouter";
 
 export function ChecklistDashboardWidget() {
   const { data: items, isLoading } = useGetChecklist();
-  const [, navigate] = useLocation();
 
   const completed = items?.filter((i) => i.completed).length ?? 0;
   const total = items?.length ?? 0;
@@ -31,8 +30,8 @@ export function ChecklistDashboardWidget() {
             <div className="w-6 h-6 rounded-full border-4 border-primary border-t-transparent animate-spin" />
           </div>
         ) : !items || items.length === 0 ? (
-          <button
-            onClick={() => navigate("/checklist")}
+          <Link
+            href="/checklist"
             className="w-full py-6 flex flex-col items-center gap-2 text-muted-foreground hover:text-foreground transition-colors group"
           >
             <ClipboardCheck className="w-10 h-10 opacity-20 group-hover:opacity-40 transition-opacity" />
@@ -41,7 +40,7 @@ export function ChecklistDashboardWidget() {
               Configura la checklist
               <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-0.5" />
             </span>
-          </button>
+          </Link>
         ) : (
           <div className="flex flex-wrap gap-2">
             {items.map((item, idx) => (
@@ -50,11 +49,12 @@ export function ChecklistDashboardWidget() {
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: idx * 0.03 }}
-                className={`px-3 py-1.5 rounded-full text-xs sm:text-sm font-medium border transition-colors ${
+                className={`px-3 py-1.5 rounded-full text-xs sm:text-sm font-medium border transition-colors max-w-[200px] truncate ${
                   item.completed
                     ? "bg-primary/10 border-primary/30 text-primary line-through opacity-50"
                     : "bg-secondary/60 border-border/60 text-foreground"
                 }`}
+                title={item.text}
               >
                 {item.text}
               </motion.div>
