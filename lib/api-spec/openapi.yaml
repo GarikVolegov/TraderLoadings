@@ -35,6 +35,8 @@ tags:
     description: Backtesting sessions and trades
   - name: quotes
     description: Custom trading quotes
+  - name: checkins
+    description: Daily session check-ins
 paths:
   /healthz:
     get:
@@ -418,6 +420,39 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Quote"
+
+  /checkins/today:
+    get:
+      operationId: getTodayCheckin
+      tags: [checkins]
+      summary: Get today's session check-in (null if not yet done)
+      responses:
+        "200":
+          description: Today's check-in or null
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Checkin"
+                nullable: true
+
+  /checkins:
+    post:
+      operationId: createCheckin
+      tags: [checkins]
+      summary: Create a session check-in
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCheckinRequest"
+      responses:
+        "201":
+          description: Created check-in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Checkin"
 
   /missions:
     get:
@@ -1556,6 +1591,12 @@ components:
         reminderTime:
           type: string
           nullable: true
+        cadence:
+          type: string
+          enum: [daily, weekly, monthly]
+          nullable: true
+        recurrence:
+          type: boolean
         createdAt:
           type: string
       required:
@@ -1563,6 +1604,7 @@ components:
         - type
         - content
         - completed
+        - recurrence
         - createdAt
 
     CreateIdeaRequest:
@@ -1587,6 +1629,49 @@ components:
         reminderTime:
           type: string
           nullable: true
+        cadence:
+          type: string
+          enum: [daily, weekly, monthly]
+          nullable: true
+        recurrence:
+          type: boolean
+
+    Checkin:
+      type: object
+      properties:
+        id:
+          type: integer
+        mood:
+          type: string
+        sessionName:
+          type: string
+        note:
+          type: string
+          nullable: true
+        date:
+          type: string
+        createdAt:
+          type: string
+      required:
+        - id
+        - mood
+        - sessionName
+        - date
+        - createdAt
+
+    CreateCheckinRequest:
+      type: object
+      properties:
+        mood:
+          type: string
+        sessionName:
+          type: string
+        note:
+          type: string
+          nullable: true
+      required:
+        - mood
+        - sessionName
 
     ChecklistItem:
       type: object
@@ -1725,12 +1810,22 @@ components:
           items:
             type: string
           nullable: true
+        dailyReminderTime:
+          type: string
+          nullable: true
+        preMacroMinutes:
+          type: integer
+          minimum: 0
+        maxDailyLoss:
+          type: integer
+          nullable: true
       required:
         - id
         - backgroundType
         - fontChoice
         - backgroundDarkness
         - lotDivisor
+        - preMacroMinutes
 
     UpdateUserSettingsRequest:
       type: object
@@ -1765,6 +1860,15 @@ components:
           type: array
           items:
             type: string
+          nullable: true
+        dailyReminderTime:
+          type: string
+          nullable: true
+        preMacroMinutes:
+          type: integer
+          minimum: 0
+        maxDailyLoss:
+          type: integer
           nullable: true
 
     UploadBackgroundResponse:

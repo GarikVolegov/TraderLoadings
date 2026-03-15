@@ -266,6 +266,29 @@ export const GetRandomQuoteResponse = zod.object({
 });
 
 /**
+ * @summary Get today's session check-in (null if not yet done)
+ */
+export const GetTodayCheckinResponse = zod
+  .object({
+    id: zod.number(),
+    mood: zod.string(),
+    sessionName: zod.string(),
+    note: zod.string().nullish(),
+    date: zod.string(),
+    createdAt: zod.string(),
+  })
+  .nullable();
+
+/**
+ * @summary Create a session check-in
+ */
+export const CreateCheckinBody = zod.object({
+  mood: zod.string(),
+  sessionName: zod.string(),
+  note: zod.string().nullish(),
+});
+
+/**
  * @summary Get daily missions
  */
 export const GetMissionsResponseItem = zod.object({
@@ -445,6 +468,8 @@ export const GetIdeasResponseItem = zod.object({
   content: zod.string(),
   completed: zod.boolean(),
   reminderTime: zod.string().nullish(),
+  cadence: zod.enum(["daily", "weekly", "monthly"]).nullish(),
+  recurrence: zod.boolean(),
   createdAt: zod.string(),
 });
 export const GetIdeasResponse = zod.array(GetIdeasResponseItem);
@@ -468,6 +493,8 @@ export const UpdateIdeaBody = zod.object({
   content: zod.string().optional(),
   completed: zod.boolean().optional(),
   reminderTime: zod.string().nullish(),
+  cadence: zod.enum(["daily", "weekly", "monthly"]).nullish(),
+  recurrence: zod.boolean().optional(),
 });
 
 export const UpdateIdeaResponse = zod.object({
@@ -476,6 +503,8 @@ export const UpdateIdeaResponse = zod.object({
   content: zod.string(),
   completed: zod.boolean(),
   reminderTime: zod.string().nullish(),
+  cadence: zod.enum(["daily", "weekly", "monthly"]).nullish(),
+  recurrence: zod.boolean(),
   createdAt: zod.string(),
 });
 
@@ -709,6 +738,8 @@ export const DeleteBacktestTradeResponse = zod.object({
 export const getUserSettingsResponseBackgroundDarknessMin = 0;
 export const getUserSettingsResponseBackgroundDarknessMax = 90;
 
+export const getUserSettingsResponsePreMacroMinutesMin = 0;
+
 export const GetUserSettingsResponse = zod.object({
   id: zod.number(),
   backgroundUrl: zod.string().nullish(),
@@ -739,6 +770,9 @@ export const GetUserSettingsResponse = zod.object({
   lotDivisor: zod.number().min(1),
   calendarCurrencies: zod.array(zod.string()).nullish(),
   calendarImpacts: zod.array(zod.string()).nullish(),
+  dailyReminderTime: zod.string().nullish(),
+  preMacroMinutes: zod.number().min(getUserSettingsResponsePreMacroMinutesMin),
+  maxDailyLoss: zod.number().nullish(),
 });
 
 /**
@@ -746,6 +780,8 @@ export const GetUserSettingsResponse = zod.object({
  */
 export const updateUserSettingsBodyBackgroundDarknessMin = 0;
 export const updateUserSettingsBodyBackgroundDarknessMax = 90;
+
+export const updateUserSettingsBodyPreMacroMinutesMin = 0;
 
 export const UpdateUserSettingsBody = zod.object({
   backgroundUrl: zod.string().nullish(),
@@ -773,10 +809,18 @@ export const UpdateUserSettingsBody = zod.object({
   lotDivisor: zod.number().min(1).optional(),
   calendarCurrencies: zod.array(zod.string()).nullish(),
   calendarImpacts: zod.array(zod.string()).nullish(),
+  dailyReminderTime: zod.string().nullish(),
+  preMacroMinutes: zod
+    .number()
+    .min(updateUserSettingsBodyPreMacroMinutesMin)
+    .optional(),
+  maxDailyLoss: zod.number().nullish(),
 });
 
 export const updateUserSettingsResponseBackgroundDarknessMin = 0;
 export const updateUserSettingsResponseBackgroundDarknessMax = 90;
+
+export const updateUserSettingsResponsePreMacroMinutesMin = 0;
 
 export const UpdateUserSettingsResponse = zod.object({
   id: zod.number(),
@@ -808,6 +852,11 @@ export const UpdateUserSettingsResponse = zod.object({
   lotDivisor: zod.number().min(1),
   calendarCurrencies: zod.array(zod.string()).nullish(),
   calendarImpacts: zod.array(zod.string()).nullish(),
+  dailyReminderTime: zod.string().nullish(),
+  preMacroMinutes: zod
+    .number()
+    .min(updateUserSettingsResponsePreMacroMinutesMin),
+  maxDailyLoss: zod.number().nullish(),
 });
 
 /**

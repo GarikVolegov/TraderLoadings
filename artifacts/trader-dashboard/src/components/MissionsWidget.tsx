@@ -1,11 +1,28 @@
 import { useQueryClient } from "@tanstack/react-query";
 import confetti from "canvas-confetti";
-import { CheckCircle2, Circle, Target, Zap, ChevronRight } from "lucide-react";
+import { CheckCircle2, Circle, Target, Zap, ChevronRight, CalendarPlus } from "lucide-react";
 import { motion } from "framer-motion";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { useGetMissions, useCompleteMission, getGetMissionsQueryKey, getGetProfileQueryKey } from "@workspace/api-client-react";
+import { useGetMissions, useCompleteMission, getGetMissionsQueryKey, getGetProfileQueryKey, type Mission } from "@workspace/api-client-react";
+import { downloadICS } from "@/utils/icsExport";
+
+function exportMissionToCalendar(mission: Mission) {
+  const today = new Date();
+  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 9, 0, 0);
+  const end = new Date(start.getTime() + 60 * 60_000);
+  downloadICS(`missione-${mission.id}.ics`, [
+    {
+      uid: `mission-${mission.id}-${today.toISOString().slice(0, 10)}@traderloading`,
+      summary: `Missione: ${mission.title}`,
+      description: mission.description,
+      dtstart: start,
+      dtend: end,
+      alarm: 15,
+    },
+  ]);
+}
 
 export function MissionsWidget() {
   const queryClient = useQueryClient();
@@ -128,6 +145,16 @@ export function MissionsWidget() {
                     {mission.xpReward} XP
                   </div>
                   
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
+                    title="Aggiungi a calendario"
+                    onClick={() => exportMissionToCalendar(mission)}
+                  >
+                    <CalendarPlus className="w-4 h-4" />
+                  </Button>
+
                   {!mission.completed && (
                     <Button 
                       size="sm"

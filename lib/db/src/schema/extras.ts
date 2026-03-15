@@ -6,6 +6,8 @@ export const ideasTable = pgTable("ideas", {
   content: text("content").notNull(),
   completed: boolean("completed").notNull().default(false),
   reminderTime: text("reminder_time"),
+  cadence: text("cadence"),
+  recurrence: boolean("recurrence").notNull().default(false),
   userId: text("user_id"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
@@ -30,6 +32,9 @@ export const userSettingsTable = pgTable("user_settings", {
   lotDivisor: integer("lot_divisor").notNull().default(11),
   calendarCurrencies: text("calendar_currencies"),
   calendarImpacts: text("calendar_impacts"),
+  dailyReminderTime: text("daily_reminder_time"),
+  preMacroMinutes: integer("pre_macro_minutes").notNull().default(15),
+  maxDailyLoss: integer("max_daily_loss"),
 });
 
 export const quotesTable = pgTable("quotes", {
@@ -40,7 +45,18 @@ export const quotesTable = pgTable("quotes", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const checkinsTable = pgTable("checkins", {
+  id: serial("id").primaryKey(),
+  mood: text("mood").notNull(),
+  sessionName: text("session_name").notNull(),
+  note: text("note"),
+  userId: text("user_id"),
+  date: text("date").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export type Idea = typeof ideasTable.$inferSelect;
 export type ChecklistItem = typeof checklistItemsTable.$inferSelect;
 export type UserSetting = typeof userSettingsTable.$inferSelect;
 export type Quote = typeof quotesTable.$inferSelect;
+export type Checkin = typeof checkinsTable.$inferSelect;

@@ -7,6 +7,7 @@ import { LotCalculatorWidget } from "@/components/LotCalculatorWidget";
 import { LeaderboardWidget } from "@/components/LeaderboardWidget";
 import { CalendarWidget } from "@/components/CalendarWidget";
 import { ChecklistDashboardWidget } from "@/components/ChecklistDashboardWidget";
+import { CalendarMissionsWidget } from "@/components/CalendarMissionsWidget";
 
 export default function Dashboard() {
   return (
@@ -53,6 +54,14 @@ export default function Dashboard() {
           <LotCalculatorWidget />
         </motion.section>
       </div>
+
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.38 }}
+      >
+        <CalendarMissionsWidget />
+      </motion.section>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8">
         <motion.section

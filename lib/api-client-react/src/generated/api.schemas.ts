@@ -192,12 +192,22 @@ export const IdeaType = {
   goal: "goal",
 } as const;
 
+export type IdeaCadence = (typeof IdeaCadence)[keyof typeof IdeaCadence] | null;
+
+export const IdeaCadence = {
+  daily: "daily",
+  weekly: "weekly",
+  monthly: "monthly",
+} as const;
+
 export interface Idea {
   id: number;
   type: IdeaType;
   content: string;
   completed: boolean;
   reminderTime?: string | null;
+  cadence?: IdeaCadence;
+  recurrence: boolean;
   createdAt: string;
 }
 
@@ -214,10 +224,37 @@ export interface CreateIdeaRequest {
   content: string;
 }
 
+export type UpdateIdeaRequestCadence =
+  | (typeof UpdateIdeaRequestCadence)[keyof typeof UpdateIdeaRequestCadence]
+  | null;
+
+export const UpdateIdeaRequestCadence = {
+  daily: "daily",
+  weekly: "weekly",
+  monthly: "monthly",
+} as const;
+
 export interface UpdateIdeaRequest {
   content?: string;
   completed?: boolean;
   reminderTime?: string | null;
+  cadence?: UpdateIdeaRequestCadence;
+  recurrence?: boolean;
+}
+
+export interface Checkin {
+  id: number;
+  mood: string;
+  sessionName: string;
+  note?: string | null;
+  date: string;
+  createdAt: string;
+}
+
+export interface CreateCheckinRequest {
+  mood: string;
+  sessionName: string;
+  note?: string | null;
 }
 
 export interface ChecklistItem {
@@ -306,6 +343,10 @@ export interface UserSettings {
   lotDivisor: number;
   calendarCurrencies?: string[] | null;
   calendarImpacts?: string[] | null;
+  dailyReminderTime?: string | null;
+  /** @minimum 0 */
+  preMacroMinutes: number;
+  maxDailyLoss?: number | null;
 }
 
 export type UpdateUserSettingsRequestBackgroundType =
@@ -341,6 +382,10 @@ export interface UpdateUserSettingsRequest {
   lotDivisor?: number;
   calendarCurrencies?: string[] | null;
   calendarImpacts?: string[] | null;
+  dailyReminderTime?: string | null;
+  /** @minimum 0 */
+  preMacroMinutes?: number;
+  maxDailyLoss?: number | null;
 }
 
 export interface UploadBackgroundResponse {

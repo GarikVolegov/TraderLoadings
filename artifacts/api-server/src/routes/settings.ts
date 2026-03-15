@@ -53,7 +53,7 @@ router.get("/settings", async (req, res) => {
 
 router.put("/settings", async (req, res) => {
   const userId = getUserId(req);
-  const { backgroundUrl, backgroundType, fontChoice, backgroundDarkness, tradingSessions, lotDivisor, calendarCurrencies, calendarImpacts } = req.body;
+  const { backgroundUrl, backgroundType, fontChoice, backgroundDarkness, tradingSessions, lotDivisor, calendarCurrencies, calendarImpacts, dailyReminderTime, preMacroMinutes, maxDailyLoss } = req.body;
   const settings = await getOrCreateSettings(userId);
 
   const updateData: Record<string, unknown> = {};
@@ -76,6 +76,9 @@ router.put("/settings", async (req, res) => {
   if (calendarImpacts !== undefined) {
     updateData.calendarImpacts = Array.isArray(calendarImpacts) ? JSON.stringify(calendarImpacts) : null;
   }
+  if (dailyReminderTime !== undefined) updateData.dailyReminderTime = dailyReminderTime || null;
+  if (preMacroMinutes !== undefined) updateData.preMacroMinutes = Math.max(0, Number(preMacroMinutes));
+  if (maxDailyLoss !== undefined) updateData.maxDailyLoss = maxDailyLoss ? Math.abs(Number(maxDailyLoss)) : null;
 
   const [updated] = await db.update(userSettingsTable)
     .set(updateData)

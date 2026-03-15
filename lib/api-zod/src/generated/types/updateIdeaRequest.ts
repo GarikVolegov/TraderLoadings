@@ -5,9 +5,12 @@
  * TraderLoading API
  * OpenAPI spec version: 0.1.0
  */
+import type { UpdateIdeaRequestCadence } from "./updateIdeaRequestCadence";
 
 export interface UpdateIdeaRequest {
   content?: string;
   completed?: boolean;
   reminderTime?: string | null;
+  cadence?: UpdateIdeaRequestCadence;
+  recurrence?: boolean;
 }

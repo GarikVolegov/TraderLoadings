@@ -24,4 +24,8 @@ export interface UserSettings {
   lotDivisor: number;
   calendarCurrencies?: string[] | null;
   calendarImpacts?: string[] | null;
+  dailyReminderTime?: string | null;
+  /** @minimum 0 */
+  preMacroMinutes: number;
+  maxDailyLoss?: number | null;
 }

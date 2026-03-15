@@ -27,10 +27,12 @@ import type {
   ChatMessagesResponse,
   CheckNameResponse,
   CheckProfileNameParams,
+  Checkin,
   ChecklistItem,
   CompleteMissionResponse,
   CreateBacktestSessionRequest,
   CreateBacktestTradeRequest,
+  CreateCheckinRequest,
   CreateChecklistItemRequest,
   CreateIdeaRequest,
   CreateJournalEntryRequest,
@@ -1843,6 +1845,167 @@ export function useGetRandomQuote<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Get today's session check-in (null if not yet done)
+ */
+export const getGetTodayCheckinUrl = () => {
+  return `/api/checkins/today`;
+};
+
+export const getTodayCheckin = async (
+  options?: RequestInit,
+): Promise<Checkin | null> => {
+  return customFetch<Checkin | null>(getGetTodayCheckinUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetTodayCheckinQueryKey = () => {
+  return [`/api/checkins/today`] as const;
+};
+
+export const getGetTodayCheckinQueryOptions = <
+  TData = Awaited<ReturnType<typeof getTodayCheckin>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getTodayCheckin>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetTodayCheckinQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getTodayCheckin>>> = ({
+    signal,
+  }) => getTodayCheckin({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getTodayCheckin>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetTodayCheckinQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getTodayCheckin>>
+>;
+export type GetTodayCheckinQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get today's session check-in (null if not yet done)
+ */
+
+export function useGetTodayCheckin<
+  TData = Awaited<ReturnType<typeof getTodayCheckin>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getTodayCheckin>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetTodayCheckinQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a session check-in
+ */
+export const getCreateCheckinUrl = () => {
+  return `/api/checkins`;
+};
+
+export const createCheckin = async (
+  createCheckinRequest: CreateCheckinRequest,
+  options?: RequestInit,
+): Promise<Checkin> => {
+  return customFetch<Checkin>(getCreateCheckinUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createCheckinRequest),
+  });
+};
+
+export const getCreateCheckinMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCheckin>>,
+    TError,
+    { data: BodyType<CreateCheckinRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createCheckin>>,
+  TError,
+  { data: BodyType<CreateCheckinRequest> },
+  TContext
+> => {
+  const mutationKey = ["createCheckin"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createCheckin>>,
+    { data: BodyType<CreateCheckinRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createCheckin(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateCheckinMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createCheckin>>
+>;
+export type CreateCheckinMutationBody = BodyType<CreateCheckinRequest>;
+export type CreateCheckinMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a session check-in
+ */
+export const useCreateCheckin = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCheckin>>,
+    TError,
+    { data: BodyType<CreateCheckinRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createCheckin>>,
+  TError,
+  { data: BodyType<CreateCheckinRequest> },
+  TContext
+> => {
+  return useMutation(getCreateCheckinMutationOptions(options));
+};
 
 /**
  * @summary Get daily missions

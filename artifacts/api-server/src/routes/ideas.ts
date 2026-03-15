@@ -29,11 +29,13 @@ router.post("/ideas", async (req, res) => {
 router.put("/ideas/:id", async (req, res) => {
   const userId = getUserId(req);
   const id = parseInt(req.params.id);
-  const { content, completed, reminderTime } = req.body;
+  const { content, completed, reminderTime, cadence, recurrence } = req.body;
   const updates: Record<string, unknown> = {};
   if (content !== undefined) updates.content = content;
   if (completed !== undefined) updates.completed = completed;
   if (reminderTime !== undefined) updates.reminderTime = reminderTime;
+  if (cadence !== undefined) updates.cadence = cadence;
+  if (recurrence !== undefined) updates.recurrence = recurrence;
   const [idea] = await db.update(ideasTable)
     .set(updates)
     .where(and(eq(ideasTable.id, id), userFilter(userId)))

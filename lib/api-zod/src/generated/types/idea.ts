@@ -5,6 +5,7 @@
  * TraderLoading API
  * OpenAPI spec version: 0.1.0
  */
+import type { IdeaCadence } from "./ideaCadence";
 import type { IdeaType } from "./ideaType";
 
 export interface Idea {
@@ -13,5 +14,7 @@ export interface Idea {
   content: string;
   completed: boolean;
   reminderTime?: string | null;
+  cadence?: IdeaCadence;
+  recurrence: boolean;
   createdAt: string;
 }

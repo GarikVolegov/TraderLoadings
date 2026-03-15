@@ -8,7 +8,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { Image, Upload, X, LogIn, LogOut, UserPlus, RefreshCw, Type, Sun, TrendingUp, Target, Plus, Pencil, Trash2, Quote } from "lucide-react";
+import { Image, Upload, X, LogIn, LogOut, UserPlus, RefreshCw, Type, Sun, TrendingUp, Target, Plus, Pencil, Trash2, Quote, Bell, ShieldAlert } from "lucide-react";
 import { useBackground, DEFAULT_TRADING_SESSIONS, DEFAULT_LOT_DIVISOR, type TradingSessionConfig } from "@/contexts/BackgroundContext";
 import { useGetUserSettings, useUpdateUserSettings, getGetUserSettingsQueryKey, useGetMissionTemplates, useCreateMissionTemplate, useUpdateMissionTemplate, useDeleteMissionTemplate, getGetMissionTemplatesQueryKey, useGetQuotes, useCreateQuote, useUpdateQuote, useDeleteQuote, getGetQuotesQueryKey, getGetRandomQuoteQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -657,6 +657,122 @@ function MissionTemplatesSettings() {
   );
 }
 
+function NotificationSettings() {
+  const { data: settings, isLoading } = useGetUserSettings();
+  const updateMutation = useUpdateUserSettings();
+  const qc = useQueryClient();
+  const { toast } = useToast();
+
+  const [reminderTime, setReminderTime] = useState("");
+  const [preMacro, setPreMacro] = useState("15");
+  const [maxLoss, setMaxLoss] = useState("");
+
+  useEffect(() => {
+    if (!settings) return;
+    setReminderTime(settings.dailyReminderTime ?? "");
+    setPreMacro(String(settings.preMacroMinutes ?? 15));
+    setMaxLoss(settings.maxDailyLoss ? String(settings.maxDailyLoss) : "");
+  }, [settings]);
+
+  const save = async () => {
+    try {
+      await updateMutation.mutateAsync({
+        data: {
+          dailyReminderTime: reminderTime || undefined,
+          preMacroMinutes: Number(preMacro),
+          maxDailyLoss: maxLoss ? Number(maxLoss) : undefined,
+        },
+      });
+      qc.invalidateQueries({ queryKey: getGetUserSettingsQueryKey() });
+      toast({ description: "Impostazioni notifiche salvate." });
+    } catch {
+      toast({ description: "Errore nel salvataggio.", variant: "destructive" });
+    }
+  };
+
+  const requestPermission = () => {
+    if (!("Notification" in window)) {
+      toast({ description: "Le notifiche non sono supportate da questo browser.", variant: "destructive" });
+      return;
+    }
+    Notification.requestPermission().then((p) => {
+      if (p === "granted") toast({ description: "Notifiche attivate." });
+      else toast({ description: "Permesso notifiche negato.", variant: "destructive" });
+    });
+  };
+
+  if (isLoading) return null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Bell className="w-5 h-5 text-primary" />
+          Notifiche e Promemoria
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        <div className="space-y-1.5">
+          <p className="text-sm font-medium">Orario promemoria giornaliero</p>
+          <p className="text-xs text-muted-foreground">Ricevi ogni giorno una notifica con il riepilogo delle missioni.</p>
+          <Input
+            type="time"
+            value={reminderTime}
+            onChange={(e) => setReminderTime(e.target.value)}
+            className="w-40"
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <p className="text-sm font-medium">Anticipo alert eventi macro (minuti)</p>
+          <p className="text-xs text-muted-foreground">Quanto prima ricevere la notifica per eventi ad alto impatto.</p>
+          <div className="flex gap-2">
+            {["5", "10", "15", "30"].map((v) => (
+              <button
+                key={v}
+                onClick={() => setPreMacro(v)}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${
+                  preMacro === v
+                    ? "bg-primary/15 border-primary/40 text-primary"
+                    : "border-border text-muted-foreground hover:border-primary/30"
+                }`}
+              >
+                {v} min
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <p className="text-sm font-medium flex items-center gap-1.5">
+            <ShieldAlert className="w-4 h-4 text-destructive" />
+            Max loss giornaliero (€)
+          </p>
+          <p className="text-xs text-muted-foreground">Ricevi un avviso alla sessione se hai impostato un limite.</p>
+          <Input
+            type="number"
+            min="0"
+            placeholder="es. 200"
+            value={maxLoss}
+            onChange={(e) => setMaxLoss(e.target.value)}
+            className="w-40"
+          />
+        </div>
+
+        <div className="flex gap-2 pt-1">
+          <Button size="sm" onClick={save} disabled={updateMutation.isPending}>
+            Salva
+          </Button>
+          <Button size="sm" variant="outline" onClick={requestPermission}>
+            <Bell className="w-4 h-4 mr-1.5" />
+            Attiva notifiche browser
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function AuthSection({ login }: { login: () => void }) {
   return (
     <Card>
@@ -731,6 +847,10 @@ export default function Settings() {
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.41 }}>
           <QuotesSettings />
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.44 }} className="lg:col-span-2">
+          <NotificationSettings />
         </motion.div>
       </div>
 

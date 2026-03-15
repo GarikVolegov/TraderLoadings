@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { format, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks, subMonths, addWeeks, addMonths, isWithinInterval } from "date-fns";
 import { it } from "date-fns/locale";
-import { Plus, Edit2, Trash2, Image as ImageIcon, CalendarDays, Tag, Lightbulb, Target, BookOpen, Check, TrendingUp, TrendingDown, Minus, ChevronLeft, ChevronRight, BarChart3, Calendar, Bell, BellOff } from "lucide-react";
+import { Plus, Edit2, Trash2, Image as ImageIcon, CalendarDays, Tag, Lightbulb, Target, BookOpen, Check, TrendingUp, TrendingDown, Minus, ChevronLeft, ChevronRight, BarChart3, Calendar, Bell, BellOff, CalendarPlus, RefreshCw } from "lucide-react";
 import { PageLayout } from "@/components/PageLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -20,7 +20,9 @@ import {
   useDeleteIdea,
   getGetIdeasQueryKey,
   type JournalEntry,
+  type Idea,
 } from "@workspace/api-client-react";
+import { downloadICS } from "@/utils/icsExport";
 
 type Tab = "trades" | "idee" | "obiettivi" | "recap-settimanale" | "recap-mensile";
 
@@ -201,9 +203,48 @@ function IdeasTab({ type }: { type: "idea" | "goal" }) {
     }
   };
 
+  const handleSetCadence = async (id: number, cadence: "daily" | "weekly" | "monthly" | null) => {
+    await updateMutation.mutateAsync({ id, data: { cadence: cadence ?? undefined } });
+    invalidate();
+  };
+
+  const handleToggleRecurrence = async (item: Idea) => {
+    await updateMutation.mutateAsync({ id: item.id, data: { recurrence: !item.recurrence } });
+    invalidate();
+  };
+
+  const handleExportGoal = (item: Idea) => {
+    const today = new Date();
+    const start = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 8, 0, 0);
+    const end = new Date(start.getTime() + 30 * 60_000);
+    const reminderMin = item.reminderTime
+      ? (() => {
+          const [h, m] = item.reminderTime!.split(":").map(Number);
+          const rDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), h, m, 0);
+          return Math.max(0, Math.round((start.getTime() - rDate.getTime()) / 60_000));
+        })()
+      : 15;
+    downloadICS(`obiettivo-${item.id}.ics`, [
+      {
+        uid: `goal-${item.id}-${today.toISOString().slice(0, 10)}@traderloading`,
+        summary: `Obiettivo: ${item.content}`,
+        description: item.cadence ? `Cadenza: ${item.cadence}` : undefined,
+        dtstart: start,
+        dtend: end,
+        alarm: reminderMin,
+      },
+    ]);
+  };
+
   const handleDelete = async (id: number) => {
     await deleteMutation.mutateAsync({ id });
     invalidate();
+  };
+
+  const CADENCE_LABELS: Record<string, string> = {
+    daily: "Giornaliero",
+    weekly: "Settimanale",
+    monthly: "Mensile",
   };
 
   return (
@@ -262,7 +303,7 @@ function IdeasTab({ type }: { type: "idea" | "goal" }) {
                   <p className={`text-sm font-medium ${item.completed ? "line-through text-muted-foreground" : ""}`}>
                     {item.content}
                   </p>
-                  <div className="flex items-center gap-2 mt-0.5">
+                  <div className="flex items-center flex-wrap gap-2 mt-1">
                     <p className="text-xs text-muted-foreground/50">
                       {format(parseISO(item.createdAt), "d MMM yyyy", { locale: it })}
                     </p>
@@ -271,7 +312,45 @@ function IdeasTab({ type }: { type: "idea" | "goal" }) {
                         <Bell className="w-3 h-3" /> {item.reminderTime}
                       </span>
                     )}
+                    {type === "goal" && item.cadence && (
+                      <span className="inline-flex items-center gap-1 text-xs text-accent/70 bg-accent/10 px-1.5 py-0.5 rounded">
+                        <RefreshCw className="w-2.5 h-2.5" />
+                        {CADENCE_LABELS[item.cadence] ?? item.cadence}
+                      </span>
+                    )}
+                    {type === "goal" && item.recurrence && (
+                      <span className="text-xs text-primary/60 bg-primary/10 px-1.5 py-0.5 rounded">Ricorrente</span>
+                    )}
                   </div>
+
+                  {type === "goal" && !item.completed && (
+                    <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                      {(["daily", "weekly", "monthly"] as const).map((c) => (
+                        <button
+                          key={c}
+                          onClick={() => handleSetCadence(item.id, item.cadence === c ? null : c)}
+                          className={`text-[10px] px-2 py-0.5 rounded-full border transition-all ${
+                            item.cadence === c
+                              ? "border-accent/60 bg-accent/15 text-accent"
+                              : "border-border/50 text-muted-foreground/60 hover:border-accent/40"
+                          }`}
+                        >
+                          {CADENCE_LABELS[c]}
+                        </button>
+                      ))}
+                      <button
+                        onClick={() => handleToggleRecurrence(item)}
+                        className={`text-[10px] px-2 py-0.5 rounded-full border flex items-center gap-1 transition-all ${
+                          item.recurrence
+                            ? "border-primary/60 bg-primary/15 text-primary"
+                            : "border-border/50 text-muted-foreground/60 hover:border-primary/40"
+                        }`}
+                      >
+                        <RefreshCw className="w-2.5 h-2.5" />
+                        Ricorrente
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-1 shrink-0">
@@ -298,6 +377,17 @@ function IdeasTab({ type }: { type: "idea" | "goal" }) {
                         />
                       </label>
                     )
+                  )}
+                  {type === "goal" && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 text-muted-foreground hover:text-primary"
+                      title="Aggiungi a calendario"
+                      onClick={() => handleExportGoal(item)}
+                    >
+                      <CalendarPlus className="w-3.5 h-3.5" />
+                    </Button>
                   )}
                   <Button
                     variant="ghost"
