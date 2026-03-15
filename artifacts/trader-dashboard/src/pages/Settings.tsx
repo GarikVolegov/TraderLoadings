@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { PageLayout } from "@/components/PageLayout";
 import { ProfileWidget } from "@/components/ProfileWidget";
 import { AudioPlayer } from "@/components/AudioPlayer";
+import { BackgroundPresetsManager } from "@/components/BackgroundPresetsManager";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -454,7 +455,11 @@ export default function Settings() {
           <DarknessSettings />
         </motion.div>
 
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="lg:col-span-2">
+          <BackgroundPresetsManager />
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.32 }}>
           <BackgroundSettings />
         </motion.div>
 

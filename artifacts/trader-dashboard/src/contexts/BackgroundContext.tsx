@@ -20,6 +20,21 @@ export const DEFAULT_TRADING_SESSIONS: TradingSessionConfig[] = [
 
 export const DEFAULT_LOT_DIVISOR = 11;
 
+export interface BackgroundPreset {
+  id: string;
+  name: string;
+  url: string;
+  isDefault: boolean;
+}
+
+export const DEFAULT_BACKGROUND_PRESETS: BackgroundPreset[] = [
+  { id: "burj-khalifa", name: "Burj Khalifa", url: "/images/IMG_1796_1773606839183.jpeg", isDefault: true },
+  { id: "gold-liquid", name: "Gold Liquid", url: "/images/IMG_1794_1773606839183.jpeg", isDefault: true },
+  { id: "wall-street", name: "Wall Street", url: "/images/IMG_1795_1773606839183.jpeg", isDefault: true },
+  { id: "nyc-rain", name: "NYC Rain", url: "/images/IMG_1804_1773606839183.jpeg", isDefault: true },
+  { id: "forest", name: "Forest", url: "/images/IMG_1805_1773606839183.jpeg", isDefault: true },
+];
+
 interface BackgroundContextValue {
   backgroundUrl: string | null;
   setBackgroundUrl: (url: string | null) => void;
@@ -35,6 +50,8 @@ interface BackgroundContextValue {
   setCalendarCurrencies: (c: string[]) => void;
   calendarImpacts: string[];
   setCalendarImpacts: (i: string[]) => void;
+  backgroundPresets: BackgroundPreset[];
+  setBackgroundPresets: (p: BackgroundPreset[]) => void;
 }
 
 const BackgroundCtx = createContext<BackgroundContextValue>({
@@ -52,6 +69,8 @@ const BackgroundCtx = createContext<BackgroundContextValue>({
   setCalendarCurrencies: () => {},
   calendarImpacts: ["High"],
   setCalendarImpacts: () => {},
+  backgroundPresets: DEFAULT_BACKGROUND_PRESETS,
+  setBackgroundPresets: () => {},
 });
 
 export function BackgroundProvider({ children }: { children: ReactNode }) {
@@ -62,6 +81,7 @@ export function BackgroundProvider({ children }: { children: ReactNode }) {
   const [lotDivisor, setLotDivisor] = useState(DEFAULT_LOT_DIVISOR);
   const [calendarCurrencies, setCalendarCurrencies] = useState<string[]>(["USD"]);
   const [calendarImpacts, setCalendarImpacts] = useState<string[]>(["High"]);
+  const [backgroundPresets, setBackgroundPresets] = useState<BackgroundPreset[]>(DEFAULT_BACKGROUND_PRESETS);
   const { data: settings } = useGetUserSettings();
 
   useEffect(() => {
@@ -88,6 +108,9 @@ export function BackgroundProvider({ children }: { children: ReactNode }) {
     if (settings?.calendarImpacts && Array.isArray(settings.calendarImpacts)) {
       setCalendarImpacts(settings.calendarImpacts);
     }
+    if (settings?.backgroundPresets && Array.isArray(settings.backgroundPresets)) {
+      setBackgroundPresets(settings.backgroundPresets);
+    }
   }, [settings]);
 
   useEffect(() => {
@@ -97,7 +120,7 @@ export function BackgroundProvider({ children }: { children: ReactNode }) {
   }, [fontChoice]);
 
   return (
-    <BackgroundCtx.Provider value={{ backgroundUrl, setBackgroundUrl, darkness, setDarkness, fontChoice, setFontChoice, tradingSessions, setTradingSessions, lotDivisor, setLotDivisor, calendarCurrencies, setCalendarCurrencies, calendarImpacts, setCalendarImpacts }}>
+    <BackgroundCtx.Provider value={{ backgroundUrl, setBackgroundUrl, darkness, setDarkness, fontChoice, setFontChoice, tradingSessions, setTradingSessions, lotDivisor, setLotDivisor, calendarCurrencies, setCalendarCurrencies, calendarImpacts, setCalendarImpacts, backgroundPresets, setBackgroundPresets }}>
       {children}
     </BackgroundCtx.Provider>
   );
