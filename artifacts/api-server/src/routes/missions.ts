@@ -7,13 +7,7 @@ import { getOrCreateProfile, computeLevel, getUserId, updateStreak, getLevelName
 
 const router: IRouter = Router();
 
-const DEFAULT_MISSIONS = [
-  { title: "Analisi Pre-Mercato", description: "Studia i livelli chiave prima dell'apertura della sessione di Londra", xpReward: 100 },
-  { title: "Rispetta lo Stop Loss", description: "Esegui un trade rispettando il tuo stop loss calcolato", xpReward: 150 },
-  { title: "Journaling del Trade", description: "Registra almeno un trade con entry, exit e motivazione", xpReward: 75 },
-  { title: "Sessione Asiatica", description: "Monitora la sessione asiatica e identifica i range di prezzo", xpReward: 50 },
-  { title: "Gestione del Rischio", description: "Usa il calcolatore di lotti per ogni trade della giornata", xpReward: 125 },
-];
+const DEFAULT_MISSIONS: never[] = [];
 
 async function ensureTodayMissions(userId: string | null) {
   const today = new Date().toISOString().slice(0, 10);
@@ -41,6 +35,15 @@ async function ensureTodayMissions(userId: string | null) {
 
   return existing;
 }
+
+router.delete("/missions/reset-today", async (req, res) => {
+  const today = new Date().toISOString().slice(0, 10);
+  const userId = getUserId(req);
+  const userFilter = userId ? eq(missionsTable.userId, userId) : isNull(missionsTable.userId);
+  
+  await db.delete(missionsTable).where(and(eq(missionsTable.missionDate, today), userFilter));
+  res.json({ success: true, message: "Today's missions cleared" });
+});
 
 router.get("/missions", async (req, res) => {
   const userId = getUserId(req);

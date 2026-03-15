@@ -19,13 +19,7 @@ import { getUserId, getOrCreateProfile, computeLevel } from "./profile.js";
 const router: IRouter = Router();
 const JOURNAL_XP_REWARD = 75;
 
-const DAILY_MISSIONS = [
-  { title: "Analisi Pre-Mercato", description: "Studia i livelli chiave prima dell'apertura della sessione di Londra", xpReward: 100 },
-  { title: "Rispetta lo Stop Loss", description: "Esegui un trade rispettando il tuo stop loss calcolato", xpReward: 150 },
-  { title: "Journaling del Trade", description: "Registra almeno un trade con entry, exit e motivazione", xpReward: 75 },
-  { title: "Sessione Asiatica", description: "Monitora la sessione asiatica e identifica i range di prezzo", xpReward: 50 },
-  { title: "Gestione del Rischio", description: "Usa il calcolatore di lotti per ogni trade della giornata", xpReward: 125 },
-];
+const DAILY_MISSIONS: never[] = [];
 
 const UPLOADS_DIR = path.join(process.cwd(), "uploads");
 if (!fs.existsSync(UPLOADS_DIR)) {
