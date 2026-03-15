@@ -168,6 +168,8 @@ function IdeasTab({ type }: { type: "idea" | "goal" }) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [newContent, setNewContent] = useState("");
+  const [newImportance, setNewImportance] = useState<"low" | "medium" | "high">("medium");
+  const [newDeadline, setNewDeadline] = useState("");
   const { data: all, isLoading } = useGetIdeas();
   const createMutation = useCreateIdea();
   const updateMutation = useUpdateIdea();
@@ -182,12 +184,29 @@ function IdeasTab({ type }: { type: "idea" | "goal" }) {
   const handleAdd = async () => {
     if (!newContent.trim()) return;
     try {
-      await createMutation.mutateAsync({ data: { type, content: newContent.trim() } });
+      const data: any = { type, content: newContent.trim() };
+      if (type === "goal") {
+        data.importance = newImportance;
+        if (newDeadline) data.deadlineDate = newDeadline;
+      }
+      await createMutation.mutateAsync({ data });
       setNewContent("");
+      setNewImportance("medium");
+      setNewDeadline("");
       invalidate();
     } catch {
       toast({ description: "Errore.", variant: "destructive" });
     }
+  };
+
+  const handleSetImportance = async (id: number, importance: "low" | "medium" | "high") => {
+    await updateMutation.mutateAsync({ id, data: { importance } });
+    invalidate();
+  };
+
+  const handleSetDeadline = async (id: number, deadline: string | null) => {
+    await updateMutation.mutateAsync({ id, data: { deadlineDate: deadline ?? undefined } });
+    invalidate();
   };
 
   const handleToggle = async (id: number, content: string, completed: boolean) => {
@@ -247,10 +266,22 @@ function IdeasTab({ type }: { type: "idea" | "goal" }) {
     monthly: "Mensile",
   };
 
+  const IMPORTANCE_LABELS: Record<string, string> = {
+    low: "Bassa",
+    medium: "Media",
+    high: "Alta",
+  };
+
+  const IMPORTANCE_COLORS: Record<string, string> = {
+    low: "text-blue-400 bg-blue-400/10",
+    medium: "text-yellow-400 bg-yellow-400/10",
+    high: "text-red-400 bg-red-400/10",
+  };
+
   return (
     <div className="space-y-6">
       <Card>
-        <CardContent className="p-5">
+        <CardContent className="p-5 space-y-3">
           <div className="flex gap-3">
             <Input
               placeholder={placeholder}
@@ -264,6 +295,31 @@ function IdeasTab({ type }: { type: "idea" | "goal" }) {
               Aggiungi
             </Button>
           </div>
+          {type === "goal" && (
+            <div className="flex gap-3 items-end flex-wrap">
+              <div className="flex-1 min-w-fit">
+                <label className="text-xs text-muted-foreground mb-1 block">Importanza</label>
+                <select
+                  value={newImportance}
+                  onChange={(e) => setNewImportance(e.target.value as "low" | "medium" | "high")}
+                  className="w-full px-3 py-2 text-xs rounded-lg bg-secondary/50 border border-border hover:border-primary/50 transition-colors focus:outline-none focus:border-primary/50"
+                >
+                  <option value="low">Bassa</option>
+                  <option value="medium">Media</option>
+                  <option value="high">Alta</option>
+                </select>
+              </div>
+              <div className="flex-1 min-w-fit">
+                <label className="text-xs text-muted-foreground mb-1 block">Scadenza (opzionale)</label>
+                <input
+                  type="date"
+                  value={newDeadline}
+                  onChange={(e) => setNewDeadline(e.target.value)}
+                  className="w-full px-3 py-2 text-xs rounded-lg bg-secondary/50 border border-border hover:border-primary/50 transition-colors focus:outline-none focus:border-primary/50"
+                />
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -307,6 +363,17 @@ function IdeasTab({ type }: { type: "idea" | "goal" }) {
                     <p className="text-xs text-muted-foreground/50">
                       {format(parseISO(item.createdAt), "d MMM yyyy", { locale: it })}
                     </p>
+                    {type === "goal" && item.importance && (
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${IMPORTANCE_COLORS[item.importance] || "text-yellow-400 bg-yellow-400/10"}`}>
+                        {IMPORTANCE_LABELS[item.importance] || "Media"}
+                      </span>
+                    )}
+                    {type === "goal" && item.deadlineDate && (
+                      <span className="inline-flex items-center gap-1 text-xs text-secondary/70 bg-secondary/10 px-1.5 py-0.5 rounded">
+                        <Calendar className="w-3 h-3" />
+                        {format(parseISO(item.deadlineDate), "d MMM", { locale: it })}
+                      </span>
+                    )}
                     {type === "goal" && item.reminderTime && (
                       <span className="inline-flex items-center gap-1 text-xs text-primary/70">
                         <Bell className="w-3 h-3" /> {item.reminderTime}

@@ -8,6 +8,8 @@ export const ideasTable = pgTable("ideas", {
   reminderTime: text("reminder_time"),
   cadence: text("cadence"),
   recurrence: boolean("recurrence").notNull().default(false),
+  importance: text("importance").default("medium"),
+  deadlineDate: text("deadline_date"),
   userId: text("user_id"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
