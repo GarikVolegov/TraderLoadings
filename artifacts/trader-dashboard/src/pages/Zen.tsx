@@ -362,12 +362,12 @@ export default function Zen() {
         transition={{ delay: 0.1 }}
       >
         <Tabs defaultValue="breathing" className="w-full">
-          <TabsList className="flex w-full mb-4 md:mb-6 h-auto gap-1 bg-card/50 backdrop-blur-md p-1.5 rounded-xl border border-border">
-            <TabsTrigger value="breathing" className="text-xs md:text-sm px-2 md:px-3 py-2 flex-1">Respira</TabsTrigger>
-            <TabsTrigger value="visualization" className="text-xs md:text-sm px-2 md:px-3 py-2 flex-1">Visualizza</TabsTrigger>
-            <TabsTrigger value="quotes" className="text-xs md:text-sm px-2 md:px-3 py-2 flex-1">Frasi</TabsTrigger>
-            <TabsTrigger value="gratitude" className="text-xs md:text-sm px-2 md:px-3 py-2 flex-1">Gratitudine</TabsTrigger>
-            <TabsTrigger value="meditation" className="text-xs md:text-sm px-2 md:px-3 py-2 flex-1">Meditazione</TabsTrigger>
+          <TabsList className="flex w-full h-auto gap-1 bg-card/50 backdrop-blur-md p-1.5 rounded-xl border border-border mb-4">
+            <TabsTrigger value="breathing" className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm flex-1">Respira</TabsTrigger>
+            <TabsTrigger value="visualization" className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm flex-1">Visualizza</TabsTrigger>
+            <TabsTrigger value="quotes" className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm flex-1">Frasi</TabsTrigger>
+            <TabsTrigger value="gratitude" className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm flex-1">Gratitudine</TabsTrigger>
+            <TabsTrigger value="meditation" className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm flex-1">Meditazione</TabsTrigger>
           </TabsList>
 
           <TabsContent value="breathing" className="mt-0">
