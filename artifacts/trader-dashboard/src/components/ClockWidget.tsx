@@ -79,6 +79,10 @@ export function ClockWidget() {
 
   const activeColors = activeSession ? colorMap[activeSession.color] : null;
 
+  const dayOfWeek = time.getDay();
+  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+  const marketStatus = isWeekend ? "Mercato chiuso" : "Mercato aperto";
+
   return (
     <Card className="overflow-hidden border-t-4 border-t-primary/50 relative">
       <div className="absolute top-0 right-0 p-32 opacity-5 pointer-events-none">
@@ -112,10 +116,25 @@ export function ClockWidget() {
           )}
 
           {!activeSession && (
-            <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-md border border-border/50 bg-secondary/30 z-10 opacity-60 shrink-0">
-              <div className="w-2 h-2 rounded-full bg-muted-foreground/40" />
-              <span className="font-bold text-[11px] sm:text-xs tracking-wide text-muted-foreground">
-                —
+            <div className={cn(
+              "flex items-center gap-1.5 px-2 py-1.5 rounded-md border z-10 shrink-0",
+              isWeekend 
+                ? "border-red-500/30 bg-red-500/10" 
+                : "border-green-500/30 bg-green-500/10"
+            )}>
+              <div className={cn(
+                "w-2 h-2 rounded-full",
+                isWeekend 
+                  ? "bg-red-500" 
+                  : "bg-green-500"
+              )} />
+              <span className={cn(
+                "font-bold text-[11px] sm:text-xs tracking-wide",
+                isWeekend 
+                  ? "text-red-500" 
+                  : "text-green-500"
+              )}>
+                {marketStatus}
               </span>
             </div>
           )}
