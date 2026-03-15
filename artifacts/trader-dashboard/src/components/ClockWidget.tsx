@@ -89,33 +89,33 @@ export function ClockWidget() {
         <div className="w-64 h-64 rounded-full bg-primary blur-[100px]" />
       </div>
       
-      <CardContent className="p-1.5 sm:p-2 md:p-3 z-10">
-        <div className="flex items-center justify-center gap-2 sm:gap-3 md:gap-4">
-          <div className="flex flex-col items-center z-10">
-            <div className="text-xl sm:text-2xl md:text-3xl font-mono font-bold tracking-tighter text-foreground drop-shadow-[0_0_10px_rgba(255,255,255,0.1)]">
+      <CardContent className="px-3 sm:px-5 md:px-8 py-2 sm:py-3 md:py-4 z-10">
+        <div className="flex items-center justify-between gap-3 sm:gap-4 md:gap-6">
+          <div className="flex flex-col items-center z-10 flex-1 text-right">
+            <div className="text-2xl sm:text-4xl md:text-5xl font-mono font-bold tracking-tighter text-foreground drop-shadow-[0_0_10px_rgba(255,255,255,0.1)]">
               {format(time, "HH:mm:ss")}
             </div>
           </div>
 
-          <div className="flex flex-col items-center z-10">
-            <p className="text-muted-foreground font-medium uppercase tracking-widest text-[9px] sm:text-xs leading-tight">
+          <div className="flex flex-col items-center z-10 flex-1">
+            <p className="text-muted-foreground font-medium uppercase tracking-widest text-xs sm:text-sm leading-tight">
               {format(time, "d")}
             </p>
-            <p className="text-muted-foreground font-medium uppercase tracking-widest text-[8px] sm:text-[9px] leading-tight">
+            <p className="text-muted-foreground font-medium uppercase tracking-widest text-[9px] sm:text-xs leading-tight">
               {format(time, "EEEE", { locale: it })}
             </p>
           </div>
 
           {activeSession && activeColors && (
             <div className={cn(
-              "flex items-center gap-1.5 px-2 py-1.5 rounded-md border bg-secondary/80 z-10 shrink-0",
+              "flex items-center gap-2 px-3 py-2 rounded-md border bg-secondary/80 z-10 shrink-0 flex-1 text-left",
               activeColors.glow
             )}>
               <div className={cn(
-                "w-2 h-2 rounded-full animate-pulse shadow-[0_0_8px_currentColor]",
+                "w-2.5 h-2.5 rounded-full animate-pulse shadow-[0_0_8px_currentColor]",
                 activeColors.bg
               )} />
-              <span className="font-bold text-[11px] sm:text-xs tracking-wide text-foreground">
+              <span className="font-bold text-sm sm:text-base tracking-wide text-foreground">
                 {activeSession.name}
               </span>
             </div>
@@ -123,19 +123,19 @@ export function ClockWidget() {
 
           {!activeSession && (
             <div className={cn(
-              "flex items-center gap-1.5 px-2 py-1.5 rounded-md border z-10 shrink-0",
+              "flex items-center gap-2 px-3 py-2 rounded-md border z-10 shrink-0 flex-1 text-left",
               isWeekend 
                 ? "border-red-500/30 bg-red-500/10" 
                 : "border-green-500/30 bg-green-500/10"
             )}>
               <div className={cn(
-                "w-2 h-2 rounded-full",
+                "w-2.5 h-2.5 rounded-full",
                 isWeekend 
                   ? "bg-red-500" 
                   : "bg-green-500"
               )} />
               <span className={cn(
-                "font-bold text-[11px] sm:text-xs tracking-wide",
+                "font-bold text-sm sm:text-base tracking-wide",
                 isWeekend 
                   ? "text-red-500" 
                   : "text-green-500"
