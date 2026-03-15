@@ -31,7 +31,7 @@ const AudioCtx = createContext<AudioContextType | null>(null);
 export function AudioProvider({ children }: { children: ReactNode }) {
   const { setCurrentStep, completeLoading } = useLoading();
   const [mode, setModeState] = useState<AudioMode>("off");
-  const [volume, setVolumeState] = useState(40);
+  const [volume, setVolumeState] = useState(60);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const oscillatorsRef = useRef<OscillatorNode[] | null>(null);
   const gainRef = useRef<GainNode | null>(null);
@@ -59,7 +59,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
         stopOscillators();
 
         const gain = ctx.createGain();
-        gain.gain.value = (vol / 100) * 0.08;
+        gain.gain.value = (vol / 100) * 0.3;
         gain.connect(ctx.destination);
         gainRef.current = gain;
 
@@ -115,7 +115,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const setVolume = useCallback((v: number) => {
     setVolumeState(v);
     if (gainRef.current) {
-      gainRef.current.gain.value = (v / 100) * 0.08;
+      gainRef.current.gain.value = (v / 100) * 0.3;
     }
   }, []);
 
