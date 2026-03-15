@@ -85,36 +85,36 @@ export function ClockWidget() {
         <div className="w-64 h-64 rounded-full bg-primary blur-[100px]" />
       </div>
       
-      <CardContent className="p-2 sm:p-3 md:p-4 z-10">
-        <div className="flex items-center justify-between gap-2 sm:gap-4">
-          <div className="flex flex-col items-start z-10">
-            <p className="text-muted-foreground font-medium uppercase tracking-widest text-[10px] sm:text-xs">
+      <CardContent className="p-1.5 sm:p-2 md:p-3 z-10">
+        <div className="flex items-center justify-between gap-1 sm:gap-2">
+          <div className="flex flex-col items-start z-10 min-w-0">
+            <p className="text-muted-foreground font-medium uppercase tracking-widest text-[9px] sm:text-xs leading-none">
               {format(time, "d EEEE", { locale: it })}
             </p>
-            <div className="text-2xl sm:text-3xl md:text-4xl font-mono font-bold tracking-tighter text-foreground drop-shadow-[0_0_10px_rgba(255,255,255,0.1)]">
-              {format(time, "HH:mm")}
+            <div className="text-xl sm:text-2xl md:text-3xl font-mono font-bold tracking-tighter text-foreground drop-shadow-[0_0_10px_rgba(255,255,255,0.1)]">
+              {format(time, "HH:mm:ss")}
             </div>
           </div>
 
           {activeSession && activeColors && (
             <div className={cn(
-              "flex items-center gap-2 px-3 py-2 rounded-lg border bg-secondary/80 z-10 shrink-0",
+              "flex items-center gap-1.5 px-2 py-1.5 rounded-md border bg-secondary/80 z-10 shrink-0",
               activeColors.glow
             )}>
               <div className={cn(
-                "w-2.5 h-2.5 rounded-full animate-pulse shadow-[0_0_8px_currentColor]",
+                "w-2 h-2 rounded-full animate-pulse shadow-[0_0_8px_currentColor]",
                 activeColors.bg
               )} />
-              <span className="font-bold text-xs tracking-wide text-foreground">
+              <span className="font-bold text-[11px] sm:text-xs tracking-wide text-foreground">
                 {activeSession.name}
               </span>
             </div>
           )}
 
           {!activeSession && (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border/50 bg-secondary/30 z-10 opacity-60 shrink-0">
-              <div className="w-2.5 h-2.5 rounded-full bg-muted-foreground/40" />
-              <span className="font-bold text-xs tracking-wide text-muted-foreground">
+            <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-md border border-border/50 bg-secondary/30 z-10 opacity-60 shrink-0">
+              <div className="w-2 h-2 rounded-full bg-muted-foreground/40" />
+              <span className="font-bold text-[11px] sm:text-xs tracking-wide text-muted-foreground">
                 —
               </span>
             </div>
