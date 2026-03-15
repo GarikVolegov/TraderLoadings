@@ -48,9 +48,9 @@ const BackgroundCtx = createContext<BackgroundContextValue>({
   setTradingSessions: () => {},
   lotDivisor: DEFAULT_LOT_DIVISOR,
   setLotDivisor: () => {},
-  calendarCurrencies: ["USD", "EUR", "GBP"],
+  calendarCurrencies: ["USD"],
   setCalendarCurrencies: () => {},
-  calendarImpacts: ["High", "Medium"],
+  calendarImpacts: ["High"],
   setCalendarImpacts: () => {},
 });
 
@@ -60,8 +60,8 @@ export function BackgroundProvider({ children }: { children: ReactNode }) {
   const [fontChoice, setFontChoice] = useState("inter");
   const [tradingSessions, setTradingSessions] = useState<TradingSessionConfig[]>(DEFAULT_TRADING_SESSIONS);
   const [lotDivisor, setLotDivisor] = useState(DEFAULT_LOT_DIVISOR);
-  const [calendarCurrencies, setCalendarCurrencies] = useState<string[]>(["USD", "EUR", "GBP"]);
-  const [calendarImpacts, setCalendarImpacts] = useState<string[]>(["High", "Medium"]);
+  const [calendarCurrencies, setCalendarCurrencies] = useState<string[]>(["USD"]);
+  const [calendarImpacts, setCalendarImpacts] = useState<string[]>(["High"]);
   const { data: settings } = useGetUserSettings();
 
   useEffect(() => {

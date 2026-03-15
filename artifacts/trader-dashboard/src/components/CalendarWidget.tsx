@@ -17,8 +17,6 @@ const IMPACT_CONFIG = {
 
 type Impact = keyof typeof IMPACT_CONFIG;
 
-const GRACE_PERIOD_MS = 60 * 60 * 1000;
-
 export function CalendarWidget() {
   const queryClient = useQueryClient();
   const { calendarCurrencies, setCalendarCurrencies, calendarImpacts, setCalendarImpacts } = useBackground();
@@ -78,22 +76,17 @@ export function CalendarWidget() {
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    setForceNocache(true);
     await queryClient.invalidateQueries({ queryKey: getGetEconomicCalendarQueryKey() });
-    await refetch();
-    setForceNocache(false);
+    await refetch({ queryKey: getGetEconomicCalendarQueryKey({ nocache: "1" }) });
     setIsRefreshing(false);
   };
 
   const visibleEvents = useMemo(() => {
     if (!events) return [];
-    const cutoff = new Date(now.getTime() - GRACE_PERIOD_MS);
     return events.filter((e) => {
-      const eventTime = new Date(e.date);
-      if (eventTime < cutoff) return false;
       return selectedCurrencies.has(e.country) && selectedImpacts.has(e.impact);
     });
-  }, [events, selectedCurrencies, selectedImpacts, now]);
+  }, [events, selectedCurrencies, selectedImpacts]);
 
   const upcomingCount = visibleEvents.filter((e) => new Date(e.date) >= now).length;
   const recentCount = visibleEvents.filter((e) => new Date(e.date) < now).length;
