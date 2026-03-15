@@ -32,22 +32,22 @@ function BreathingExercise() {
           Respirazione Consapevole
         </CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col items-center gap-8 py-12">
+      <CardContent className="flex flex-col items-center gap-4 md:gap-8 py-6 md:py-12">
         <motion.div
           animate={{
             scale: phase === "inhale" ? 1.3 : phase === "exhale" ? 0.7 : 1,
           }}
           transition={{ duration: phase === "hold" || phase === "rest" ? 0 : 3.5 }}
-          className="w-32 h-32 rounded-full bg-gradient-to-br from-primary to-primary/40 flex items-center justify-center"
+          className="w-24 h-24 md:w-32 md:h-32 rounded-full bg-gradient-to-br from-primary to-primary/40 flex items-center justify-center"
         >
-          <span className="text-2xl font-bold text-white capitalize">{phase}</span>
+          <span className="text-lg md:text-2xl font-bold text-white capitalize">{phase}</span>
         </motion.div>
 
         <div className="text-center">
-          <p className="text-sm text-muted-foreground">Cicli completati: {count}</p>
+          <p className="text-xs md:text-sm text-muted-foreground">Cicli completati: {count}</p>
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex gap-2 md:gap-3 flex-wrap justify-center">
           <Button
             onClick={() => setIsActive(!isActive)}
             className="gap-2"
@@ -78,7 +78,7 @@ function BreathingExercise() {
           </Button>
         </div>
 
-        <p className="text-xs text-muted-foreground text-center max-w-xs">
+        <p className="text-[10px] md:text-xs text-muted-foreground text-center max-w-xs">
           Respira seguendo il cerchio: inspira (4s), trattieni (4s), espira (4s), riposa (2s)
         </p>
       </CardContent>
@@ -98,16 +98,16 @@ function ResultVisualization() {
           Visualizzazione del Risultato
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-3 md:space-y-6">
         <div>
-          <label className="text-sm font-medium text-muted-foreground block mb-2">
+          <label className="text-xs md:text-sm font-medium text-muted-foreground block mb-1 md:mb-2">
             Visualizza il tuo obiettivo di trading:
           </label>
           <textarea
             value={goal}
             onChange={(e) => setGoal(e.target.value)}
-            placeholder="Es. Voglio completare 3 trade vincenti con disciplina, gestire il rischio perfettamente, terminare la giornata con +2% di profitto..."
-            className="w-full h-32 p-3 rounded-lg border border-border bg-secondary/30 text-sm resize-none focus:outline-none focus:border-primary"
+            placeholder="Es. Voglio completare 3 trade vincenti con disciplina, gestire il rischio perfettamente..."
+            className="w-full h-20 md:h-32 p-2 md:p-3 rounded-lg border border-border bg-secondary/30 text-xs md:text-sm resize-none focus:outline-none focus:border-primary"
           />
         </div>
 
@@ -115,20 +115,20 @@ function ResultVisualization() {
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="p-6 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 space-y-4"
+            className="p-3 md:p-6 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 space-y-2 md:space-y-4"
           >
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs md:text-sm text-muted-foreground">
               Chiudi gli occhi, respira profondamente e visualizza chiaramente:
             </p>
             <motion.p
-              className="text-lg font-semibold text-foreground italic"
+              className="text-sm md:text-lg font-semibold text-foreground italic"
               animate={{ opacity: [0.5, 1, 0.5] }}
               transition={{ duration: 3, repeat: Infinity }}
             >
               {goal}
             </motion.p>
-            <p className="text-xs text-muted-foreground">
-              Mantieni questa immagine nella tua mente per 1-2 minuti. Senti le emozioni di successo.
+            <p className="text-[10px] md:text-xs text-muted-foreground">
+              Mantieni questa immagine per 1-2 minuti. Senti le emozioni di successo.
             </p>
           </motion.div>
         )}
@@ -162,29 +162,27 @@ function MotivationalQuotes() {
           Frasi Motivazionali
         </CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col items-center justify-center py-12 space-y-8">
+      <CardContent className="flex flex-col items-center justify-center py-6 md:py-12 space-y-4 md:space-y-8">
         <AnimatePresence mode="wait">
           <motion.div
             key={current}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="text-center space-y-4"
+            className="text-center space-y-2 md:space-y-4"
           >
-            <p className="text-xl font-semibold text-foreground italic max-w-md">
+            <p className="text-base md:text-xl font-semibold text-foreground italic max-w-md">
               "{quotes[current].text}"
             </p>
-            <p className="text-sm text-muted-foreground">— {quotes[current].author}</p>
+            <p className="text-xs md:text-sm text-muted-foreground">— {quotes[current].author}</p>
           </motion.div>
         </AnimatePresence>
 
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={nextQuote}>
-            Prossima
-          </Button>
-        </div>
+        <Button variant="outline" onClick={nextQuote} size="sm">
+          Prossima
+        </Button>
 
-        <p className="text-xs text-muted-foreground">
+        <p className="text-[10px] md:text-xs text-muted-foreground">
           {current + 1} / {quotes.length}
         </p>
       </CardContent>
@@ -212,35 +210,35 @@ function Gratitude() {
           Gratitudine
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <p className="text-sm text-muted-foreground">
+      <CardContent className="space-y-2 md:space-y-4">
+        <p className="text-xs md:text-sm text-muted-foreground">
           Elenca 3 cose per cui sei grato oggi:
         </p>
 
-        <div className="flex gap-2">
+        <div className="flex gap-1 md:gap-2">
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && addGratitude()}
-            placeholder="Es. La disciplina nel trading..."
-            className="flex-1 px-3 py-2 rounded-lg border border-border bg-secondary/30 text-sm focus:outline-none focus:border-primary"
+            placeholder="Es. La disciplina..."
+            className="flex-1 px-2 md:px-3 py-1.5 md:py-2 rounded-lg border border-border bg-secondary/30 text-xs md:text-sm focus:outline-none focus:border-primary"
           />
-          <Button onClick={addGratitude} size="sm">
+          <Button onClick={addGratitude} size="sm" className="w-8 h-8 p-0">
             +
           </Button>
         </div>
 
         {gratitudes.length > 0 && (
-          <div className="space-y-2">
+          <div className="space-y-1 md:space-y-2">
             {gratitudes.map((g, i) => (
               <motion.div
                 key={i}
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
-                className="p-3 rounded-lg bg-primary/10 border border-primary/20 text-sm flex items-start gap-2"
+                className="p-2 md:p-3 rounded-lg bg-primary/10 border border-primary/20 text-xs md:text-sm flex items-start gap-2"
               >
-                <span className="text-primary">✓</span>
+                <span className="text-primary text-lg">✓</span>
                 <p className="text-foreground">{g}</p>
               </motion.div>
             ))}
@@ -295,8 +293,8 @@ function MeditationTimer() {
           Meditazione
         </CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col items-center justify-center py-12 space-y-8">
-        <div className="relative w-40 h-40">
+      <CardContent className="flex flex-col items-center justify-center py-6 md:py-12 space-y-4 md:space-y-8">
+        <div className="relative w-28 h-28 md:w-40 md:h-40">
           <svg className="w-full h-full" viewBox="0 0 100 100">
             <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground opacity-20" />
             <circle
@@ -313,7 +311,7 @@ function MeditationTimer() {
           </svg>
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="text-center">
-              <div className="text-4xl font-bold text-foreground font-mono">
+              <div className="text-2xl md:text-4xl font-bold text-foreground font-mono">
                 {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
               </div>
             </div>
@@ -321,13 +319,14 @@ function MeditationTimer() {
         </div>
 
         {!isRunning && (
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-1 md:gap-2">
             {[3, 5, 10].map((mins) => (
               <Button
                 key={mins}
                 onClick={() => handleStart(mins)}
                 variant="outline"
                 size="sm"
+                className="text-xs md:text-sm"
               >
                 {mins}m
               </Button>
@@ -339,13 +338,14 @@ function MeditationTimer() {
           <Button
             onClick={() => setIsRunning(false)}
             className="gap-2"
+            size="sm"
           >
-            <Pause className="w-4 h-4" />
-            Pausa
+            <Pause className="w-3 h-3 md:w-4 md:h-4" />
+            <span className="hidden md:inline">Pausa</span>
           </Button>
         )}
 
-        <p className="text-xs text-muted-foreground text-center max-w-xs">
+        <p className="text-[10px] md:text-xs text-muted-foreground text-center max-w-xs">
           Trova un posto tranquillo, chiudi gli occhi e concentrati sul respiro.
         </p>
       </CardContent>
@@ -362,12 +362,12 @@ export default function Zen() {
         transition={{ delay: 0.1 }}
       >
         <Tabs defaultValue="breathing" className="w-full">
-          <TabsList className="grid w-full grid-cols-5 mb-6">
-            <TabsTrigger value="breathing">Respira</TabsTrigger>
-            <TabsTrigger value="visualization">Visualizza</TabsTrigger>
-            <TabsTrigger value="quotes">Frasi</TabsTrigger>
-            <TabsTrigger value="gratitude">Gratitudine</TabsTrigger>
-            <TabsTrigger value="meditation">Meditazione</TabsTrigger>
+          <TabsList className="grid md:grid-cols-5 grid-cols-2 w-full mb-4 md:mb-6 h-auto md:h-10 gap-1 md:gap-0 bg-transparent md:bg-secondary p-0 md:p-1">
+            <TabsTrigger value="breathing" className="text-xs md:text-sm px-2 md:px-3 py-2 md:py-0">Respira</TabsTrigger>
+            <TabsTrigger value="visualization" className="text-xs md:text-sm px-2 md:px-3 py-2 md:py-0">Visualizza</TabsTrigger>
+            <TabsTrigger value="quotes" className="text-xs md:text-sm px-2 md:px-3 py-2 md:py-0">Frasi</TabsTrigger>
+            <TabsTrigger value="gratitude" className="text-xs md:text-sm px-2 md:px-3 py-2 md:py-0">Gratitudine</TabsTrigger>
+            <TabsTrigger value="meditation" className="text-xs md:text-sm px-2 md:px-3 py-2 md:py-0">Meditazione</TabsTrigger>
           </TabsList>
 
           <TabsContent value="breathing" className="mt-0">
