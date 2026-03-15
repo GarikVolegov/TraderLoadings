@@ -90,7 +90,7 @@ export function ClockWidget() {
       </div>
       
       <CardContent className="p-1.5 sm:p-2 md:p-3 z-10">
-        <div className="flex items-center justify-between gap-1 sm:gap-2">
+        <div className="flex items-center justify-center gap-2 sm:gap-3 md:gap-4">
           <div className="flex flex-col items-start z-10 min-w-0">
             <p className="text-muted-foreground font-medium uppercase tracking-widest text-[9px] sm:text-xs leading-none">
               {format(time, "d EEEE", { locale: it })}
