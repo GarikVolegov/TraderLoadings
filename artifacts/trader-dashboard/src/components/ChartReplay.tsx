@@ -2,8 +2,6 @@ import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import {
   createChart,
   createSeriesMarkers,
-  candlestickSeries as CandlestickSeriesDef,
-  lineSeries as LineSeriesDef,
   type IChartApi,
   type ISeriesApi,
   type ISeriesMarkersPluginApi,
@@ -202,7 +200,7 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
       handleScroll: { vertTouchDrag: false },
     });
 
-    const candleSeries = chart.addSeries(CandlestickSeriesDef, {
+    const candleSeries = chart.addSeries("Candlestick", {
       upColor: "#10b981",
       downColor: "#ef4444",
       borderUpColor: "#10b981",
@@ -213,7 +211,7 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
 
     const seriesMarkers = createSeriesMarkers(candleSeries);
 
-    const slLine = chart.addSeries(LineSeriesDef, {
+    const slLine = chart.addSeries("Line", {
       color: "#ef4444",
       lineWidth: 1,
       lineStyle: 2,
@@ -222,7 +220,7 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
       lastValueVisible: false,
     });
 
-    const tpLine = chart.addSeries(LineSeriesDef, {
+    const tpLine = chart.addSeries("Line", {
       color: "#10b981",
       lineWidth: 1,
       lineStyle: 2,
