@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Image, Upload, X, LogIn, LogOut, UserPlus, RefreshCw, Type, Sun, TrendingUp, Target, Plus, Pencil, Trash2, Quote } from "lucide-react";
 import { useBackground, DEFAULT_TRADING_SESSIONS, DEFAULT_LOT_DIVISOR, type TradingSessionConfig } from "@/contexts/BackgroundContext";
-import { useGetUserSettings, useUpdateUserSettings, getGetUserSettingsQueryKey, useGetMissionTemplates, useCreateMissionTemplate, useUpdateMissionTemplate, useDeleteMissionTemplate, getGetMissionTemplatesQueryKey, useGetQuotes, useCreateQuote, useUpdateQuote, useDeleteQuote, getGetQuotesQueryKey } from "@workspace/api-client-react";
+import { useGetUserSettings, useUpdateUserSettings, getGetUserSettingsQueryKey, useGetMissionTemplates, useCreateMissionTemplate, useUpdateMissionTemplate, useDeleteMissionTemplate, getGetMissionTemplatesQueryKey, useGetQuotes, useCreateQuote, useUpdateQuote, useDeleteQuote, getGetQuotesQueryKey, getGetRandomQuoteQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@workspace/replit-auth-web";
@@ -412,7 +412,10 @@ function QuotesSettings() {
   const [editText, setEditText] = useState("");
   const [editAuthor, setEditAuthor] = useState("");
 
-  const invalidate = () => qc.invalidateQueries({ queryKey: getGetQuotesQueryKey() });
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: getGetQuotesQueryKey() });
+    qc.invalidateQueries({ queryKey: getGetRandomQuoteQueryKey() });
+  };
 
   const handleAdd = async () => {
     if (!newText.trim()) return;
@@ -459,7 +462,7 @@ function QuotesSettings() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Quote className="w-5 h-5 text-primary" />
-          Citazioni Trading
+          Citazioni Motivazionali
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
