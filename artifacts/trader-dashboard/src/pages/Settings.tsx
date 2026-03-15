@@ -1108,7 +1108,6 @@ export default function Settings() {
         <FontSettings />
         <DarknessSettings />
         <BackgroundPresetsManager />
-        <BackgroundSettings />
       </div>
     ),
     notifiche: <NotificationSettings />,
