@@ -362,12 +362,12 @@ export default function Zen() {
         transition={{ delay: 0.1 }}
       >
         <Tabs defaultValue="breathing" className="w-full">
-          <TabsList className="grid md:grid-cols-5 grid-cols-2 w-full mb-4 md:mb-6 h-auto md:h-10 gap-1 md:gap-0 bg-transparent md:bg-secondary p-0 md:p-1">
-            <TabsTrigger value="breathing" className="text-xs md:text-sm px-2 md:px-3 py-2 md:py-0">Respira</TabsTrigger>
-            <TabsTrigger value="visualization" className="text-xs md:text-sm px-2 md:px-3 py-2 md:py-0">Visualizza</TabsTrigger>
-            <TabsTrigger value="quotes" className="text-xs md:text-sm px-2 md:px-3 py-2 md:py-0">Frasi</TabsTrigger>
-            <TabsTrigger value="gratitude" className="text-xs md:text-sm px-2 md:px-3 py-2 md:py-0">Gratitudine</TabsTrigger>
-            <TabsTrigger value="meditation" className="text-xs md:text-sm px-2 md:px-3 py-2 md:py-0">Meditazione</TabsTrigger>
+          <TabsList className="flex w-full mb-4 md:mb-6 h-auto gap-1 bg-card/50 backdrop-blur-md p-1.5 rounded-xl border border-border">
+            <TabsTrigger value="breathing" className="text-xs md:text-sm px-2 md:px-3 py-2 flex-1">Respira</TabsTrigger>
+            <TabsTrigger value="visualization" className="text-xs md:text-sm px-2 md:px-3 py-2 flex-1">Visualizza</TabsTrigger>
+            <TabsTrigger value="quotes" className="text-xs md:text-sm px-2 md:px-3 py-2 flex-1">Frasi</TabsTrigger>
+            <TabsTrigger value="gratitude" className="text-xs md:text-sm px-2 md:px-3 py-2 flex-1">Gratitudine</TabsTrigger>
+            <TabsTrigger value="meditation" className="text-xs md:text-sm px-2 md:px-3 py-2 flex-1">Meditazione</TabsTrigger>
           </TabsList>
 
           <TabsContent value="breathing" className="mt-0">
