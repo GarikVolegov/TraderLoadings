@@ -5,12 +5,15 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AudioProvider } from "./contexts/AudioContext";
 import { BackgroundProvider } from "./contexts/BackgroundContext";
 import { LoadingProvider } from "./contexts/LoadingContext";
+import { PinLockProvider } from "./contexts/PinLockContext";
+import { LanguageProvider } from "./contexts/LanguageContext";
 import { LoadingScreen } from "./components/LoadingScreen";
 import { WelcomeNotification } from "./components/WelcomeNotification";
 import { GoalReminders } from "./components/GoalReminders";
 import { DailyAlarmNotifier } from "./components/DailyAlarmNotifier";
 import { MacroNotifier } from "./components/MacroNotifier";
 import { SessionCheckinModal } from "./components/SessionCheckinModal";
+import { PinLockScreen } from "./components/PinLockScreen";
 import Dashboard from "./pages/Dashboard";
 import Journal from "./pages/Journal";
 import Settings from "./pages/Settings";
@@ -48,22 +51,27 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <LoadingProvider>
-          <AudioProvider>
-            <LoadingScreen />
-            <WelcomeNotification />
-            <GoalReminders />
-            <DailyAlarmNotifier />
-            <MacroNotifier />
-            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-              <BackgroundProvider>
-                <SessionCheckinModal />
-                <Router />
-              </BackgroundProvider>
-            </WouterRouter>
-            <Toaster />
-          </AudioProvider>
-        </LoadingProvider>
+        <PinLockProvider>
+          <LanguageProvider>
+            <LoadingProvider>
+              <AudioProvider>
+                <PinLockScreen />
+                <LoadingScreen />
+                <WelcomeNotification />
+                <GoalReminders />
+                <DailyAlarmNotifier />
+                <MacroNotifier />
+                <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+                  <BackgroundProvider>
+                    <SessionCheckinModal />
+                    <Router />
+                  </BackgroundProvider>
+                </WouterRouter>
+                <Toaster />
+              </AudioProvider>
+            </LoadingProvider>
+          </LanguageProvider>
+        </PinLockProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Trophy, Edit2, Hexagon, Star, Upload, Sparkles, Check, X, Loader2 } from "lucide-react";
+import { Trophy, Edit2, Hexagon, Star, Upload, Sparkles, Check, X, Loader2, Flame } from "lucide-react";
+import { getLevelName, getLevelBadge } from "@/utils/levelNames";
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -147,6 +148,9 @@ export function ProfileWidget() {
   const XP_PER_LEVEL = 500;
   const xpIntoLevel = profile.xp % XP_PER_LEVEL;
   const progressPercentage = Math.min(100, (xpIntoLevel / XP_PER_LEVEL) * 100);
+  const levelBadge = getLevelBadge(profile.level);
+  const levelName = profile.levelName || getLevelName(profile.level);
+  const streak = profile.streak ?? 0;
 
   const currentAvatar = editAvatarUrl || profile.avatarUrl;
 
@@ -179,15 +183,21 @@ export function ProfileWidget() {
                     <Edit2 className="w-4 h-4" />
                   </Button>
                 </h2>
-                <div className="flex items-center gap-2 mt-1 text-sm text-primary font-medium">
-                  <Star className="w-4 h-4 fill-primary" />
-                  Trader Livello {profile.level}
+                <div className={`flex items-center gap-1.5 mt-1 text-sm font-medium ${levelBadge.color}`}>
+                  <span>{levelBadge.emoji}</span>
+                  <span>{levelName}</span>
                 </div>
               </div>
             </div>
 
-            <div className="hidden md:flex flex-col items-end">
-              <Trophy className="w-8 h-8 text-accent/40 mb-2" />
+            <div className="flex flex-col items-end gap-2">
+              {streak > 0 && (
+                <div className="flex items-center gap-1.5 bg-orange-500/10 border border-orange-500/30 text-orange-400 px-2.5 py-1 rounded-full text-xs font-bold">
+                  <Flame className="w-3.5 h-3.5" />
+                  <span>{streak}d</span>
+                </div>
+              )}
+              <Trophy className="w-6 h-6 text-accent/40" />
             </div>
           </div>
 
@@ -212,9 +222,17 @@ export function ProfileWidget() {
                 <div className="absolute top-0 right-0 bottom-0 w-20 bg-white/20 blur-sm -skew-x-12 animate-[shimmer_2s_infinite]" />
               </motion.div>
             </div>
-            <p className="text-xs text-muted-foreground text-right font-mono">
-              {profile.xpToNextLevel} XP al prossimo livello
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground font-mono">
+                {profile.xpToNextLevel} XP al prossimo livello
+              </p>
+              {streak > 0 && (
+                <p className="text-xs text-orange-400/70 flex items-center gap-1">
+                  <Flame className="w-3 h-3" />
+                  Streak: {streak} {streak === 1 ? "giorno" : "giorni"} • +{Math.min(50, (streak - 1) * 5)} XP bonus
+                </p>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>

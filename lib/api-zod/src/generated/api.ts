@@ -103,6 +103,8 @@ export const GetProfileResponse = zod.object({
   xp: zod.number(),
   level: zod.number(),
   xpToNextLevel: zod.number(),
+  streak: zod.number(),
+  levelName: zod.string(),
 });
 
 /**
@@ -120,6 +122,8 @@ export const UpdateProfileResponse = zod.object({
   xp: zod.number(),
   level: zod.number(),
   xpToNextLevel: zod.number(),
+  streak: zod.number(),
+  levelName: zod.string(),
 });
 
 /**
@@ -324,6 +328,8 @@ export const CompleteMissionResponse = zod.object({
     xp: zod.number(),
     level: zod.number(),
     xpToNextLevel: zod.number(),
+    streak: zod.number(),
+    levelName: zod.string(),
   }),
   levelUp: zod.boolean(),
 });

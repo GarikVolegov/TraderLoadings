@@ -9,6 +9,8 @@ export const profileTable = pgTable("profile", {
   avatarUrl: text("avatar_url"),
   xp: integer("xp").notNull().default(0),
   level: integer("level").notNull().default(1),
+  streak: integer("streak").notNull().default(0),
+  lastActiveDate: text("last_active_date"),
   userId: text("user_id"),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [

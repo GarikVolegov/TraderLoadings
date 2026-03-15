@@ -13,4 +13,6 @@ export interface UserProfile {
   xp: number;
   level: number;
   xpToNextLevel: number;
+  streak: number;
+  levelName: string;
 }

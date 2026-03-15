@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from "react";
-import { motion } from "framer-motion";
+import React, { useState, useRef, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { PageLayout } from "@/components/PageLayout";
 import { ProfileWidget } from "@/components/ProfileWidget";
 import { AudioPlayer } from "@/components/AudioPlayer";
@@ -8,12 +8,14 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { Image, Upload, X, LogIn, LogOut, UserPlus, RefreshCw, Type, Sun, TrendingUp, Target, Plus, Pencil, Trash2, Quote, Bell, ShieldAlert } from "lucide-react";
+import { Image, Upload, X, LogIn, LogOut, UserPlus, RefreshCw, Type, Sun, TrendingUp, Target, Plus, Pencil, Trash2, Quote, Bell, ShieldAlert, Lock, Globe, Music, ChevronRight, Check, Shield, KeyRound } from "lucide-react";
 import { useBackground, DEFAULT_TRADING_SESSIONS, DEFAULT_LOT_DIVISOR, type TradingSessionConfig } from "@/contexts/BackgroundContext";
 import { useGetUserSettings, useUpdateUserSettings, getGetUserSettingsQueryKey, useGetMissionTemplates, useCreateMissionTemplate, useUpdateMissionTemplate, useDeleteMissionTemplate, getGetMissionTemplatesQueryKey, useGetQuotes, useCreateQuote, useUpdateQuote, useDeleteQuote, getGetQuotesQueryKey, getGetRandomQuoteQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@workspace/replit-auth-web";
+import { usePinLock } from "@/contexts/PinLockContext";
+import { useLanguage, LANGUAGES, type Language } from "@/contexts/LanguageContext";
 
 const FONT_OPTIONS = [
   { value: "inter", label: "Inter", sample: "font-['Inter']" },
@@ -773,6 +775,176 @@ function NotificationSettings() {
   );
 }
 
+function PinSettings() {
+  const { isPinSet, setPin, removePin, unlock } = usePinLock();
+  const { toast } = useToast();
+  const [mode, setMode] = useState<"idle" | "set" | "change-old" | "change-new">("idle");
+  const [pin, setLocalPin] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [oldPin, setOldPin] = useState("");
+  const [error, setError] = useState("");
+
+  const handleReset = () => {
+    setMode("idle");
+    setLocalPin("");
+    setConfirm("");
+    setOldPin("");
+    setError("");
+  };
+
+  const handleSet = async () => {
+    if (pin.length !== 4 || !/^\d{4}$/.test(pin)) {
+      setError("Il PIN deve essere di 4 cifre numeriche");
+      return;
+    }
+    if (pin !== confirm) {
+      setError("I PIN non coincidono");
+      return;
+    }
+    await setPin(pin);
+    toast({ title: "PIN impostato", description: "L'app è ora protetta da PIN." });
+    handleReset();
+  };
+
+  const handleVerifyOld = async () => {
+    const ok = await unlock(oldPin);
+    if (!ok) {
+      setError("PIN corrente non corretto");
+      return;
+    }
+    setMode("change-new");
+    setOldPin("");
+    setError("");
+  };
+
+  const handleChangeNew = async () => {
+    if (pin.length !== 4 || !/^\d{4}$/.test(pin)) { setError("Il PIN deve essere di 4 cifre"); return; }
+    if (pin !== confirm) { setError("I PIN non coincidono"); return; }
+    await setPin(pin);
+    toast({ title: "PIN aggiornato" });
+    handleReset();
+  };
+
+  const handleRemove = () => {
+    removePin();
+    toast({ title: "PIN rimosso", description: "L'app non richiede più autenticazione." });
+    handleReset();
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between p-4 rounded-xl bg-secondary/30 border border-border">
+        <div className="flex items-center gap-3">
+          <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isPinSet ? "bg-primary/15 border border-primary/40" : "bg-secondary border border-border"}`}>
+            <Shield className={`w-5 h-5 ${isPinSet ? "text-primary" : "text-muted-foreground"}`} />
+          </div>
+          <div>
+            <p className="text-sm font-semibold">{isPinSet ? "PIN attivo" : "PIN non impostato"}</p>
+            <p className="text-xs text-muted-foreground">{isPinSet ? "L'app richiede PIN ad ogni avvio" : "Nessuna protezione PIN"}</p>
+          </div>
+        </div>
+        <div className={`w-2 h-2 rounded-full ${isPinSet ? "bg-primary animate-pulse" : "bg-muted-foreground/30"}`} />
+      </div>
+
+      {mode === "idle" && (
+        <div className="grid grid-cols-1 gap-2">
+          {!isPinSet ? (
+            <Button onClick={() => setMode("set")} className="w-full justify-start gap-3" variant="outline">
+              <KeyRound className="w-4 h-4 text-primary" /> Imposta PIN
+            </Button>
+          ) : (
+            <>
+              <Button onClick={() => setMode("change-old")} className="w-full justify-start gap-3" variant="outline">
+                <KeyRound className="w-4 h-4 text-primary" /> Cambia PIN
+              </Button>
+              <Button onClick={handleRemove} className="w-full justify-start gap-3 text-destructive border-destructive/30 hover:bg-destructive/10" variant="outline">
+                <X className="w-4 h-4" /> Rimuovi PIN
+              </Button>
+            </>
+          )}
+        </div>
+      )}
+
+      {mode === "change-old" && (
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">PIN attuale</label>
+            <Input type="password" inputMode="numeric" maxLength={4} placeholder="••••" value={oldPin} onChange={(e) => { setOldPin(e.target.value.replace(/\D/g, "").slice(0, 4)); setError(""); }} className="font-mono text-center tracking-[0.5em] text-lg" />
+          </div>
+          {error && <p className="text-xs text-destructive">{error}</p>}
+          <div className="flex gap-2">
+            <Button onClick={handleVerifyOld} className="flex-1" disabled={oldPin.length < 4}>
+              <ChevronRight className="w-4 h-4 mr-2" /> Avanti
+            </Button>
+            <Button variant="outline" onClick={handleReset} className="flex-1">Annulla</Button>
+          </div>
+        </div>
+      )}
+
+      {(mode === "set" || mode === "change-new") && (
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">Nuovo PIN (4 cifre)</label>
+            <Input type="password" inputMode="numeric" maxLength={4} placeholder="••••" value={pin} onChange={(e) => { setLocalPin(e.target.value.replace(/\D/g, "").slice(0, 4)); setError(""); }} className="font-mono text-center tracking-[0.5em] text-lg" />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">Conferma PIN</label>
+            <Input type="password" inputMode="numeric" maxLength={4} placeholder="••••" value={confirm} onChange={(e) => { setConfirm(e.target.value.replace(/\D/g, "").slice(0, 4)); setError(""); }} className="font-mono text-center tracking-[0.5em] text-lg" />
+          </div>
+          {error && <p className="text-xs text-destructive">{error}</p>}
+          <div className="flex gap-2">
+            <Button onClick={mode === "set" ? handleSet : handleChangeNew} className="flex-1" disabled={pin.length < 4 || confirm.length < 4}>
+              <Check className="w-4 h-4 mr-2" /> Conferma
+            </Button>
+            <Button variant="outline" onClick={handleReset} className="flex-1">Annulla</Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LanguageSettings() {
+  const { language, setLanguage } = useLanguage();
+  const { toast } = useToast();
+
+  const handleSelect = (lang: Language) => {
+    setLanguage(lang);
+    toast({ title: `Lingua impostata: ${LANGUAGES[lang].name}` });
+  };
+
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-muted-foreground">Seleziona la lingua dell'interfaccia</p>
+      <div className="grid grid-cols-1 gap-2">
+        {(Object.entries(LANGUAGES) as [Language, typeof LANGUAGES[Language]][]).map(([code, lang]) => (
+          <button
+            key={code}
+            onClick={() => handleSelect(code)}
+            className={`flex items-center justify-between px-4 py-3 rounded-xl border transition-all text-left ${
+              language === code
+                ? "border-primary bg-primary/10 text-primary"
+                : "border-border hover:border-primary/40 hover:bg-secondary/50"
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-xl">{lang.flag}</span>
+              <div>
+                <p className="text-sm font-medium">{lang.name}</p>
+                <p className="text-xs text-muted-foreground">{lang.label}</p>
+              </div>
+            </div>
+            {language === code && <Check className="w-4 h-4 text-primary" />}
+          </button>
+        ))}
+      </div>
+      <p className="text-xs text-muted-foreground text-center pt-1">
+        La traduzione completa è in fase di sviluppo
+      </p>
+    </div>
+  );
+}
+
 function AuthSection({ login }: { login: () => void }) {
   return (
     <Card>
@@ -801,76 +973,130 @@ function AuthSection({ login }: { login: () => void }) {
   );
 }
 
+type TileId = "profilo" | "audio" | "aspetto" | "notifiche" | "sicurezza" | "lingua" | "trading" | "missioni" | "citazioni" | "account";
+
+interface SettingsTile {
+  id: TileId;
+  icon: React.ReactNode;
+  label: string;
+  subtitle: string;
+  color: string;
+  glow: string;
+}
+
 export default function Settings() {
   const { isAuthenticated, isLoading, login, logout } = useAuth();
+  const { isPinSet } = usePinLock();
+  const { language } = useLanguage();
+  const [activeTile, setActiveTile] = useState<TileId | null>(null);
+
+  const tiles: SettingsTile[] = [
+    { id: "profilo", icon: <UserPlus className="w-6 h-6" />, label: "Profilo", subtitle: "Nome, avatar, XP", color: "text-primary", glow: "group-hover:shadow-primary/20" },
+    { id: "audio", icon: <Music className="w-6 h-6" />, label: "Audio", subtitle: "Binaural & focus", color: "text-blue-400", glow: "group-hover:shadow-blue-400/20" },
+    { id: "aspetto", icon: <Sun className="w-6 h-6" />, label: "Aspetto", subtitle: "Sfondo, font, tema", color: "text-yellow-400", glow: "group-hover:shadow-yellow-400/20" },
+    { id: "notifiche", icon: <Bell className="w-6 h-6" />, label: "Notifiche", subtitle: "Allarmi & reminder", color: "text-orange-400", glow: "group-hover:shadow-orange-400/20" },
+    { id: "sicurezza", icon: <Lock className="w-6 h-6" />, label: "Sicurezza", subtitle: isPinSet ? "PIN attivo 🟢" : "PIN non impostato", color: "text-emerald-400", glow: "group-hover:shadow-emerald-400/20" },
+    { id: "lingua", icon: <Globe className="w-6 h-6" />, label: "Lingua", subtitle: `${LANGUAGES[language].flag} ${LANGUAGES[language].name}`, color: "text-cyan-400", glow: "group-hover:shadow-cyan-400/20" },
+    { id: "trading", icon: <TrendingUp className="w-6 h-6" />, label: "Trading", subtitle: "Sessioni & risk", color: "text-violet-400", glow: "group-hover:shadow-violet-400/20" },
+    { id: "missioni", icon: <Target className="w-6 h-6" />, label: "Missioni", subtitle: "Template & abitudini", color: "text-rose-400", glow: "group-hover:shadow-rose-400/20" },
+    { id: "citazioni", icon: <Quote className="w-6 h-6" />, label: "Citazioni", subtitle: "Frasi motivazionali", color: "text-amber-400", glow: "group-hover:shadow-amber-400/20" },
+    { id: "account", icon: isAuthenticated ? <LogOut className="w-6 h-6" /> : <LogIn className="w-6 h-6" />, label: "Account", subtitle: isAuthenticated ? "Accesso attivo" : "Accedi o registrati", color: "text-slate-400", glow: "group-hover:shadow-slate-400/20" },
+  ];
+
+  const tileContent: Record<TileId, React.ReactNode> = {
+    profilo: <ProfileWidget />,
+    audio: <AudioPlayer />,
+    aspetto: (
+      <div className="space-y-6">
+        <FontSettings />
+        <DarknessSettings />
+        <BackgroundPresetsManager />
+        <BackgroundSettings />
+      </div>
+    ),
+    notifiche: <NotificationSettings />,
+    sicurezza: <PinSettings />,
+    lingua: <LanguageSettings />,
+    trading: <TradingSettings />,
+    missioni: <MissionTemplatesSettings />,
+    citazioni: <QuotesSettings />,
+    account: isAuthenticated ? (
+      <div className="space-y-4">
+        <p className="text-sm text-muted-foreground">Sei attualmente autenticato. Puoi uscire dal tuo account in qualsiasi momento.</p>
+        <Button onClick={logout} variant="outline" className="w-full border-destructive/50 text-destructive hover:bg-destructive/10">
+          <LogOut className="w-4 h-4 mr-2" /> Esci
+        </Button>
+      </div>
+    ) : (
+      !isLoading ? <AuthSection login={login} /> : <p className="text-sm text-muted-foreground">Caricamento...</p>
+    ),
+  };
+
+  const activeTileData = tiles.find((t) => t.id === activeTile);
 
   return (
     <PageLayout>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
-          <ProfileWidget />
-        </motion.div>
-
-        {!isAuthenticated && !isLoading && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-            <AuthSection login={login} />
-          </motion.div>
-        )}
-
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-          <AudioPlayer />
-        </motion.div>
-
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-          <FontSettings />
-        </motion.div>
-
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
-          <DarknessSettings />
-        </motion.div>
-
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="lg:col-span-2">
-          <BackgroundPresetsManager />
-        </motion.div>
-
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.32 }}>
-          <BackgroundSettings />
-        </motion.div>
-
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} className="lg:col-span-2">
-          <TradingSettings />
-        </motion.div>
-
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.38 }}>
-          <MissionTemplatesSettings />
-        </motion.div>
-
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.41 }}>
-          <QuotesSettings />
-        </motion.div>
-
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.44 }} className="lg:col-span-2">
-          <NotificationSettings />
-        </motion.div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
+        {tiles.map((tile, i) => (
+          <motion.button
+            key={tile.id}
+            initial={{ opacity: 0, scale: 0.92, y: 12 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ delay: i * 0.04, type: "spring", stiffness: 300, damping: 24 }}
+            onClick={() => setActiveTile(tile.id)}
+            className={`group relative aspect-square flex flex-col items-start justify-between p-4 rounded-2xl border border-border bg-card/60 backdrop-blur-sm hover:border-primary/30 hover:bg-card transition-all duration-200 shadow-sm hover:shadow-lg ${tile.glow} text-left`}
+          >
+            <div className={`${tile.color} transition-transform duration-200 group-hover:scale-110`}>
+              {tile.icon}
+            </div>
+            <div>
+              <p className="text-sm font-semibold leading-tight">{tile.label}</p>
+              <p className="text-xs text-muted-foreground mt-0.5 leading-tight">{tile.subtitle}</p>
+            </div>
+            <div className="absolute top-3 right-3">
+              <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/40 group-hover:text-primary/50 transition-colors" />
+            </div>
+          </motion.button>
+        ))}
       </div>
 
-      {isAuthenticated && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="mt-4 sm:mt-8"
-        >
-          <Button
-            onClick={logout}
-            variant="outline"
-            className="w-full border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive"
+      <AnimatePresence>
+        {activeTile && activeTileData && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-background/80 backdrop-blur-md flex items-start justify-center overflow-y-auto py-6 px-4"
+            onClick={(e) => { if (e.target === e.currentTarget) setActiveTile(null); }}
           >
-            <LogOut className="w-4 h-4 mr-2" />
-            Esci
-          </Button>
-        </motion.div>
-      )}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ type: "spring", stiffness: 350, damping: 28 }}
+              className="w-full max-w-2xl bg-card border border-border rounded-2xl shadow-2xl overflow-hidden"
+            >
+              <div className="flex items-center justify-between p-5 border-b border-border">
+                <div className="flex items-center gap-3">
+                  <div className={`${activeTileData.color}`}>{activeTileData.icon}</div>
+                  <h2 className="text-lg font-bold font-mono">{activeTileData.label}</h2>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setActiveTile(null)}
+                  className="rounded-xl hover:bg-secondary"
+                >
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+              <div className="p-5 sm:p-6">
+                {tileContent[activeTile]}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </PageLayout>
   );
 }

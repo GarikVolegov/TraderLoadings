@@ -3,7 +3,7 @@ import { db } from "@workspace/db";
 import { missionsTable, missionTemplatesTable, profileTable } from "@workspace/db";
 import { GetMissionsResponse, CompleteMissionParams, CompleteMissionResponse } from "@workspace/api-zod";
 import { eq, and, isNull } from "drizzle-orm";
-import { getOrCreateProfile, computeLevel, getUserId } from "./profile.js";
+import { getOrCreateProfile, computeLevel, getUserId, updateStreak, getLevelName } from "./profile.js";
 
 const router: IRouter = Router();
 
@@ -87,17 +87,24 @@ router.post("/missions/:id/complete", async (req, res) => {
     .returning();
 
   const profile = await getOrCreateProfile(userId);
-  const newXp = profile.xp + mission.xpReward;
   const oldLevel = computeLevel(profile.xp).level;
 
   const [updatedProfile] = await db
     .update(profileTable)
-    .set({ xp: newXp })
+    .set({ xp: profile.xp + mission.xpReward })
     .where(eq(profileTable.id, profile.id))
     .returning();
 
-  const { level, xpToNextLevel } = computeLevel(newXp);
+  const { newStreak, bonusXp } = await updateStreak(profile.id);
+  const finalXp = updatedProfile.xp + bonusXp;
+  if (bonusXp > 0) {
+    await db.update(profileTable).set({ xp: finalXp }).where(eq(profileTable.id, profile.id));
+  }
+
+  const { level, xpToNextLevel } = computeLevel(finalXp);
   const levelUp = level > oldLevel;
+
+  const [freshProfile] = await db.select().from(profileTable).where(eq(profileTable.id, profile.id)).limit(1);
 
   const data = CompleteMissionResponse.parse({
     mission: {
@@ -109,12 +116,14 @@ router.post("/missions/:id/complete", async (req, res) => {
       completedAt: updatedMission.completedAt ? updatedMission.completedAt.toISOString() : null,
     },
     profile: {
-      id: updatedProfile.id,
-      name: updatedProfile.name,
-      avatarUrl: updatedProfile.avatarUrl ?? null,
-      xp: updatedProfile.xp,
-      level,
-      xpToNextLevel,
+      id: freshProfile.id,
+      name: freshProfile.name,
+      avatarUrl: freshProfile.avatarUrl ?? null,
+      xp: freshProfile.xp,
+      level: computeLevel(freshProfile.xp).level,
+      xpToNextLevel: computeLevel(freshProfile.xp).xpToNextLevel,
+      streak: newStreak,
+      levelName: getLevelName(computeLevel(freshProfile.xp).level),
     },
     levelUp,
   });

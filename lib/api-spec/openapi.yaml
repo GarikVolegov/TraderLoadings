@@ -1341,12 +1341,18 @@ components:
           type: integer
         xpToNextLevel:
           type: integer
+        streak:
+          type: integer
+        levelName:
+          type: string
       required:
         - id
         - name
         - xp
         - level
         - xpToNextLevel
+        - streak
+        - levelName
 
     UpdateProfileRequest:
       type: object

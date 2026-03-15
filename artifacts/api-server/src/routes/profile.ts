@@ -12,6 +12,35 @@ const router: IRouter = Router();
 
 const XP_PER_LEVEL = 500;
 
+const LEVEL_NAMES: Record<number, string> = {
+  1: "Novizio Consapevole",
+  2: "Apprendista Disciplinato",
+  3: "Osservatore Silenzioso",
+  4: "Analista in Formazione",
+  5: "Samurai della Pazienza",
+  6: "Cacciatore di Pattern",
+  7: "Guardiano del Risk",
+  8: "Maestro del Timeframe",
+  9: "Sentinella dei Mercati",
+  10: "Stratega dell'Incertezza",
+  11: "Architetto del Piano",
+  12: "Mente Antifrágile",
+  13: "Ombra del Mercato",
+  14: "Custode della Disciplina",
+  15: "Ninja della Liquidità",
+  16: "Alchimista delle Probabilità",
+  17: "Falco dello Smart Money",
+  18: "Sensei dell'Order Flow",
+  19: "Leggenda del Trading",
+  20: "Maestro Supremo",
+};
+
+function getLevelName(level: number): string {
+  if (level in LEVEL_NAMES) return LEVEL_NAMES[level];
+  if (level > 20) return "Maestro Supremo";
+  return `Trader Livello ${level}`;
+}
+
 const AVATARS_DIR = path.join(process.cwd(), "uploads", "avatars");
 if (!fs.existsSync(AVATARS_DIR)) {
   fs.mkdirSync(AVATARS_DIR, { recursive: true });
@@ -50,6 +79,35 @@ function computeLevel(xp: number) {
   const xpIntoLevel = xp % XP_PER_LEVEL;
   const xpToNextLevel = XP_PER_LEVEL - xpIntoLevel;
   return { level, xpToNextLevel };
+}
+
+function computeStreakBonus(streak: number): number {
+  if (streak <= 1) return 0;
+  return Math.min(50, (streak - 1) * 5);
+}
+
+async function updateStreak(profileId: number): Promise<{ newStreak: number; bonusXp: number }> {
+  const [current] = await db.select({ streak: profileTable.streak, lastActiveDate: profileTable.lastActiveDate, xp: profileTable.xp })
+    .from(profileTable).where(eq(profileTable.id, profileId)).limit(1);
+  if (!current) return { newStreak: 0, bonusXp: 0 };
+
+  const today = new Date().toISOString().slice(0, 10);
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+
+  if (current.lastActiveDate === today) return { newStreak: current.streak, bonusXp: 0 };
+
+  const newStreak = current.lastActiveDate === yesterday ? (current.streak || 0) + 1 : 1;
+  const bonusXp = computeStreakBonus(newStreak);
+
+  await db.update(profileTable)
+    .set({
+      streak: newStreak,
+      lastActiveDate: today,
+      xp: current.xp + bonusXp,
+    })
+    .where(eq(profileTable.id, profileId));
+
+  return { newStreak, bonusXp };
 }
 
 function getUserId(req: Request): string | null {
@@ -101,15 +159,22 @@ async function isNameTaken(name: string, excludeProfileId: number, userId: strin
 router.get("/profile", async (req, res) => {
   const userId = getUserId(req);
   const profile = await getOrCreateProfile(userId);
-  const { level, xpToNextLevel } = computeLevel(profile.xp);
+  const { newStreak } = await updateStreak(profile.id);
+  const freshXp = profile.xp;
+  const [fresh] = await db.select({ xp: profileTable.xp, streak: profileTable.streak }).from(profileTable).where(eq(profileTable.id, profile.id)).limit(1);
+  const xp = fresh?.xp ?? freshXp;
+  const streak = fresh?.streak ?? newStreak;
+  const { level, xpToNextLevel } = computeLevel(xp);
 
   const data = GetProfileResponse.parse({
     id: profile.id,
     name: profile.name,
     avatarUrl: profile.avatarUrl ?? null,
-    xp: profile.xp,
+    xp,
     level,
     xpToNextLevel,
+    streak,
+    levelName: getLevelName(level),
   });
   res.json(data);
 });
@@ -142,6 +207,8 @@ router.put("/profile", async (req, res) => {
       xp: updated.xp,
       level,
       xpToNextLevel,
+      streak: updated.streak,
+      levelName: getLevelName(level),
     });
     res.json(data);
   } catch (err: unknown) {
@@ -261,5 +328,5 @@ router.get("/leaderboard", async (_req, res) => {
   res.json(data);
 });
 
-export { getOrCreateProfile, computeLevel, getUserId };
+export { getOrCreateProfile, computeLevel, getUserId, updateStreak, getLevelName };
 export default router;
