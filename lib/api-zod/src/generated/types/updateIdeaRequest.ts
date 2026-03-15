@@ -7,6 +7,7 @@
  */
 
 export interface UpdateIdeaRequest {
-  content: string;
-  completed: boolean;
+  content?: string;
+  completed?: boolean;
+  reminderTime?: string | null;
 }

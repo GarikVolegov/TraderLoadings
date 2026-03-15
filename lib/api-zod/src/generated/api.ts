@@ -444,6 +444,7 @@ export const GetIdeasResponseItem = zod.object({
   type: zod.enum(["idea", "goal"]),
   content: zod.string(),
   completed: zod.boolean(),
+  reminderTime: zod.string().nullish(),
   createdAt: zod.string(),
 });
 export const GetIdeasResponse = zod.array(GetIdeasResponseItem);
@@ -464,8 +465,9 @@ export const UpdateIdeaParams = zod.object({
 });
 
 export const UpdateIdeaBody = zod.object({
-  content: zod.string(),
-  completed: zod.boolean(),
+  content: zod.string().optional(),
+  completed: zod.boolean().optional(),
+  reminderTime: zod.string().nullish(),
 });
 
 export const UpdateIdeaResponse = zod.object({
@@ -473,6 +475,7 @@ export const UpdateIdeaResponse = zod.object({
   type: zod.enum(["idea", "goal"]),
   content: zod.string(),
   completed: zod.boolean(),
+  reminderTime: zod.string().nullish(),
   createdAt: zod.string(),
 });
 

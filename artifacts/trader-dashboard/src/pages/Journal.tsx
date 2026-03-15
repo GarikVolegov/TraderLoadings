@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { format, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks, subMonths, addWeeks, addMonths, isWithinInterval } from "date-fns";
 import { it } from "date-fns/locale";
-import { Plus, Edit2, Trash2, Image as ImageIcon, CalendarDays, Tag, Lightbulb, Target, BookOpen, Check, TrendingUp, TrendingDown, Minus, ChevronLeft, ChevronRight, BarChart3, Calendar } from "lucide-react";
+import { Plus, Edit2, Trash2, Image as ImageIcon, CalendarDays, Tag, Lightbulb, Target, BookOpen, Check, TrendingUp, TrendingDown, Minus, ChevronLeft, ChevronRight, BarChart3, Calendar, Bell, BellOff } from "lucide-react";
 import { PageLayout } from "@/components/PageLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -193,6 +193,14 @@ function IdeasTab({ type }: { type: "idea" | "goal" }) {
     invalidate();
   };
 
+  const handleSetReminder = async (id: number, time: string | null) => {
+    await updateMutation.mutateAsync({ id, data: { reminderTime: time } });
+    invalidate();
+    if (time && "Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  };
+
   const handleDelete = async (id: number) => {
     await deleteMutation.mutateAsync({ id });
     invalidate();
@@ -254,19 +262,52 @@ function IdeasTab({ type }: { type: "idea" | "goal" }) {
                   <p className={`text-sm font-medium ${item.completed ? "line-through text-muted-foreground" : ""}`}>
                     {item.content}
                   </p>
-                  <p className="text-xs text-muted-foreground/50 mt-0.5">
-                    {format(parseISO(item.createdAt), "d MMM yyyy", { locale: it })}
-                  </p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <p className="text-xs text-muted-foreground/50">
+                      {format(parseISO(item.createdAt), "d MMM yyyy", { locale: it })}
+                    </p>
+                    {type === "goal" && item.reminderTime && (
+                      <span className="inline-flex items-center gap-1 text-xs text-primary/70">
+                        <Bell className="w-3 h-3" /> {item.reminderTime}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="opacity-0 group-hover:opacity-100 h-7 w-7 p-0 text-destructive hover:bg-destructive/10 shrink-0"
-                  onClick={() => handleDelete(item.id)}
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </Button>
+                <div className="flex items-center gap-1 shrink-0">
+                  {type === "goal" && !item.completed && (
+                    item.reminderTime ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0 text-primary hover:bg-primary/10"
+                        title="Rimuovi promemoria"
+                        onClick={() => handleSetReminder(item.id, null)}
+                      >
+                        <BellOff className="w-3.5 h-3.5" />
+                      </Button>
+                    ) : (
+                      <label className="relative cursor-pointer" title="Imposta promemoria">
+                        <Bell className="w-3.5 h-3.5 text-muted-foreground hover:text-primary transition-colors mx-1.5" />
+                        <input
+                          type="time"
+                          className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                          onChange={(e) => {
+                            if (e.target.value) handleSetReminder(item.id, e.target.value);
+                          }}
+                        />
+                      </label>
+                    )
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="opacity-0 group-hover:opacity-100 h-7 w-7 p-0 text-destructive hover:bg-destructive/10"
+                    onClick={() => handleDelete(item.id)}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
               </motion.div>
             ))}
           </AnimatePresence>

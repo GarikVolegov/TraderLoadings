@@ -29,9 +29,13 @@ router.post("/ideas", async (req, res) => {
 router.put("/ideas/:id", async (req, res) => {
   const userId = getUserId(req);
   const id = parseInt(req.params.id);
-  const { content, completed } = req.body;
+  const { content, completed, reminderTime } = req.body;
+  const updates: Record<string, unknown> = {};
+  if (content !== undefined) updates.content = content;
+  if (completed !== undefined) updates.completed = completed;
+  if (reminderTime !== undefined) updates.reminderTime = reminderTime;
   const [idea] = await db.update(ideasTable)
-    .set({ content, completed })
+    .set(updates)
     .where(and(eq(ideasTable.id, id), userFilter(userId)))
     .returning();
   if (!idea) { res.status(404).json({ error: "Not found" }); return; }

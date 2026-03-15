@@ -1553,6 +1553,9 @@ components:
           type: string
         completed:
           type: boolean
+        reminderTime:
+          type: string
+          nullable: true
         createdAt:
           type: string
       required:
@@ -1581,9 +1584,9 @@ components:
           type: string
         completed:
           type: boolean
-      required:
-        - content
-        - completed
+        reminderTime:
+          type: string
+          nullable: true
 
     ChecklistItem:
       type: object

@@ -197,6 +197,7 @@ export interface Idea {
   type: IdeaType;
   content: string;
   completed: boolean;
+  reminderTime?: string | null;
   createdAt: string;
 }
 
@@ -214,8 +215,9 @@ export interface CreateIdeaRequest {
 }
 
 export interface UpdateIdeaRequest {
-  content: string;
-  completed: boolean;
+  content?: string;
+  completed?: boolean;
+  reminderTime?: string | null;
 }
 
 export interface ChecklistItem {

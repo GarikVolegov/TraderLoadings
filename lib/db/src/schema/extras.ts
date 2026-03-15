@@ -5,6 +5,7 @@ export const ideasTable = pgTable("ideas", {
   type: text("type").notNull().default("idea"),
   content: text("content").notNull(),
   completed: boolean("completed").notNull().default(false),
+  reminderTime: text("reminder_time"),
   userId: text("user_id"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });

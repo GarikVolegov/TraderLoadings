@@ -6,6 +6,8 @@ import { AudioProvider } from "./contexts/AudioContext";
 import { BackgroundProvider } from "./contexts/BackgroundContext";
 import { LoadingProvider } from "./contexts/LoadingContext";
 import { LoadingScreen } from "./components/LoadingScreen";
+import { WelcomeNotification } from "./components/WelcomeNotification";
+import { GoalReminders } from "./components/GoalReminders";
 import Dashboard from "./pages/Dashboard";
 import Journal from "./pages/Journal";
 import Settings from "./pages/Settings";
@@ -46,6 +48,8 @@ function App() {
         <LoadingProvider>
           <AudioProvider>
             <LoadingScreen />
+            <WelcomeNotification />
+            <GoalReminders />
             <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
               <BackgroundProvider>
                 <Router />

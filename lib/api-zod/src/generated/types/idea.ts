@@ -12,5 +12,6 @@ export interface Idea {
   type: IdeaType;
   content: string;
   completed: boolean;
+  reminderTime?: string | null;
   createdAt: string;
 }
