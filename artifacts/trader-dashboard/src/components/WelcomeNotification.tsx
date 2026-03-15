@@ -1,44 +1,44 @@
 import { useEffect, useRef } from "react";
 import { useGetMissions, useGetChecklist } from "@workspace/api-client-react";
 import { useLoading } from "@/contexts/LoadingContext";
+import { useToast } from "@/hooks/use-toast";
 
 export function WelcomeNotification() {
   const { isLoading } = useLoading();
   const firedRef = useRef(false);
   const { data: missions } = useGetMissions();
   const { data: checklist } = useGetChecklist();
+  const { toast } = useToast();
 
   useEffect(() => {
     if (isLoading || firedRef.current) return;
     if (!missions || !checklist) return;
     firedRef.current = true;
 
-    if (!("Notification" in window)) return;
+    const totalMissions = missions.length;
+    const doneMissions = missions.filter((m) => m.completed).length;
+    const pendingMissions = totalMissions - doneMissions;
 
-    const fire = () => {
-      if (Notification.permission !== "granted") return;
+    const totalChecklist = checklist.length;
+    const doneChecklist = checklist.filter((c) => c.completed).length;
 
-      const totalMissions = missions.length;
-      const doneMissions = missions.filter((m) => m.completed).length;
-      const pendingMissions = totalMissions - doneMissions;
+    const lines: string[] = [];
+    if (totalMissions > 0) {
+      lines.push(
+        pendingMissions === 0
+          ? `Missioni: ${doneMissions}/${totalMissions} completate`
+          : `Missioni: ${pendingMissions} da completare (${doneMissions}/${totalMissions})`
+      );
+    }
+    if (totalChecklist > 0) {
+      lines.push(`Checklist: ${doneChecklist}/${totalChecklist}`);
+    }
 
-      const totalChecklist = checklist.length;
-      const doneChecklist = checklist.filter((c) => c.completed).length;
+    if (lines.length === 0) return;
 
-      const lines: string[] = [];
-      if (totalMissions > 0) {
-        lines.push(
-          pendingMissions === 0
-            ? `Missioni: ${doneMissions}/${totalMissions} completate`
-            : `Missioni: ${pendingMissions} da completare (${doneMissions}/${totalMissions})`
-        );
-      }
-      if (totalChecklist > 0) {
-        lines.push(`Checklist: ${doneChecklist}/${totalChecklist}`);
-      }
+    const summary = lines.join(" | ");
 
-      if (lines.length === 0) return;
-
+    const showBrowserNotification = () => {
       new Notification("TraderLoading", {
         body: lines.join("\n"),
         icon: "/favicon.ico",
@@ -46,12 +46,39 @@ export function WelcomeNotification() {
       });
     };
 
-    if (Notification.permission === "default") {
-      Notification.requestPermission().then(fire);
-    } else {
-      fire();
+    const showToast = () => {
+      toast({
+        title: "Riepilogo di oggi",
+        description: summary,
+        duration: 6000,
+      });
+    };
+
+    if (!("Notification" in window)) {
+      showToast();
+      return;
     }
-  }, [isLoading, missions, checklist]);
+
+    if (Notification.permission === "granted") {
+      showBrowserNotification();
+    } else if (Notification.permission === "default") {
+      toast({
+        title: "Attiva le notifiche",
+        description:
+          "Consenti le notifiche del browser per ricevere promemoria sui tuoi obiettivi e aggiornamenti sulle sessioni di trading.",
+        duration: 8000,
+      });
+      setTimeout(() => {
+        Notification.requestPermission().then((perm) => {
+          if (perm === "granted") {
+            showBrowserNotification();
+          }
+        });
+      }, 1500);
+    } else {
+      showToast();
+    }
+  }, [isLoading, missions, checklist, toast]);
 
   return null;
 }

@@ -1,8 +1,10 @@
 import { useEffect, useRef } from "react";
 import { useGetIdeas } from "@workspace/api-client-react";
+import { useToast } from "@/hooks/use-toast";
 
 export function GoalReminders() {
   const { data: ideas } = useGetIdeas();
+  const { toast } = useToast();
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
@@ -10,9 +12,9 @@ export function GoalReminders() {
     timersRef.current = [];
 
     if (!ideas) return;
-    if (!("Notification" in window) || Notification.permission !== "granted") return;
 
     const goals = ideas.filter((i) => i.type === "goal" && !i.completed && i.reminderTime);
+    const canNotify = "Notification" in window && Notification.permission === "granted";
 
     const now = new Date();
     for (const goal of goals) {
@@ -22,11 +24,19 @@ export function GoalReminders() {
       if (delay <= 0) continue;
 
       const timer = setTimeout(() => {
-        new Notification("Promemoria Obiettivo", {
-          body: goal.content,
-          icon: "/favicon.ico",
-          tag: `goal-reminder-${goal.id}`,
-        });
+        if (canNotify) {
+          new Notification("Promemoria Obiettivo", {
+            body: goal.content,
+            icon: "/favicon.ico",
+            tag: `goal-reminder-${goal.id}`,
+          });
+        } else {
+          toast({
+            title: "Promemoria Obiettivo",
+            description: goal.content,
+            duration: 8000,
+          });
+        }
       }, delay);
       timersRef.current.push(timer);
     }
@@ -35,7 +45,7 @@ export function GoalReminders() {
       timersRef.current.forEach(clearTimeout);
       timersRef.current = [];
     };
-  }, [ideas]);
+  }, [ideas, toast]);
 
   return null;
 }
