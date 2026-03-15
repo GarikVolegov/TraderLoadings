@@ -62,6 +62,7 @@ export function WelcomeNotification() {
     if (Notification.permission === "granted") {
       showBrowserNotification();
     } else if (Notification.permission === "default") {
+      showToast();
       toast({
         title: "Attiva le notifiche",
         description:
@@ -69,12 +70,8 @@ export function WelcomeNotification() {
         duration: 8000,
       });
       setTimeout(() => {
-        Notification.requestPermission().then((perm) => {
-          if (perm === "granted") {
-            showBrowserNotification();
-          }
-        });
-      }, 1500);
+        Notification.requestPermission();
+      }, 2000);
     } else {
       showToast();
     }
