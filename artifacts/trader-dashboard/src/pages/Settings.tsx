@@ -383,18 +383,6 @@ function TradingSettings() {
           ))}
         </div>
 
-        <div className="space-y-2">
-          <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Divisore Calcolatore Lotti</h4>
-          <Input
-            type="number"
-            min="1"
-            value={localDivisor}
-            onChange={(e) => handleDivisorChange(e.target.value)}
-            className="text-base w-32"
-          />
-          <p className="text-xs text-muted-foreground">Formula: (Rischio € / Stop Loss pips) / {localDivisor}</p>
-        </div>
-
         <Button variant="outline" className="w-full" onClick={handleReset}>
           <RefreshCw className="w-4 h-4 mr-2" />
           Ripristina valori predefiniti
