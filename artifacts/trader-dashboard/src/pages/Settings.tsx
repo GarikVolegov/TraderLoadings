@@ -8,7 +8,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { Image, Upload, X, LogIn, LogOut, UserPlus, RefreshCw, Type, Sun, TrendingUp, Target, Plus, Pencil, Trash2, Quote, Bell, ShieldAlert, Lock, Globe, Music, ChevronRight, Check, Shield, KeyRound, CheckSquare } from "lucide-react";
+import { Image, Upload, X, LogIn, LogOut, UserPlus, RefreshCw, Type, Sun, TrendingUp, Target, Plus, Pencil, Trash2, Quote, Bell, ShieldAlert, Lock, Globe, Music, ChevronRight, Check, Shield, KeyRound, CheckSquare, ChevronDown } from "lucide-react";
 import { useBackground, DEFAULT_TRADING_SESSIONS, DEFAULT_LOT_DIVISOR, type TradingSessionConfig } from "@/contexts/BackgroundContext";
 import { useGetUserSettings, useUpdateUserSettings, getGetUserSettingsQueryKey, useGetMissionTemplates, useCreateMissionTemplate, useUpdateMissionTemplate, useDeleteMissionTemplate, getGetMissionTemplatesQueryKey, useGetQuotes, useCreateQuote, useUpdateQuote, useDeleteQuote, getGetQuotesQueryKey, getGetRandomQuoteQueryKey, useGetChecklist, useCreateChecklistItem, useDeleteChecklistItem, getGetChecklistQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -1071,7 +1071,18 @@ export default function Settings() {
   const { isAuthenticated, isLoading, login, logout } = useAuth();
   const { isPinSet } = usePinLock();
   const { language } = useLanguage();
-  const [activeTile, setActiveTile] = useState<TileId | null>(null);
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    audio: false,
+    aspetto: false,
+    notifiche: false,
+    sicurezza: false,
+    lingua: false,
+    trading: false,
+    missioni: false,
+    citazioni: false,
+    checklist: false,
+    account: false,
+  });
 
   const tiles: SettingsTile[] = [
     { id: "profilo", icon: <UserPlus className="w-6 h-6" />, label: "Profilo", subtitle: "Nome, avatar, XP", color: "text-primary", glow: "group-hover:shadow-primary/20" },
@@ -1086,6 +1097,8 @@ export default function Settings() {
     { id: "checklist", icon: <CheckSquare className="w-6 h-6" />, label: "Checklist", subtitle: "Routine pre-trade", color: "text-teal-400", glow: "group-hover:shadow-teal-400/20" },
     { id: "account", icon: isAuthenticated ? <LogOut className="w-6 h-6" /> : <LogIn className="w-6 h-6" />, label: "Account", subtitle: isAuthenticated ? "Accesso attivo" : "Accedi o registrati", color: "text-slate-400", glow: "group-hover:shadow-slate-400/20" },
   ];
+  
+  const collapsibleSections = tiles.filter(t => t.id !== "profilo");
 
   const tileContent: Record<TileId, React.ReactNode> = {
     profilo: <ProfileWidget />,
@@ -1117,71 +1130,75 @@ export default function Settings() {
     ),
   };
 
-  const activeTileData = tiles.find((t) => t.id === activeTile);
-
   return (
     <PageLayout>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
-        {tiles.map((tile, i) => (
-          <motion.button
-            key={tile.id}
-            initial={{ opacity: 0, scale: 0.92, y: 12 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{ delay: i * 0.04, type: "spring", stiffness: 300, damping: 24 }}
-            onClick={() => setActiveTile(tile.id)}
-            className={`group relative aspect-square flex flex-col items-start justify-between p-4 rounded-2xl border border-border bg-card/60 backdrop-blur-sm hover:border-primary/30 hover:bg-card transition-all duration-200 shadow-sm hover:shadow-lg ${tile.glow} text-left`}
-          >
-            <div className={`${tile.color} transition-transform duration-200 group-hover:scale-110`}>
-              {tile.icon}
-            </div>
+      <div className="space-y-6 max-w-4xl mx-auto">
+        {/* Profilo - Always Open */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0 }}
+          className="space-y-2"
+        >
+          <div className="flex items-center gap-3 px-4 py-3">
+            <div className="text-primary"><UserPlus className="w-6 h-6" /></div>
             <div>
-              <p className="text-sm font-semibold leading-tight">{tile.label}</p>
-              <p className="text-xs text-muted-foreground mt-0.5 leading-tight">{tile.subtitle}</p>
+              <h2 className="text-lg font-bold">Profilo</h2>
+              <p className="text-xs text-muted-foreground">Nome, avatar, XP</p>
             </div>
-            <div className="absolute top-3 right-3">
-              <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/40 group-hover:text-primary/50 transition-colors" />
-            </div>
-          </motion.button>
+          </div>
+          <div className="bg-card/60 backdrop-blur-sm border border-border rounded-2xl p-5 sm:p-6">
+            <ProfileWidget />
+          </div>
+        </motion.div>
+
+        {/* Collapsible Sections */}
+        {collapsibleSections.map((tile, i) => (
+          <motion.div
+            key={tile.id}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: (i + 1) * 0.05 }}
+            className="space-y-2"
+          >
+            <button
+              onClick={() => setOpenSections(prev => ({ ...prev, [tile.id]: !prev[tile.id] }))}
+              className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-border bg-card/60 backdrop-blur-sm hover:border-primary/30 hover:bg-card transition-all group"
+            >
+              <div className="flex items-center gap-3">
+                <div className={`${tile.color} transition-transform duration-200 group-hover:scale-110`}>
+                  {tile.icon}
+                </div>
+                <div className="text-left">
+                  <h2 className="text-base font-bold">{tile.label}</h2>
+                  <p className="text-xs text-muted-foreground">{tile.subtitle}</p>
+                </div>
+              </div>
+              <ChevronDown
+                className={`w-5 h-5 text-muted-foreground transition-transform duration-300 ${
+                  openSections[tile.id] ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+
+            <AnimatePresence>
+              {openSections[tile.id] && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="overflow-hidden"
+                >
+                  <div className="bg-card/60 backdrop-blur-sm border border-border rounded-2xl p-5 sm:p-6">
+                    {tileContent[tile.id]}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
         ))}
       </div>
-
-      <AnimatePresence>
-        {activeTile && activeTileData && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-background/80 backdrop-blur-md flex items-start justify-center overflow-y-auto py-6 px-4"
-            onClick={(e) => { if (e.target === e.currentTarget) setActiveTile(null); }}
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              transition={{ type: "spring", stiffness: 350, damping: 28 }}
-              className="w-full max-w-2xl bg-card border border-border rounded-2xl shadow-2xl overflow-hidden"
-            >
-              <div className="flex items-center justify-between p-5 border-b border-border">
-                <div className="flex items-center gap-3">
-                  <div className={`${activeTileData.color}`}>{activeTileData.icon}</div>
-                  <h2 className="text-lg font-bold font-mono">{activeTileData.label}</h2>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setActiveTile(null)}
-                  className="rounded-xl hover:bg-secondary"
-                >
-                  <X className="w-5 h-5" />
-                </Button>
-              </div>
-              <div className="p-5 sm:p-6">
-                {tileContent[activeTile]}
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </PageLayout>
   );
 }
