@@ -11,11 +11,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
-  TrendingUp, Activity, BarChart2, FileText, Newspaper, Calculator,
+  TrendingUp, Activity, BarChart2, FileText, Newspaper,
   RefreshCw, ChevronDown, AlertCircle, Loader2,
   ArrowUp, ArrowDown, Minus,
 } from "lucide-react";
-import { useBackground } from "@/contexts/BackgroundContext";
+import { LotCalculatorWidget } from "@/components/LotCalculatorWidget";
 
 const API = "/api";
 
@@ -752,74 +752,13 @@ function MacroNewsTool() {
 }
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
-function LotCalculatorTool() {
-  const { lotDivisor } = useBackground();
-  const [risk, setRisk] = useState("");
-  const [stopLoss, setStopLoss] = useState("");
-
-  const result = risk && stopLoss
-    ? ((Number(risk) / Number(stopLoss)) / lotDivisor).toFixed(2)
-    : null;
-
-  return (
-    <div className="space-y-6">
-      <div className="space-y-4">
-        <div>
-          <label className="text-xs text-muted-foreground mb-2 block">Rischio (€)</label>
-          <Input
-            type="number"
-            value={risk}
-            onChange={(e) => setRisk(e.target.value)}
-            placeholder="Es: 50"
-            step="0.01"
-            min="0"
-            className="text-base"
-          />
-        </div>
-        <div>
-          <label className="text-xs text-muted-foreground mb-2 block">Stop Loss (pips)</label>
-          <Input
-            type="number"
-            value={stopLoss}
-            onChange={(e) => setStopLoss(e.target.value)}
-            placeholder="Es: 100"
-            step="1"
-            min="0"
-            className="text-base"
-          />
-        </div>
-      </div>
-
-      {result && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="rounded-xl bg-primary/10 border border-primary/30 p-4 text-center"
-        >
-          <p className="text-xs text-muted-foreground mb-1">Dimensione Lotto</p>
-          <p className="text-3xl font-bold text-primary font-mono">{result}</p>
-          <p className="text-xs text-muted-foreground mt-2">
-            Formula: ({Number(risk).toFixed(2)} € / {Number(stopLoss).toFixed(0)} pips) / {lotDivisor}
-          </p>
-        </motion.div>
-      )}
-
-      <div className="rounded-xl bg-card border border-border p-4">
-        <p className="text-xs text-muted-foreground leading-relaxed">
-          <strong>Come usare:</strong> Inserisci il rischio in € e lo stop loss in pips. La formula calcola la dimensione del lotto in base al tuo divisore configurato.
-        </p>
-      </div>
-    </div>
-  );
-}
-
 const TABS = [
   { id: "montecarlo", label: "Montecarlo", icon: TrendingUp },
   { id: "sentiment", label: "Sentiment", icon: Activity },
   { id: "volatility", label: "Volatilità", icon: BarChart2 },
   { id: "cot", label: "COT Report", icon: FileText },
   { id: "macro", label: "Notizie Macro", icon: Newspaper },
-  { id: "lot", label: "Calcolatore Lotti", icon: Calculator },
+  { id: "lot", label: "Dimensionamento", icon: BarChart2 },
 ];
 
 export default function Tools() {
@@ -862,7 +801,9 @@ export default function Tools() {
               <MacroNewsTool />
             </TabsContent>
             <TabsContent value="lot" className="m-0">
-              <LotCalculatorTool />
+              <div className="p-4">
+                <LotCalculatorWidget />
+              </div>
             </TabsContent>
           </CardContent>
         </Card>

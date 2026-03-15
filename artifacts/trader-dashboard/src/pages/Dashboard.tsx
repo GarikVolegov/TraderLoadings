@@ -3,7 +3,6 @@ import { PageLayout } from "@/components/PageLayout";
 import { ClockWidget } from "@/components/ClockWidget";
 import { QuoteWidget } from "@/components/QuoteWidget";
 import { MissionsWidget } from "@/components/MissionsWidget";
-import { LotCalculatorWidget } from "@/components/LotCalculatorWidget";
 import { LeaderboardWidget } from "@/components/LeaderboardWidget";
 import { CalendarWidget } from "@/components/CalendarWidget";
 import { ChecklistDashboardWidget } from "@/components/ChecklistDashboardWidget";
@@ -40,24 +39,13 @@ export default function Dashboard() {
       </motion.section>
 
       {hasMissions && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-8">
-          <motion.section
-            className="lg:col-span-2"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-          >
-            <MissionsWidget />
-          </motion.section>
-
-          <motion.section
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-          >
-            <LotCalculatorWidget />
-          </motion.section>
-        </div>
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+        >
+          <MissionsWidget />
+        </motion.section>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8">
