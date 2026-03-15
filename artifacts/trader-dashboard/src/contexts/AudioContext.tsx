@@ -107,6 +107,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       startFrequencies(config.baseFreq, config.beatFreq, volumeRef.current);
     }
     setModeState(newMode);
+    localStorage.setItem("lastAudioMode", newMode);
   }, [stopOscillators, startFrequencies]);
 
   const setVolume = useCallback((v: number) => {
@@ -135,7 +136,9 @@ export function AudioProvider({ children }: { children: ReactNode }) {
         console.warn("AudioContext early unlock failed:", e);
       }
 
-      setModeRef.current("alpha");
+      const lastMode = localStorage.getItem("lastAudioMode") as AudioMode | null;
+      const modeToStart = (lastMode && lastMode !== "off") ? lastMode : "alpha";
+      setModeRef.current(modeToStart);
 
       document.removeEventListener("click", tryAutoStart, true);
       document.removeEventListener("keydown", tryAutoStart, true);
