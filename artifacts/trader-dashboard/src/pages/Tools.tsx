@@ -768,12 +768,12 @@ export default function Tools() {
       </div>
 
       <Tabs defaultValue="montecarlo">
-        <TabsList className="flex w-full overflow-x-auto h-auto p-1 gap-1 bg-secondary/40 rounded-2xl mb-4">
+        <TabsList className="flex w-full h-auto gap-1 bg-card/50 backdrop-blur-md p-1.5 rounded-xl border border-border mb-4">
           {TABS.map((tab) => (
             <TabsTrigger
               key={tab.id}
               value={tab.id}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-sm flex-shrink-0"
+              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm flex-1"
             >
               <tab.icon className="w-3.5 h-3.5" />
               {tab.label}
