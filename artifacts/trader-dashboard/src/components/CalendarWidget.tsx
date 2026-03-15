@@ -24,7 +24,6 @@ export function CalendarWidget() {
   const selectedImpacts = useMemo(() => new Set(calendarImpacts), [calendarImpacts]);
   const { mutate: saveSettings } = useUpdateUserSettings();
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [forceNocache, setForceNocache] = useState(false);
   const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set());
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [now, setNow] = useState(() => new Date());
@@ -34,9 +33,7 @@ export function CalendarWidget() {
     return () => clearInterval(interval);
   }, []);
 
-  const { data: events, isLoading, refetch } = useGetEconomicCalendar(
-    forceNocache ? { nocache: "1" } : {},
-  );
+  const { data: events, isLoading } = useGetEconomicCalendar();
 
   const toggleCurrency = useCallback((currency: string) => {
     const current = new Set(calendarCurrencies);
@@ -76,9 +73,12 @@ export function CalendarWidget() {
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await queryClient.invalidateQueries({ queryKey: getGetEconomicCalendarQueryKey() });
-    await refetch({ queryKey: getGetEconomicCalendarQueryKey({ nocache: "1" }) });
-    setIsRefreshing(false);
+    try {
+      await fetch("/api/calendar?nocache=1");
+      await queryClient.invalidateQueries({ queryKey: getGetEconomicCalendarQueryKey() });
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const visibleEvents = useMemo(() => {
