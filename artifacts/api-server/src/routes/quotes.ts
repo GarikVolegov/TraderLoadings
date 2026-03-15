@@ -37,11 +37,14 @@ router.get("/quotes/random", async (req, res) => {
   const userFilter = userId ? eq(quotesTable.userId, userId) : isNull(quotesTable.userId);
   const userQuotes = await db.select().from(quotesTable).where(userFilter);
 
+  const today = new Date();
+  const dayIndex = Math.floor(today.getTime() / 86400000);
+
   if (userQuotes.length > 0) {
-    const pick = userQuotes[Math.floor(Math.random() * userQuotes.length)];
+    const pick = userQuotes[dayIndex % userQuotes.length];
     res.json({ id: pick.id, text: pick.text, author: pick.author, createdAt: pick.createdAt.toISOString() });
   } else {
-    const pick = DEFAULT_QUOTES[Math.floor(Math.random() * DEFAULT_QUOTES.length)];
+    const pick = DEFAULT_QUOTES[dayIndex % DEFAULT_QUOTES.length];
     res.json({ id: 0, text: pick.text, author: pick.author, createdAt: new Date().toISOString() });
   }
 });

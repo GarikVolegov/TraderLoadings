@@ -22,7 +22,7 @@ function isInSession(utcHours: number, session: TradingSessionConfig): boolean {
 export function ClockWidget() {
   const [time, setTime] = useState(new Date());
   const { tradingSessions } = useBackground();
-  const { data: randomQuote } = useGetRandomQuote({ query: { refetchInterval: 60_000 } });
+  const { data: randomQuote } = useGetRandomQuote({ query: { staleTime: 3600_000 } });
   const prevSessionRef = useRef<string | null>(null);
   const notifPermissionRef = useRef<NotificationPermission>("default");
 
