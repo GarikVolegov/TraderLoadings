@@ -768,7 +768,7 @@ export default function Tools() {
       </div>
 
       <Tabs defaultValue="montecarlo">
-        <TabsList className="flex w-full h-auto gap-1 bg-card/50 backdrop-blur-md p-1.5 rounded-xl border border-border mb-4">
+        <TabsList className="flex w-full h-auto gap-1 bg-card/50 backdrop-blur-md p-1.5 rounded-xl border border-border mb-4 overflow-x-auto">
           {TABS.map((tab) => (
             <TabsTrigger
               key={tab.id}
