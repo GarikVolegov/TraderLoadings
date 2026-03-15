@@ -12,16 +12,11 @@ export function ChecklistDashboardWidget() {
 
   return (
     <Card className="h-full relative overflow-hidden">
-      <CardHeader className="flex flex-row items-center justify-between pb-3 sm:pb-4 px-3 sm:px-6 pt-3 sm:pt-6 border-b border-border/50 bg-secondary/10">
+      <CardHeader className="pb-3 sm:pb-4 px-3 sm:px-6 pt-3 sm:pt-6 border-b border-border/50 bg-secondary/10">
         <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
           <ClipboardCheck className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
           Checklist Pre-Trade
         </CardTitle>
-        {total > 0 && (
-          <span className="text-xs sm:text-sm font-bold font-mono text-muted-foreground">
-            {completed}/{total}
-          </span>
-        )}
       </CardHeader>
 
       <CardContent className="p-3 sm:p-4">
@@ -42,24 +37,19 @@ export function ChecklistDashboardWidget() {
             </span>
           </Link>
         ) : (
-          <div className="flex flex-wrap gap-2">
+          <ul className="space-y-2.5 list-disc list-inside">
             {items.map((item, idx) => (
-              <motion.div
+              <motion.li
                 key={item.id}
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: idx * 0.03 }}
-                className={`px-3 py-1.5 rounded-full text-xs sm:text-sm font-medium border transition-colors max-w-[200px] truncate ${
-                  item.completed
-                    ? "bg-primary/10 border-primary/30 text-primary line-through opacity-50"
-                    : "bg-secondary/60 border-border/60 text-foreground"
-                }`}
-                title={item.text}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: idx * 0.05 }}
+                className="text-sm sm:text-base text-foreground"
               >
                 {item.text}
-              </motion.div>
+              </motion.li>
             ))}
-          </div>
+          </ul>
         )}
       </CardContent>
     </Card>
