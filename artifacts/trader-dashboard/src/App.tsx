@@ -43,8 +43,8 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <AudioProvider>
-          <LoadingProvider>
+        <LoadingProvider>
+          <AudioProvider>
             <LoadingScreen />
             <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
               <BackgroundProvider>
@@ -52,8 +52,8 @@ function App() {
               </BackgroundProvider>
             </WouterRouter>
             <Toaster />
-          </LoadingProvider>
-        </AudioProvider>
+          </AudioProvider>
+        </LoadingProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );
