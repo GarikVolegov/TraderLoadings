@@ -8,9 +8,9 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { Image, Upload, X, LogIn, LogOut, UserPlus, RefreshCw, Type, Sun, TrendingUp, Target, Plus, Pencil, Trash2, Quote, Bell, ShieldAlert, Lock, Globe, Music, ChevronRight, Check, Shield, KeyRound } from "lucide-react";
+import { Image, Upload, X, LogIn, LogOut, UserPlus, RefreshCw, Type, Sun, TrendingUp, Target, Plus, Pencil, Trash2, Quote, Bell, ShieldAlert, Lock, Globe, Music, ChevronRight, Check, Shield, KeyRound, CheckSquare } from "lucide-react";
 import { useBackground, DEFAULT_TRADING_SESSIONS, DEFAULT_LOT_DIVISOR, type TradingSessionConfig } from "@/contexts/BackgroundContext";
-import { useGetUserSettings, useUpdateUserSettings, getGetUserSettingsQueryKey, useGetMissionTemplates, useCreateMissionTemplate, useUpdateMissionTemplate, useDeleteMissionTemplate, getGetMissionTemplatesQueryKey, useGetQuotes, useCreateQuote, useUpdateQuote, useDeleteQuote, getGetQuotesQueryKey, getGetRandomQuoteQueryKey } from "@workspace/api-client-react";
+import { useGetUserSettings, useUpdateUserSettings, getGetUserSettingsQueryKey, useGetMissionTemplates, useCreateMissionTemplate, useUpdateMissionTemplate, useDeleteMissionTemplate, getGetMissionTemplatesQueryKey, useGetQuotes, useCreateQuote, useUpdateQuote, useDeleteQuote, getGetQuotesQueryKey, getGetRandomQuoteQueryKey, useGetChecklist, useCreateChecklistItem, useDeleteChecklistItem, getGetChecklistQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@workspace/replit-auth-web";
@@ -945,6 +945,86 @@ function LanguageSettings() {
   );
 }
 
+function ChecklistSettings() {
+  const { data: items, isLoading } = useGetChecklist();
+  const [newText, setNewText] = useState("");
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const createMutation = useCreateChecklistItem();
+  const deleteMutation = useDeleteChecklistItem();
+
+  const handleAdd = async () => {
+    if (!newText.trim()) return;
+    try {
+      await createMutation.mutateAsync({ data: { text: newText.trim(), completed: false } });
+      setNewText("");
+      qc.invalidateQueries({ queryKey: getGetChecklistQueryKey() });
+      toast({ title: "Elemento aggiunto" });
+    } catch {
+      toast({ description: "Errore", variant: "destructive" });
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    try {
+      await deleteMutation.mutateAsync({ id });
+      qc.invalidateQueries({ queryKey: getGetChecklistQueryKey() });
+    } catch {
+      toast({ description: "Errore", variant: "destructive" });
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <label className="text-xs text-muted-foreground font-medium">Aggiungi elemento</label>
+        <div className="flex gap-2">
+          <Input
+            placeholder="Es. Analizza timeframe superiore..."
+            value={newText}
+            onChange={(e) => setNewText(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleAdd()}
+            className="flex-1"
+          />
+          <Button onClick={handleAdd} disabled={!newText.trim()} size="sm">
+            <Plus className="w-3.5 h-3.5" />
+          </Button>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="text-center text-sm text-muted-foreground py-4">Caricamento...</div>
+      ) : items && items.length > 0 ? (
+        <div className="space-y-2">
+          {items.map((item) => (
+            <motion.div
+              key={item.id}
+              initial={{ opacity: 0, y: -5 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex items-center justify-between p-3 rounded-xl bg-secondary/30 border border-border group hover:bg-secondary/50 transition-colors"
+            >
+              <p className="text-sm text-muted-foreground">{item.text}</p>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleDelete(item.id)}
+                className="text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </Button>
+            </motion.div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-6 text-sm text-muted-foreground">
+          <p>Nessun elemento nella checklist</p>
+          <p className="text-xs mt-1">Aggiungine uno per iniziare</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AuthSection({ login }: { login: () => void }) {
   return (
     <Card>
@@ -973,7 +1053,7 @@ function AuthSection({ login }: { login: () => void }) {
   );
 }
 
-type TileId = "profilo" | "audio" | "aspetto" | "notifiche" | "sicurezza" | "lingua" | "trading" | "missioni" | "citazioni" | "account";
+type TileId = "profilo" | "audio" | "aspetto" | "notifiche" | "sicurezza" | "lingua" | "trading" | "missioni" | "citazioni" | "checklist" | "account";
 
 interface SettingsTile {
   id: TileId;
@@ -1000,6 +1080,7 @@ export default function Settings() {
     { id: "trading", icon: <TrendingUp className="w-6 h-6" />, label: "Trading", subtitle: "Sessioni & risk", color: "text-violet-400", glow: "group-hover:shadow-violet-400/20" },
     { id: "missioni", icon: <Target className="w-6 h-6" />, label: "Missioni", subtitle: "Template & abitudini", color: "text-rose-400", glow: "group-hover:shadow-rose-400/20" },
     { id: "citazioni", icon: <Quote className="w-6 h-6" />, label: "Citazioni", subtitle: "Frasi motivazionali", color: "text-amber-400", glow: "group-hover:shadow-amber-400/20" },
+    { id: "checklist", icon: <CheckSquare className="w-6 h-6" />, label: "Checklist", subtitle: "Routine pre-trade", color: "text-teal-400", glow: "group-hover:shadow-teal-400/20" },
     { id: "account", icon: isAuthenticated ? <LogOut className="w-6 h-6" /> : <LogIn className="w-6 h-6" />, label: "Account", subtitle: isAuthenticated ? "Accesso attivo" : "Accedi o registrati", color: "text-slate-400", glow: "group-hover:shadow-slate-400/20" },
   ];
 
@@ -1020,6 +1101,7 @@ export default function Settings() {
     trading: <TradingSettings />,
     missioni: <MissionTemplatesSettings />,
     citazioni: <QuotesSettings />,
+    checklist: <ChecklistSettings />,
     account: isAuthenticated ? (
       <div className="space-y-4">
         <p className="text-sm text-muted-foreground">Sei attualmente autenticato. Puoi uscire dal tuo account in qualsiasi momento.</p>

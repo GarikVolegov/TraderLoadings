@@ -6,7 +6,6 @@ const NAV_ITEMS = [
   { href: "/", icon: LayoutDashboard, label: "Home" },
   { href: "/journal", icon: BookOpen, label: "Diario" },
   { href: "/tools", icon: Wrench, label: "Strumenti" },
-  { href: "/checklist", icon: CheckSquare, label: "Checklist" },
   { href: "/chat", icon: MessageCircle, label: "Chat" },
 ] as const;
 

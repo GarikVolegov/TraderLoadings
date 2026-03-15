@@ -14,6 +14,7 @@ import { DailyAlarmNotifier } from "./components/DailyAlarmNotifier";
 import { MacroNotifier } from "./components/MacroNotifier";
 import { SessionCheckinModal } from "./components/SessionCheckinModal";
 import { PinLockScreen } from "./components/PinLockScreen";
+import { ChecklistSetupModal } from "./components/ChecklistSetupModal";
 import Dashboard from "./pages/Dashboard";
 import Journal from "./pages/Journal";
 import Settings from "./pages/Settings";
@@ -58,6 +59,7 @@ function App() {
             <LoadingProvider>
               <AudioProvider>
                 <PinLockScreen />
+                <ChecklistSetupModal />
                 <LoadingScreen />
                 <WelcomeNotification />
                 <GoalReminders />
