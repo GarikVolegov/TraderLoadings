@@ -7,8 +7,12 @@ import { LotCalculatorWidget } from "@/components/LotCalculatorWidget";
 import { LeaderboardWidget } from "@/components/LeaderboardWidget";
 import { CalendarWidget } from "@/components/CalendarWidget";
 import { ChecklistDashboardWidget } from "@/components/ChecklistDashboardWidget";
+import { useGetMissions } from "@workspace/api-client-react";
 
 export default function Dashboard() {
+  const { data: missions } = useGetMissions();
+  const hasMissions = (missions && missions.length > 0) ?? false;
+
   return (
     <PageLayout>
       <motion.section
@@ -35,24 +39,26 @@ export default function Dashboard() {
         <ChecklistDashboardWidget />
       </motion.section>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-8">
-        <motion.section
-          className="lg:col-span-2"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-        >
-          <MissionsWidget />
-        </motion.section>
+      {hasMissions && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-8">
+          <motion.section
+            className="lg:col-span-2"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            <MissionsWidget />
+          </motion.section>
 
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-        >
-          <LotCalculatorWidget />
-        </motion.section>
-      </div>
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+          >
+            <LotCalculatorWidget />
+          </motion.section>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8">
         <motion.section
@@ -71,6 +77,16 @@ export default function Dashboard() {
           <LeaderboardWidget />
         </motion.section>
       </div>
+
+      {!hasMissions && (
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6 }}
+        >
+          <MissionsWidget />
+        </motion.section>
+      )}
     </PageLayout>
   );
 }
