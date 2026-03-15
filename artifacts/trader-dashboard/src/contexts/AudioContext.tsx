@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useRef, useCallback, useEffect, type ReactNode } from "react";
+import { useLoading } from "./LoadingContext";
 
 export type AudioMode = "alpha" | "theta" | "beta" | "gamma" | "deepfocus" | "off";
 
@@ -28,6 +29,7 @@ interface AudioContextType {
 const AudioCtx = createContext<AudioContextType | null>(null);
 
 export function AudioProvider({ children }: { children: ReactNode }) {
+  const { setCurrentStep, completeLoading } = useLoading();
   const [mode, setModeState] = useState<AudioMode>("off");
   const [volume, setVolumeState] = useState(40);
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -136,9 +138,15 @@ export function AudioProvider({ children }: { children: ReactNode }) {
         console.warn("AudioContext early unlock failed:", e);
       }
 
+      setCurrentStep("audio");
+
       const lastMode = localStorage.getItem("lastAudioMode") as AudioMode | null;
       const modeToStart = (lastMode && lastMode !== "off") ? lastMode : "alpha";
       setModeRef.current(modeToStart);
+
+      setTimeout(() => {
+        completeLoading();
+      }, 800);
 
       document.removeEventListener("click", tryAutoStart, true);
       document.removeEventListener("keydown", tryAutoStart, true);
