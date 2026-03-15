@@ -339,7 +339,10 @@ function TradingSettings() {
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="space-y-4">
-          <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Sessioni di Trading</h4>
+          <div>
+            <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Sessioni di Trading</h4>
+            <p className="text-xs text-muted-foreground mt-1">Tutti gli orari sono impostati in EST (Eastern Standard Time - New York)</p>
+          </div>
           {localSessions.map((session, idx) => (
             <div key={session.id} className="rounded-lg border border-border p-3 space-y-3">
               <div className="flex items-center justify-between">
@@ -358,7 +361,7 @@ function TradingSettings() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-muted-foreground block mb-1">Apertura (UTC)</label>
+                  <label className="text-xs text-muted-foreground block mb-1">Apertura (EST)</label>
                   <Input
                     type="time"
                     value={session.openUTC}
@@ -367,7 +370,7 @@ function TradingSettings() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-muted-foreground block mb-1">Chiusura (UTC)</label>
+                  <label className="text-xs text-muted-foreground block mb-1">Chiusura (EST)</label>
                   <Input
                     type="time"
                     value={session.closeUTC}
