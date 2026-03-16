@@ -59,12 +59,21 @@ interface SentimentSymbol {
 interface VolatilityResult {
   pair: string;
   currentPrice: number;
+  todayPips: number;
+  w1: number;
+  m1: number;
+  m3: number;
+  m6: number;
+  y1: number;
+  label: string;
+  peakDay: string;
+  pipUnit: string;
+  last30: Array<{ day: number; date: string; pips: number }>;
+  dataPoints: Array<{ day: number; value: number }>;
   daily5: number;
   daily21: number;
   daily63: number;
   dailyAll: number;
-  label: string;
-  dataPoints: Array<{ day: number; value: number }>;
 }
 
 interface CotReport {
@@ -497,54 +506,69 @@ function SentimentTool() {
   );
 }
 
-// ─── 3. VOLATILITY ────────────────────────────────────────────────────────────
-const PAIRS = ["EURUSD", "GBPUSD", "USDJPY", "USDCHF", "AUDUSD", "USDCAD", "NZDUSD", "EURGBP", "EURJPY", "GBPJPY", "XAUUSD"];
+// ─── 3. VOLATILITY (stile Mataf) ──────────────────────────────────────────────
+const PAIRS = ["EURUSD", "GBPUSD", "USDJPY", "USDCHF", "AUDUSD", "USDCAD", "NZDUSD", "EURGBP", "EURJPY", "GBPJPY", "XAUUSD", "XAGUSD"];
 
 function VolatilityTool() {
   const [selectedPair, setSelectedPair] = useState("EURUSD");
   const [open, setOpen] = useState(false);
 
-  const { data, isLoading, isError, error, refetch } = useQuery({
+  const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ["tools", "volatility", selectedPair],
     queryFn: () => apiFetch<VolatilityResult>(`${API}/tools/volatility?pair=${selectedPair}`),
-    staleTime: 10 * 60_000,
+    staleTime: 15 * 60_000,
+    refetchInterval: 15 * 60_000,
   });
 
-  const labelColor = data?.label.includes("Alta") ? "text-destructive" : data?.label.includes("Bassa") ? "text-blue-400" : "text-primary";
+  const periods = data ? [
+    { label: "1 settimana", short: "1W", value: data.w1, vs: data.y1 },
+    { label: "1 mese",      short: "1M", value: data.m1, vs: data.y1 },
+    { label: "3 mesi",      short: "3M", value: data.m3, vs: data.y1 },
+    { label: "6 mesi",      short: "6M", value: data.m6, vs: data.y1 },
+    { label: "1 anno",      short: "1Y", value: data.y1, vs: data.y1 },
+  ] : [];
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center gap-3">
-        <div className="relative">
+    <div className="space-y-4">
+      {/* Header row */}
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1 max-w-[160px]">
           <button
             onClick={() => setOpen((v) => !v)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-border bg-secondary/50 hover:bg-secondary text-sm font-mono font-bold min-w-32"
+            className="w-full flex items-center gap-2 px-4 py-2 rounded-xl border border-border bg-secondary/50 hover:bg-secondary text-sm font-mono font-bold"
           >
-            {selectedPair} <ChevronDown className={`w-4 h-4 ml-auto transition-transform ${open ? "rotate-180" : ""}`} />
+            {selectedPair}
+            <ChevronDown className={`w-4 h-4 ml-auto transition-transform ${open ? "rotate-180" : ""}`} />
           </button>
           <AnimatePresence>
             {open && (
               <motion.div
-                initial={{ opacity: 0, y: -5 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
+                initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                 className="absolute top-full mt-1 left-0 z-20 bg-card border border-border rounded-xl shadow-xl overflow-hidden min-w-40"
               >
                 {PAIRS.map((p) => (
-                  <button
-                    key={p}
-                    onClick={() => { setSelectedPair(p); setOpen(false); }}
+                  <button key={p} onClick={() => { setSelectedPair(p); setOpen(false); }}
                     className={`w-full text-left px-4 py-2 text-sm font-mono hover:bg-secondary transition-colors ${p === selectedPair ? "text-primary bg-primary/10" : ""}`}
-                  >
-                    {p}
-                  </button>
+                  >{p}</button>
                 ))}
               </motion.div>
             )}
           </AnimatePresence>
         </div>
-        <Button variant="outline" size="sm" onClick={() => refetch()} className="gap-2">
-          <RefreshCw className="w-3.5 h-3.5" />
+
+        {data && (
+          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold ${
+            data.label.includes("Alta") ? "bg-destructive/10 border-destructive/30 text-destructive" :
+            data.label.includes("Bassa") ? "bg-blue-400/10 border-blue-400/30 text-blue-400" :
+            "bg-primary/10 border-primary/30 text-primary"
+          }`}>
+            <Activity className="w-3.5 h-3.5" />
+            {data.label}
+          </div>
+        )}
+
+        <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching} className="ml-auto">
+          <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? "animate-spin" : ""}`} />
         </Button>
       </div>
 
@@ -553,57 +577,84 @@ function VolatilityTool() {
 
       {data && (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
-          <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-semibold ${
-            data.label.includes("Alta") ? "bg-destructive/10 border-destructive/30 text-destructive" :
-            data.label.includes("Bassa") ? "bg-blue-400/10 border-blue-400/30 text-blue-400" :
-            "bg-primary/10 border-primary/30 text-primary"
-          }`}>
-            <Activity className="w-4 h-4" />
-            {data.label}
+          {/* Today + price */}
+          <div className="flex gap-3">
+            <div className="flex-1 p-3 rounded-xl bg-primary/5 border border-primary/20 text-center">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Oggi</p>
+              <p className="text-xl font-bold font-mono text-primary">{data.todayPips}</p>
+              <p className="text-[10px] text-muted-foreground">{data.pipUnit}</p>
+            </div>
+            <div className="flex-1 p-3 rounded-xl bg-secondary/40 border border-border text-center">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Prezzo</p>
+              <p className="text-xl font-bold font-mono">{data.currentPrice?.toFixed(selectedPair.includes("JPY") ? 3 : 5)}</p>
+              <p className="text-[10px] text-muted-foreground">corrente</p>
+            </div>
+            <div className="flex-1 p-3 rounded-xl bg-secondary/40 border border-border text-center">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Peak</p>
+              <p className="text-xl font-bold font-mono">{data.peakDay}</p>
+              <p className="text-[10px] text-muted-foreground">giorno più volatile</p>
+            </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {[
-              { label: "5 giorni", value: data.daily5, pct: (data.daily5 / data.dailyAll - 1) * 100 },
-              { label: "1 mese", value: data.daily21, pct: (data.daily21 / data.dailyAll - 1) * 100 },
-              { label: "3 mesi", value: data.daily63, pct: (data.daily63 / data.dailyAll - 1) * 100 },
-              { label: "Media storica", value: data.dailyAll, pct: 0 },
-            ].map((item) => (
-              <div key={item.label} className="p-3 rounded-xl bg-secondary/40 border border-border">
-                <p className="text-xs text-muted-foreground">{item.label}</p>
-                <p className="text-base font-bold font-mono text-primary">{item.value.toFixed(3)}%</p>
-                {item.pct !== 0 && (
-                  <p className={`text-xs flex items-center gap-0.5 ${item.pct > 0 ? "text-destructive" : "text-blue-400"}`}>
-                    {item.pct > 0 ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
-                    {Math.abs(item.pct).toFixed(1)}% vs media
-                  </p>
-                )}
-              </div>
-            ))}
+          {/* Periods table — stile Mataf */}
+          <div className="rounded-xl border border-border overflow-hidden">
+            <div className="grid grid-cols-5 bg-secondary/60 border-b border-border">
+              {periods.map((p) => (
+                <div key={p.short} className="py-2 text-center text-[10px] font-bold text-muted-foreground uppercase">{p.short}</div>
+              ))}
+            </div>
+            <div className="grid grid-cols-5">
+              {periods.map((p) => {
+                const ratio = p.vs > 0 ? p.value / p.vs : 1;
+                const color = ratio > 1.25 ? "text-destructive" : ratio < 0.75 ? "text-blue-400" : "text-primary";
+                return (
+                  <div key={p.short} className="py-3 flex flex-col items-center border-r border-border last:border-r-0">
+                    <span className={`text-base font-bold font-mono ${color}`}>{p.value}</span>
+                    <span className="text-[9px] text-muted-foreground mt-0.5">{data.pipUnit}</span>
+                    {p.short !== "1Y" && (
+                      <span className={`text-[9px] mt-1 flex items-center gap-0.5 ${ratio > 1 ? "text-destructive/70" : "text-blue-400/70"}`}>
+                        {ratio > 1 ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />}
+                        {Math.abs((ratio - 1) * 100).toFixed(0)}%
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
-          <div className="h-52">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={data.dataPoints}>
-                <defs>
-                  <linearGradient id="volGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey="day" tick={{ fontSize: 10, fill: "#888" }} label={{ value: "Giorni fa", position: "insideBottomRight", offset: -5, fontSize: 10, fill: "#888" }} />
-                <YAxis tick={{ fontSize: 10, fill: "#888" }} tickFormatter={(v) => `${v}%`} />
-                <Tooltip
-                  contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "11px" }}
-                  formatter={(v) => [`${Number(v).toFixed(4)}%`, "Vol. giornaliera"]}
-                />
-                <ReferenceLine y={data.dailyAll} stroke="#888" strokeDasharray="4 2" label={{ value: "Media", fontSize: 10, fill: "#888" }} />
-                <Area type="monotone" dataKey="value" stroke="#22c55e" fill="url(#volGrad)" strokeWidth={1.5} dot={false} />
-              </AreaChart>
-            </ResponsiveContainer>
+          {/* Bar chart ultimi 30 giorni */}
+          <div>
+            <p className="text-xs text-muted-foreground font-medium mb-2">Range giornaliero — ultimi 30 giorni</p>
+            <div className="h-44">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={data.last30} barSize={6} margin={{ top: 4, right: 0, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+                  <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#666" }} interval={4} />
+                  <YAxis tick={{ fontSize: 9, fill: "#666" }} />
+                  <Tooltip
+                    contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "11px" }}
+                    formatter={(v: number) => [`${v} ${data.pipUnit}`, "Range"]}
+                    labelFormatter={(l) => `Data: ${l}`}
+                  />
+                  <ReferenceLine y={data.y1} stroke="#888" strokeDasharray="4 2" />
+                  <Bar dataKey="pips" radius={[3, 3, 0, 0]}>
+                    {data.last30.map((entry, i) => (
+                      <Cell
+                        key={i}
+                        fill={entry.pips > data.y1 * 1.25 ? "#ef4444" : entry.pips < data.y1 * 0.75 ? "#60a5fa" : "#22c55e"}
+                        fillOpacity={0.8}
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
-          <p className="text-xs text-muted-foreground">Fonte: Yahoo Finance • Prezzi di chiusura ultimi 30 giorni</p>
+
+          <p className="text-[10px] text-center text-muted-foreground">
+            Metodologia Mataf · Range H-L giornaliero in pips · Fonte: Yahoo Finance
+          </p>
         </motion.div>
       )}
     </div>

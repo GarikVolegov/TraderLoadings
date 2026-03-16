@@ -151,7 +151,8 @@ router.get("/tools/sentiment", async (req, res) => {
   }
 });
 
-// ─── 3. VOLATILITY (Yahoo Finance) ───────────────────────────────────────────
+// ─── 3. VOLATILITY (Mataf-methodology via Yahoo Finance OHLCV) ────────────────
+
 const YAHOO_PAIRS: Record<string, string> = {
   "EURUSD": "EURUSD=X",
   "GBPUSD": "GBPUSD=X",
@@ -164,33 +165,29 @@ const YAHOO_PAIRS: Record<string, string> = {
   "EURJPY": "EURJPY=X",
   "GBPJPY": "GBPJPY=X",
   "XAUUSD": "GC=F",
+  "XAGUSD": "SI=F",
+  "USDMXN": "MXN=X",
+  "USDZAR": "ZAR=X",
 };
 
-function computeVolatility(closes: number[]) {
-  const returns = closes.slice(1).map((c, i) => Math.abs(c - closes[i]) / closes[i] * 100);
+// Pip multiplier: how many pips per 1.0 of price movement
+const PIP_MULTIPLIER: Record<string, number> = {
+  "USDJPY": 100, "EURJPY": 100, "GBPJPY": 100, "CADJPY": 100, "AUDJPY": 100,
+  "XAUUSD": 10,  "XAGUSD": 100,
+};
+const DEFAULT_PIP = 10000;
 
-  const avg = (arr: number[]) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
+function getPipMultiplier(pair: string) {
+  for (const [k, v] of Object.entries(PIP_MULTIPLIER)) {
+    if (pair.includes(k.slice(3)) && k.slice(3) === "JPY") return v;
+    if (pair === k) return v;
+  }
+  if (pair.endsWith("JPY")) return 100;
+  return DEFAULT_PIP;
+}
 
-  const week5 = returns.slice(-5);
-  const month1 = returns.slice(-21);
-  const month3 = returns.slice(-63);
-
-  const avgAll = avg(returns);
-  const avg5 = avg(week5);
-  const avg21 = avg(month1);
-  const avg63 = avg(month3);
-
-  const current = avg5;
-  const label = current > avgAll * 1.3 ? "Alta volatilità" : current < avgAll * 0.7 ? "Bassa volatilità" : "Volatilità nella norma";
-
-  return {
-    daily5: parseFloat(avg5.toFixed(4)),
-    daily21: parseFloat(avg21.toFixed(4)),
-    daily63: parseFloat(avg63.toFixed(4)),
-    dailyAll: parseFloat(avgAll.toFixed(4)),
-    label,
-    dataPoints: returns.slice(-30).map((v, i) => ({ day: i + 1, value: parseFloat(v.toFixed(4)) })),
-  };
+function avgPips(arr: number[]) {
+  return arr.length ? parseFloat((arr.reduce((a, b) => a + b, 0) / arr.length).toFixed(1)) : 0;
 }
 
 router.get("/tools/volatility", async (req, res) => {
@@ -198,18 +195,19 @@ router.get("/tools/volatility", async (req, res) => {
   const ticker = YAHOO_PAIRS[pair];
 
   if (!ticker) {
-    res.status(400).json({ error: `Pair ${pair} not supported` });
+    res.status(400).json({ error: `Pair ${pair} non supportato` });
     return;
   }
 
   try {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=6mo`;
+    // Fetch 1 year of OHLCV daily data
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1y`;
     const response = await fetch(url, {
       headers: {
         "User-Agent": "Mozilla/5.0 (compatible; TraderLoading/1.0)",
         "Accept": "application/json",
       },
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(10000),
     });
 
     if (!response.ok) throw new Error(`Yahoo Finance HTTP ${response.status}`);
@@ -217,21 +215,84 @@ router.get("/tools/volatility", async (req, res) => {
     const data = await response.json() as {
       chart?: {
         result?: Array<{
-          indicators?: { quote?: Array<{ close?: number[] }> };
-          meta?: { currency?: string; regularMarketPrice?: number };
+          indicators?: { quote?: Array<{ close?: (number|null)[]; high?: (number|null)[]; low?: (number|null)[] }> };
+          meta?: { regularMarketPrice?: number; regularMarketDayHigh?: number; regularMarketDayLow?: number };
+          timestamp?: number[];
         }>;
       };
     };
 
     const result = data.chart?.result?.[0];
-    const closes = (result?.indicators?.quote?.[0]?.close ?? []).filter((v): v is number => v != null);
+    const quote = result?.indicators?.quote?.[0];
+    const timestamps = result?.timestamp ?? [];
 
-    if (closes.length < 10) throw new Error("Dati insufficienti");
+    if (!quote || !timestamps.length) throw new Error("Dati insufficienti da Yahoo Finance");
 
-    const vol = computeVolatility(closes);
-    const currentPrice = result?.meta?.regularMarketPrice ?? closes[closes.length - 1];
+    const pip = getPipMultiplier(pair);
 
-    res.json({ pair, currentPrice, ...vol });
+    // Build per-day pip ranges (H-L) — exactly Mataf's method
+    const ranges: { ts: number; pips: number; close: number }[] = [];
+    for (let i = 0; i < timestamps.length; i++) {
+      const h = quote.high?.[i];
+      const l = quote.low?.[i];
+      const c = quote.close?.[i];
+      if (h != null && l != null && c != null && h > 0 && l > 0) {
+        ranges.push({ ts: timestamps[i], pips: parseFloat(((h - l) * pip).toFixed(1)), close: c });
+      }
+    }
+
+    if (ranges.length < 5) throw new Error("Storico insufficiente");
+
+    const currentPrice = result?.meta?.regularMarketPrice ?? ranges[ranges.length - 1].close;
+    const todayHigh = result?.meta?.regularMarketDayHigh;
+    const todayLow  = result?.meta?.regularMarketDayLow;
+    const todayPips = todayHigh && todayLow ? parseFloat(((todayHigh - todayLow) * pip).toFixed(1)) : ranges[ranges.length - 1].pips;
+
+    const pipValues = ranges.map((r) => r.pips);
+    const w1  = avgPips(pipValues.slice(-5));
+    const m1  = avgPips(pipValues.slice(-22));
+    const m3  = avgPips(pipValues.slice(-66));
+    const m6  = avgPips(pipValues.slice(-132));
+    const y1  = avgPips(pipValues);
+
+    // Volatility label vs 1Y average
+    const ratio = w1 / (y1 || 1);
+    const label = ratio > 1.3 ? "Alta volatilità" : ratio < 0.7 ? "Bassa volatilità" : "Nella norma";
+
+    // Last 30 days for chart
+    const last30 = ranges.slice(-30).map((r, i) => ({
+      day: i + 1,
+      date: new Date(r.ts * 1000).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" }),
+      pips: r.pips,
+    }));
+
+    // Peak weekday (which day of the week is most volatile on average)
+    const byDay: Record<number, number[]> = { 1: [], 2: [], 3: [], 4: [], 5: [] };
+    ranges.forEach((r) => {
+      const d = new Date(r.ts * 1000).getDay();
+      if (byDay[d]) byDay[d].push(r.pips);
+    });
+    const dayNames = ["Dom", "Lun", "Mar", "Mer", "Gio", "Ven", "Sab"];
+    const peakDay = Object.entries(byDay)
+      .map(([d, vals]) => ({ day: dayNames[+d], avg: vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0 }))
+      .sort((a, b) => b.avg - a.avg)[0]?.day ?? "Mer";
+
+    res.json({
+      pair,
+      currentPrice,
+      todayPips,
+      w1, m1, m3, m6, y1,
+      label,
+      peakDay,
+      pipUnit: pip === 100 ? "pip (JPY)" : pip === 10 ? "pip (XAU)" : "pip",
+      last30,
+      // legacy fields for backwards compat
+      daily5: w1,
+      daily21: m1,
+      daily63: m3,
+      dailyAll: y1,
+      dataPoints: last30.map((r) => ({ day: r.day, value: r.pips })),
+    });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[tools/volatility]", msg);
