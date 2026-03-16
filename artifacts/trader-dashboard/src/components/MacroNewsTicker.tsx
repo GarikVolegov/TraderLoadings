@@ -10,6 +10,7 @@ import {
   Loader2,
   Activity,
   Check,
+  ExternalLink,
 } from "lucide-react";
 import {
   Sheet,
@@ -27,6 +28,7 @@ interface MacroArticle {
   impact: string;
   currency: string;
   direction: string;
+  source: string;
   timestamp?: string;
 }
 
@@ -37,26 +39,27 @@ interface MacroNewsData {
   fetchedAt: string;
 }
 
-const ALL_CURRENCIES = ["EUR", "USD", "GBP", "JPY", "CHF", "CAD", "AUD", "NZD"];
+const ALL_CURRENCIES = ["EUR", "USD", "GBP", "JPY", "CHF", "CAD", "AUD", "NZD", "XAU"];
 
 const STORAGE_KEY = "macro-news-currencies";
 
 const CURRENCY_FLAGS: Record<string, string> = {
-  EUR: "🇪🇺",
-  USD: "🇺🇸",
-  GBP: "🇬🇧",
-  JPY: "🇯🇵",
-  CHF: "🇨🇭",
-  CAD: "🇨🇦",
-  AUD: "🇦🇺",
-  NZD: "🇳🇿",
-  GLOBALE: "🌍",
+  EUR: "\u{1F1EA}\u{1F1FA}",
+  USD: "\u{1F1FA}\u{1F1F8}",
+  GBP: "\u{1F1EC}\u{1F1E7}",
+  JPY: "\u{1F1EF}\u{1F1F5}",
+  CHF: "\u{1F1E8}\u{1F1ED}",
+  CAD: "\u{1F1E8}\u{1F1E6}",
+  AUD: "\u{1F1E6}\u{1F1FA}",
+  NZD: "\u{1F1F3}\u{1F1FF}",
+  XAU: "\u{1F947}",
+  GLOBALE: "\u{1F30D}",
 };
 
 const IMPACT_DOT: Record<string, string> = {
-  alto: "🔴",
-  medio: "🟡",
-  basso: "🟢",
+  alto: "\u{1F534}",
+  medio: "\u{1F7E1}",
+  basso: "\u{1F7E2}",
 };
 
 const IMPACT_STYLES: Record<string, string> = {
@@ -82,7 +85,9 @@ function loadCurrencies(): string[] {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.filter((c: string) => ALL_CURRENCIES.includes(c));
+      }
     }
   } catch {}
   return [...ALL_CURRENCIES];
@@ -107,6 +112,7 @@ async function fetchMacroNews(currencies: string[], force = false): Promise<Macr
 export function MacroNewsTicker() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selectedCurrencies, setSelectedCurrencies] = useState<string[]>(loadCurrencies);
+  const [showFilter, setShowFilter] = useState(false);
   const forceNextRef = useRef(false);
 
   useEffect(() => {
@@ -133,10 +139,11 @@ export function MacroNewsTicker() {
   const tickerItems = useMemo(() => {
     if (!data?.articles?.length) return [];
     return data.articles.map((a) => {
-      const flag = CURRENCY_FLAGS[a.currency] ?? "📊";
-      const dot = IMPACT_DOT[a.impact] ?? "⚪";
+      const flag = CURRENCY_FLAGS[a.currency] ?? "\u{1F4CA}";
+      const dot = IMPACT_DOT[a.impact] ?? "\u26AA";
       const impactLabel = a.impact ? a.impact.toUpperCase() : "";
-      return `${dot} ${flag} ${a.currency}: ${a.title} — ${impactLabel}`;
+      const src = a.source ? ` [${a.source}]` : "";
+      return `${dot} ${flag} ${a.currency}: ${a.title} \u2014 ${impactLabel}${src}`;
     });
   }, [data]);
 
@@ -164,42 +171,87 @@ export function MacroNewsTicker() {
 
   return (
     <>
-      <div
-        className="flex-1 min-w-0 overflow-hidden relative cursor-pointer group"
-        onClick={() => setSheetOpen(true)}
-      >
-        {isLoading ? (
-          <div className="flex items-center gap-2">
-            <Loader2 className="w-3 h-3 animate-spin text-primary" />
-            <span className="text-xs text-muted-foreground">Analisi macro AI...</span>
-          </div>
-        ) : isError ? (
-          <span className="text-xs text-destructive/70">Errore caricamento notizie</span>
-        ) : tickerItems.length > 0 ? (
-          <div className="overflow-hidden whitespace-nowrap mask-fade">
-            <div className="inline-flex animate-marquee gap-8">
-              {tickerItems.map((item, i) => (
-                <span
-                  key={i}
-                  className="text-xs text-muted-foreground font-medium group-hover:text-primary transition-colors"
-                >
-                  {item}
-                </span>
-              ))}
-              {tickerItems.map((item, i) => (
-                <span
-                  key={`dup-${i}`}
-                  className="text-xs text-muted-foreground font-medium group-hover:text-primary transition-colors"
-                >
-                  {item}
-                </span>
-              ))}
+      <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+        <div
+          className="overflow-hidden relative cursor-pointer group"
+          onClick={() => setSheetOpen(true)}
+        >
+          {isLoading ? (
+            <div className="flex items-center gap-2">
+              <Loader2 className="w-3 h-3 animate-spin text-primary" />
+              <span className="text-xs text-muted-foreground">Analisi macro AI...</span>
             </div>
-          </div>
-        ) : (
-          <span className="text-xs text-muted-foreground">Clicca per generare il briefing macro AI</span>
-        )}
+          ) : isError ? (
+            <span className="text-xs text-destructive/70">Errore caricamento notizie</span>
+          ) : tickerItems.length > 0 ? (
+            <div className="overflow-hidden whitespace-nowrap mask-fade">
+              <div className="inline-flex animate-marquee gap-8">
+                {tickerItems.map((item, i) => (
+                  <span
+                    key={i}
+                    className="text-xs text-muted-foreground font-medium group-hover:text-primary transition-colors"
+                  >
+                    {item}
+                  </span>
+                ))}
+                {tickerItems.map((item, i) => (
+                  <span
+                    key={`dup-${i}`}
+                    className="text-xs text-muted-foreground font-medium group-hover:text-primary transition-colors"
+                  >
+                    {item}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <span className="text-xs text-muted-foreground">Clicca per generare il briefing macro AI</span>
+          )}
+        </div>
+
+        <AnimatePresence>
+          {showFilter && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="overflow-hidden"
+            >
+              <div className="flex gap-1 flex-wrap">
+                {ALL_CURRENCIES.map((cur) => {
+                  const active = selectedCurrencies.includes(cur);
+                  return (
+                    <button
+                      key={cur}
+                      onClick={() => toggleCurrency(cur)}
+                      className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-bold border transition-all ${
+                        active
+                          ? "border-primary/40 bg-primary/15 text-primary"
+                          : "border-transparent bg-secondary/30 text-muted-foreground/50 hover:text-muted-foreground"
+                      }`}
+                    >
+                      {CURRENCY_FLAGS[cur]} {cur}
+                    </button>
+                  );
+                })}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
+
+      <button
+        onClick={() => setShowFilter((v) => !v)}
+        className={`flex items-center justify-center w-8 h-8 rounded-lg transition-all shrink-0 text-[10px] font-bold ${
+          showFilter
+            ? "bg-primary/20 text-primary border border-primary/40"
+            : "bg-card/50 text-muted-foreground border border-border hover:border-primary/30 hover:text-primary"
+        }`}
+        title="Filtro valute"
+      >
+        {selectedCurrencies.length === ALL_CURRENCIES.length ? "ALL" : selectedCurrencies.length}
+      </button>
 
       <button
         onClick={() => setSheetOpen((v) => !v)}
@@ -297,7 +349,7 @@ export function MacroNewsTicker() {
                 </div>
                 {data.summary && (
                   <p className="text-xs text-muted-foreground italic flex-1 line-clamp-2">
-                    "{data.summary}"
+                    &ldquo;{data.summary}&rdquo;
                   </p>
                 )}
               </div>
@@ -328,7 +380,7 @@ export function MacroNewsTicker() {
                         </h4>
                         <div className="flex items-center gap-1.5 flex-shrink-0">
                           <span className="font-mono text-xs font-bold text-muted-foreground">
-                            {CURRENCY_FLAGS[article.currency] ?? "📊"} {article.currency}
+                            {CURRENCY_FLAGS[article.currency] ?? "\u{1F4CA}"} {article.currency}
                           </span>
                           {DIRECTION_ICONS[article.direction] ?? DIRECTION_ICONS.neutrale}
                         </div>
@@ -336,7 +388,7 @@ export function MacroNewsTicker() {
                       <p className="text-xs text-muted-foreground leading-relaxed">
                         {article.summary}
                       </p>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span
                           className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border ${
                             IMPACT_STYLES[article.impact] ?? IMPACT_STYLES.basso
@@ -355,6 +407,12 @@ export function MacroNewsTicker() {
                         >
                           {article.direction}
                         </span>
+                        {article.source && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-medium border border-blue-500/20 bg-blue-500/5 text-blue-400">
+                            <ExternalLink className="w-2.5 h-2.5" />
+                            {article.source}
+                          </span>
+                        )}
                         {article.timestamp && (
                           <span className="text-[10px] text-muted-foreground/50 ml-auto">
                             {new Date(article.timestamp).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
@@ -370,12 +428,12 @@ export function MacroNewsTicker() {
             {!data && !isFetching && (
               <div className="flex flex-col items-center py-8 gap-2 text-muted-foreground">
                 <Brain className="w-10 h-10 opacity-20" />
-                <p className="text-sm">Clicca "Aggiorna" per ottenere il briefing macro</p>
+                <p className="text-sm">Clicca &ldquo;Aggiorna&rdquo; per ottenere il briefing macro</p>
               </div>
             )}
 
             <p className="text-[10px] text-muted-foreground/50 text-center pt-2">
-              Generato con AI · Non costituisce consulenza finanziaria
+              Generato con AI &middot; Non costituisce consulenza finanziaria
             </p>
           </div>
         </SheetContent>

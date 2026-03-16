@@ -527,6 +527,7 @@ interface MacroNewsResult {
     impact: string;
     currency: string;
     direction: string;
+    source: string;
     timestamp?: string;
   }>;
   sentiment: string;
@@ -536,7 +537,7 @@ interface MacroNewsResult {
 
 const macroNewsCache = new Map<string, { data: MacroNewsResult; expiresAt: number }>();
 const MACRO_NEWS_TTL = 30 * 60 * 1000;
-const VALID_CURRENCIES = new Set(["EUR", "USD", "GBP", "JPY", "CHF", "CAD", "AUD", "NZD"]);
+const VALID_CURRENCIES = new Set(["EUR", "USD", "GBP", "JPY", "CHF", "CAD", "AUD", "NZD", "XAU"]);
 
 function normalizeCurrencies(raw: string): { key: string; label: string } {
   if (!raw || raw.trim().length === 0) {
@@ -563,7 +564,9 @@ async function fetchMacroNews(currencyLabel: string): Promise<MacroNewsResult> {
     messages: [
       {
         role: "system",
-        content: `Sei un analista macro forex esperto. Fornisci un briefing sintetico sulle notizie macroeconomiche più rilevanti per i mercati forex. Oggi è ${today}.
+        content: `Sei un analista macro forex e commodities esperto. Fornisci un briefing sintetico sulle notizie macroeconomiche più rilevanti per i mercati forex e oro. Oggi è ${today}.
+
+Per le notizie sull'oro (XAU), includi SEMPRE dati dal World Gold Council: acquisti di oro da parte delle banche centrali (Cina, India, Polonia, ecc.), variazioni nelle riserve auree nazionali, domanda fisica vs investimento, flussi ETF auriferi, e report trimestrali Gold Demand Trends.
           
 Rispondi SEMPRE in formato JSON valido con questa struttura esatta:
 {
@@ -572,8 +575,9 @@ Rispondi SEMPRE in formato JSON valido con questa struttura esatta:
       "title": "Titolo breve della notizia",
       "summary": "Riassunto in 2-3 frasi della notizia e del suo contesto",
       "impact": "alto|medio|basso",
-      "currency": "EUR|USD|GBP|JPY|CHF|CAD|AUD|NZD|GLOBALE",
+      "currency": "EUR|USD|GBP|JPY|CHF|CAD|AUD|NZD|XAU|GLOBALE",
       "direction": "bullish|bearish|neutrale",
+      "source": "Nome fonte (es: World Gold Council, BCE, Federal Reserve, Reuters, Bloomberg, FMI, BIS, CFTC, Bureau of Labor Statistics)",
       "timestamp": "2025-03-15T09:00:00Z"
     }
   ],
@@ -581,22 +585,24 @@ Rispondi SEMPRE in formato JSON valido con questa struttura esatta:
   "summary": "Frase di sintesi del quadro macro generale"
 }
 
+IMPORTANTE: Ogni articolo DEVE avere il campo "source" con il nome della fonte primaria dell'informazione. Per XAU usa principalmente "World Gold Council", "LBMA", "WGC Gold Demand Trends". Per valute usa fonti come banche centrali, agenzie statistiche, o media finanziari.
+
 Genera 6-8 articoli rilevanti e recenti per il trading forex intraday e swing.`,
       },
       {
         role: "user",
-        content: `Genera il briefing macro per oggi con focus su ${currencyLabel}. Includi: decisioni banche centrali, inflazione, PIL, dati occupazione, geopolitica, sentiment risk-on/off. Sii preciso e utile per un trader.`,
+        content: `Genera il briefing macro per oggi con focus su ${currencyLabel}. Includi: decisioni banche centrali, inflazione, PIL, dati occupazione, geopolitica, sentiment risk-on/off. Per XAU includi dati World Gold Council su acquisti banche centrali e riserve auree. Cita SEMPRE la fonte per ogni notizia. Sii preciso e utile per un trader.`,
       },
     ],
     temperature: 0.7,
-    max_tokens: 2000,
+    max_tokens: 2500,
     response_format: { type: "json_object" },
   });
 
   const raw = completion.choices[0]?.message?.content ?? "{}";
   const parsed = JSON.parse(raw) as Partial<MacroNewsResult>;
   return {
-    articles: parsed.articles ?? [],
+    articles: (parsed.articles ?? []).map((a) => ({ ...a, source: a.source || "" })),
     sentiment: parsed.sentiment ?? "neutrale",
     summary: parsed.summary ?? "",
     fetchedAt: new Date().toISOString(),

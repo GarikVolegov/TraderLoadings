@@ -103,6 +103,7 @@ interface MacroArticle {
   impact: "alto" | "medio" | "basso";
   currency: string;
   direction: "bullish" | "bearish" | "neutrale";
+  source?: string;
   timestamp?: string;
 }
 
@@ -927,7 +928,7 @@ const DIRECTION_ICONS = {
   neutrale: <Minus className="w-3.5 h-3.5 text-muted-foreground" />,
 };
 
-const CURRENCIES = ["Tutte", "USD", "EUR", "GBP", "JPY", "CHF", "CAD", "AUD", "NZD"];
+const CURRENCIES = ["Tutte", "USD", "EUR", "GBP", "JPY", "CHF", "CAD", "AUD", "NZD", "XAU"];
 
 const SENTIMENT_STYLES: Record<string, string> = {
   "risk-on": "text-primary bg-primary/10 border-primary/30",
@@ -1021,7 +1022,7 @@ function MacroNewsTool() {
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground leading-relaxed">{article.summary}</p>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border ${IMPACT_STYLES[article.impact] ?? IMPACT_STYLES.basso}`}>
                     {article.impact.toUpperCase()}
                   </span>
@@ -1030,6 +1031,11 @@ function MacroNewsTool() {
                   }`}>
                     {article.direction}
                   </span>
+                  {article.source && (
+                    <span className="px-2 py-0.5 rounded-lg text-[10px] font-medium border border-blue-500/20 bg-blue-500/5 text-blue-400">
+                      {article.source}
+                    </span>
+                  )}
                 </div>
               </motion.div>
             ))}
