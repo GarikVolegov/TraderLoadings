@@ -91,8 +91,9 @@ export function PairSelectionModal({ open, onConfirm, initialPairs = [], dismiss
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.92, opacity: 0, y: 20 }}
           transition={{ type: "spring", damping: 25, stiffness: 300 }}
-          className="w-full max-w-lg bg-card border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] relative"
+          className="w-full max-w-lg bg-card border border-border rounded-2xl shadow-2xl flex flex-col max-h-[90vh]"
         >
+          {/* Header */}
           <div className="p-5 border-b border-border shrink-0">
             <div className="flex items-center justify-between mb-1">
               <h2 className="text-lg font-bold">Scegli i tuoi Strumenti</h2>
@@ -107,6 +108,7 @@ export function PairSelectionModal({ open, onConfirm, initialPairs = [], dismiss
             </p>
           </div>
 
+          {/* Chips selezionati */}
           {selected.length > 0 && (
             <div className="px-5 pt-3 flex flex-wrap gap-1.5 shrink-0">
               {selected.map((sym) => {
@@ -126,7 +128,8 @@ export function PairSelectionModal({ open, onConfirm, initialPairs = [], dismiss
             </div>
           )}
 
-          <div className="px-5 pt-3 shrink-0">
+          {/* Search */}
+          <div className="px-5 pt-3 pb-1 shrink-0">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
@@ -138,7 +141,8 @@ export function PairSelectionModal({ open, onConfirm, initialPairs = [], dismiss
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-5 py-3 space-y-2 min-h-0 pb-24">
+          {/* Lista scrollabile - flex-1 con min-h-0 per permettere lo shrink */}
+          <div className="flex-1 overflow-y-auto min-h-0 px-5 py-3 space-y-2">
             {Array.from(grouped.entries()).map(([category, pairs]) => {
               const isExpanded = search.trim() !== "" || expandedCategories[category];
               return (
@@ -194,11 +198,16 @@ export function PairSelectionModal({ open, onConfirm, initialPairs = [], dismiss
             )}
           </div>
 
-          <div className="absolute bottom-0 left-0 right-0 p-5 border-t border-border flex items-center justify-between bg-gradient-to-t from-card via-card to-transparent backdrop-blur-sm rounded-b-2xl">
-            <span className="text-xs text-muted-foreground">
+          {/* Footer - nel flusso flex normale, sempre visibile */}
+          <div className="shrink-0 p-4 border-t border-border flex items-center justify-between bg-card rounded-b-2xl">
+            <span className="text-sm text-muted-foreground">
               {selected.length} pair selezionat{selected.length === 1 ? "o" : "i"}
             </span>
-            <Button onClick={handleConfirm} disabled={selected.length === 0} className="min-w-[120px]">
+            <Button
+              onClick={handleConfirm}
+              disabled={selected.length === 0}
+              className="min-w-[120px]"
+            >
               Conferma
             </Button>
           </div>
