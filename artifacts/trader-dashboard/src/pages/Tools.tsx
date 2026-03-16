@@ -299,64 +299,198 @@ function EmotionalWave({ score }: { score: number }) {
 
 // ─── 2. SENTIMENT ─────────────────────────────────────────────────────────────
 function SentimentTool() {
-  const { data, isLoading, isError, error, refetch } = useQuery({
+  const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ["tools", "sentiment"],
-    queryFn: () => apiFetch<{ symbols: SentimentSymbol[]; cached?: boolean; fallback?: boolean; error?: string }>(`${API}/tools/sentiment`),
-    staleTime: 5 * 60_000,
+    queryFn: () => apiFetch<{
+      symbols: SentimentSymbol[];
+      live?: boolean;
+      cached?: boolean;
+      fallback?: boolean;
+      hasCredentials?: boolean;
+      error?: string;
+    }>(`${API}/tools/sentiment`),
+    staleTime: 3 * 60_000,
+    refetchInterval: 5 * 60_000,
   });
 
-  const avgLong = data?.symbols?.length
-    ? data.symbols.reduce((s, sym) => s + sym.longPercentage, 0) / data.symbols.length
+  const allPairs = data?.symbols?.map((s) => s.name) ?? [];
+  const [selectedPairs, setSelectedPairs] = useState<string[]>([]);
+  const [filterOpen, setFilterOpen] = useState(false);
+
+  const effectiveSelected = selectedPairs.length > 0 ? selectedPairs : allPairs;
+  const visibleSymbols = data?.symbols?.filter((s) => effectiveSelected.includes(s.name)) ?? [];
+
+  const togglePair = (name: string) => {
+    setSelectedPairs((prev) =>
+      prev.includes(name) ? prev.filter((p) => p !== name) : [...prev, name]
+    );
+  };
+
+  const selectAll = () => setSelectedPairs([]);
+  const selectNone = () => setSelectedPairs(allPairs.slice(0, 1));
+
+  const avgLong = visibleSymbols.length
+    ? visibleSymbols.reduce((s, sym) => s + sym.longPercentage, 0) / visibleSymbols.length
     : 50;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-semibold">Community Sentiment</h3>
-          <p className="text-xs text-muted-foreground">Fonte: Myfxbook Community Outlook</p>
+          <h3 className="text-sm font-semibold flex items-center gap-2">
+            Community Sentiment
+            {data?.live && (
+              <span className="flex items-center gap-1 text-[10px] text-green-400 bg-green-400/10 border border-green-400/20 px-2 py-0.5 rounded-full font-medium">
+                <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
+                LIVE
+              </span>
+            )}
+          </h3>
+          <p className="text-xs text-muted-foreground">Myfxbook Community Outlook</p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => refetch()} className="gap-2">
-          <RefreshCw className="w-3.5 h-3.5" /> Aggiorna
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline" size="sm"
+            onClick={() => setFilterOpen((v) => !v)}
+            className={`gap-1.5 transition-colors ${filterOpen ? "bg-primary/10 text-primary border-primary/30" : ""}`}
+          >
+            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${filterOpen ? "rotate-180" : ""}`} />
+            Filtri {selectedPairs.length > 0 && `(${selectedPairs.length})`}
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching} className="gap-2">
+            <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? "animate-spin" : ""}`} />
+          </Button>
+        </div>
       </div>
 
-      {data?.fallback && (
-        <div className="flex items-center gap-2 text-xs text-amber-400 bg-amber-400/10 border border-amber-400/20 px-3 py-2 rounded-lg">
-          <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
-          Dati dimostrativi — Myfxbook non raggiungibile
+      {/* Credential hint */}
+      {data && !data.hasCredentials && (
+        <div className="flex items-start gap-2 text-xs text-amber-400 bg-amber-400/10 border border-amber-400/20 px-3 py-2.5 rounded-xl">
+          <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+          <span>
+            Dati dimostrativi — configura <span className="font-mono font-bold">MYFXBOOK_EMAIL</span> e{" "}
+            <span className="font-mono font-bold">MYFXBOOK_PASSWORD</span> nelle variabili d'ambiente per dati reali.
+          </span>
         </div>
       )}
+
+      {data?.fallback && data.hasCredentials && (
+        <div className="flex items-center gap-2 text-xs text-amber-400 bg-amber-400/10 border border-amber-400/20 px-3 py-2 rounded-xl">
+          <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+          Connessione Myfxbook non riuscita — mostrati dati dimostrativi
+        </div>
+      )}
+
+      {/* Filtro pair richiudibile */}
+      <AnimatePresence>
+        {filterOpen && allPairs.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="p-3 rounded-xl border border-border bg-secondary/20 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Filtra Pair</p>
+                <div className="flex gap-2">
+                  <button onClick={selectAll} className="text-[11px] text-primary hover:underline">Tutti</button>
+                  <span className="text-muted-foreground text-[11px]">·</span>
+                  <button onClick={selectNone} className="text-[11px] text-muted-foreground hover:text-foreground hover:underline">Nessuno</button>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {allPairs.map((name) => {
+                  const active = selectedPairs.length === 0 || selectedPairs.includes(name);
+                  return (
+                    <button
+                      key={name}
+                      onClick={() => togglePair(name)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition-all border ${
+                        active
+                          ? "bg-primary/15 text-primary border-primary/40"
+                          : "bg-secondary/50 text-muted-foreground border-border hover:border-primary/20 hover:text-foreground"
+                      }`}
+                    >
+                      {name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {isLoading && <LoadingCard />}
       {isError && <ErrorCard message={(error as Error).message} />}
 
       {data?.symbols && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+          {/* Emotional wave */}
           <Card className="p-4">
-            <p className="text-xs text-muted-foreground font-medium mb-3">Onda delle emozioni</p>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs text-muted-foreground font-medium">Onda delle emozioni</p>
+              <span className="text-xs text-muted-foreground">{visibleSymbols.length} pair selezionati</span>
+            </div>
             <EmotionalWave score={avgLong} />
           </Card>
 
+          {/* Pair list */}
           <div className="space-y-2">
-            {data.symbols.map((sym) => (
-              <div key={sym.name} className="p-3 rounded-xl border border-border bg-secondary/20 space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-mono font-bold">{sym.name}</span>
-                  <div className="flex items-center gap-3 text-xs">
-                    <span className="text-primary font-semibold">▲ {sym.longPercentage.toFixed(1)}% Long</span>
-                    <span className="text-destructive font-semibold">▼ {sym.shortPercentage.toFixed(1)}% Short</span>
-                  </div>
-                </div>
-                <div className="h-2 rounded-full bg-destructive/40 overflow-hidden">
-                  <div
-                    className="h-full bg-primary rounded-full transition-all"
-                    style={{ width: `${sym.longPercentage}%` }}
-                  />
-                </div>
-              </div>
-            ))}
+            {visibleSymbols.length === 0 ? (
+              <p className="text-center text-sm text-muted-foreground py-6">Nessun pair selezionato nel filtro</p>
+            ) : (
+              visibleSymbols.map((sym) => {
+                const bias = sym.longPercentage >= 60 ? "Long" : sym.shortPercentage >= 60 ? "Short" : "Neutro";
+                const biasColor = bias === "Long" ? "text-primary" : bias === "Short" ? "text-destructive" : "text-muted-foreground";
+                return (
+                  <motion.div
+                    key={sym.name}
+                    layout
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="p-3 rounded-xl border border-border bg-secondary/20 space-y-2"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-mono font-bold">{sym.name}</span>
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                          bias === "Long" ? "bg-primary/10 border-primary/30 text-primary"
+                            : bias === "Short" ? "bg-destructive/10 border-destructive/30 text-destructive"
+                            : "bg-secondary border-border text-muted-foreground"
+                        }`}>{bias}</span>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs">
+                        <span className="text-primary font-semibold">▲ {sym.longPercentage.toFixed(1)}%</span>
+                        <span className="text-destructive font-semibold">▼ {sym.shortPercentage.toFixed(1)}%</span>
+                      </div>
+                    </div>
+                    <div className="h-2 rounded-full bg-destructive/30 overflow-hidden relative">
+                      <motion.div
+                        className="h-full bg-primary rounded-full"
+                        initial={{ width: 0 }}
+                        animate={{ width: `${sym.longPercentage}%` }}
+                        transition={{ duration: 0.6, ease: "easeOut" }}
+                      />
+                    </div>
+                    <div className="flex justify-between text-[10px] text-muted-foreground">
+                      <span>{sym.longPositions.toLocaleString()} long pos.</span>
+                      <span>{sym.shortPositions.toLocaleString()} short pos.</span>
+                    </div>
+                  </motion.div>
+                );
+              })
+            )}
           </div>
+
+          {data.live && (
+            <p className="text-[10px] text-center text-muted-foreground">
+              Aggiornato automaticamente ogni 5 minuti · Fonte: Myfxbook Community
+            </p>
+          )}
         </motion.div>
       )}
     </div>

@@ -72,54 +72,82 @@ router.post("/tools/montecarlo", (req, res) => {
 });
 
 // ─── 2. MYFXBOOK SENTIMENT ────────────────────────────────────────────────────
+
+interface MyfxbookSymbol {
+  name: string;
+  longPercentage: number;
+  shortPercentage: number;
+  longVolume: number;
+  shortVolume: number;
+  longPositions: number;
+  shortPositions: number;
+}
+
+let _mfxSession: { token: string; expiresAt: number } | null = null;
+
+async function getMyfxbookSession(): Promise<string | null> {
+  if (_mfxSession && Date.now() < _mfxSession.expiresAt) {
+    return _mfxSession.token;
+  }
+  const email = process.env.MYFXBOOK_EMAIL;
+  const password = process.env.MYFXBOOK_PASSWORD;
+  if (!email || !password) return null;
+
+  const url = `https://www.myfxbook.com/api/login.json?email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`;
+  const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+  if (!res.ok) throw new Error(`Myfxbook login HTTP ${res.status}`);
+  const data = await res.json() as { error: boolean; message?: string; session: string };
+  if (data.error || !data.session) throw new Error(data.message ?? "Login fallito");
+
+  _mfxSession = { token: data.session, expiresAt: Date.now() + 55 * 60 * 1000 };
+  console.log("[myfxbook] Sessione ottenuta");
+  return _mfxSession.token;
+}
+
+async function fetchMyfxbookOutlook(): Promise<MyfxbookSymbol[]> {
+  const session = await getMyfxbookSession();
+  if (!session) throw new Error("No credentials");
+
+  const url = `https://www.myfxbook.com/api/get-community-outlook.json?session=${encodeURIComponent(session)}`;
+  const res = await fetch(url, {
+    headers: { "User-Agent": "Mozilla/5.0" },
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!res.ok) throw new Error(`Myfxbook outlook HTTP ${res.status}`);
+  const data = await res.json() as { error: boolean; message?: string; symbols?: MyfxbookSymbol[] };
+  if (data.error) {
+    _mfxSession = null;
+    throw new Error(data.message ?? "Outlook error");
+  }
+  return data.symbols ?? [];
+}
+
+const FALLBACK_SYMBOLS: MyfxbookSymbol[] = [
+  { name: "EURUSD", longPercentage: 58, shortPercentage: 42, longPositions: 58000, shortPositions: 42000, longVolume: 58, shortVolume: 42 },
+  { name: "GBPUSD", longPercentage: 45, shortPercentage: 55, longPositions: 45000, shortPositions: 55000, longVolume: 45, shortVolume: 55 },
+  { name: "USDJPY", longPercentage: 62, shortPercentage: 38, longPositions: 62000, shortPositions: 38000, longVolume: 62, shortVolume: 38 },
+  { name: "USDCHF", longPercentage: 51, shortPercentage: 49, longPositions: 51000, shortPositions: 49000, longVolume: 51, shortVolume: 49 },
+  { name: "AUDUSD", longPercentage: 39, shortPercentage: 61, longPositions: 39000, shortPositions: 61000, longVolume: 39, shortVolume: 61 },
+  { name: "USDCAD", longPercentage: 54, shortPercentage: 46, longPositions: 54000, shortPositions: 46000, longVolume: 54, shortVolume: 46 },
+  { name: "NZDUSD", longPercentage: 47, shortPercentage: 53, longPositions: 47000, shortPositions: 53000, longVolume: 47, shortVolume: 53 },
+  { name: "EURGBP", longPercentage: 55, shortPercentage: 45, longPositions: 55000, shortPositions: 45000, longVolume: 55, shortVolume: 45 },
+  { name: "EURJPY", longPercentage: 61, shortPercentage: 39, longPositions: 61000, shortPositions: 39000, longVolume: 61, shortVolume: 39 },
+  { name: "GBPJPY", longPercentage: 43, shortPercentage: 57, longPositions: 43000, shortPositions: 57000, longVolume: 43, shortVolume: 57 },
+  { name: "XAUUSD", longPercentage: 71, shortPercentage: 29, longPositions: 71000, shortPositions: 29000, longVolume: 71, shortVolume: 29 },
+  { name: "XAGUSD", longPercentage: 66, shortPercentage: 34, longPositions: 66000, shortPositions: 34000, longVolume: 66, shortVolume: 34 },
+  { name: "USDJPY", longPercentage: 62, shortPercentage: 38, longPositions: 62000, shortPositions: 38000, longVolume: 62, shortVolume: 38 },
+  { name: "BTCUSD", longPercentage: 68, shortPercentage: 32, longPositions: 68000, shortPositions: 32000, longVolume: 68, shortVolume: 32 },
+];
+
 router.get("/tools/sentiment", async (req, res) => {
+  const hasCredentials = !!(process.env.MYFXBOOK_EMAIL && process.env.MYFXBOOK_PASSWORD);
   try {
-    const response = await fetch(
-      "https://www.myfxbook.com/community/outlook/get-community-outlook.json",
-      {
-        headers: {
-          "Accept": "application/json",
-          "User-Agent": "Mozilla/5.0 (compatible; TraderLoading/1.0)",
-        },
-        signal: AbortSignal.timeout(8000),
-      }
-    );
-
-    if (!response.ok) throw new Error(`Myfxbook HTTP ${response.status}`);
-
-    const data = await response.json() as {
-      error: boolean;
-      message?: string;
-      symbols?: Array<{
-        name: string;
-        longPercentage: number;
-        shortPercentage: number;
-        longVolume: number;
-        shortVolume: number;
-        longPositions: number;
-        shortPositions: number;
-      }>;
-    };
-
-    if (data.error) throw new Error(data.message ?? "Myfxbook error");
-
-    res.json({ symbols: data.symbols ?? [], cached: false });
+    const symbols = await fetchMyfxbookOutlook();
+    res.json({ symbols, live: true, cached: false, hasCredentials });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[tools/sentiment]", msg);
-
-    const fallbackSymbols = [
-      { name: "EURUSD", longPercentage: 58, shortPercentage: 42, longPositions: 58000, shortPositions: 42000, longVolume: 58, shortVolume: 42 },
-      { name: "GBPUSD", longPercentage: 45, shortPercentage: 55, longPositions: 45000, shortPositions: 55000, longVolume: 45, shortVolume: 55 },
-      { name: "USDJPY", longPercentage: 62, shortPercentage: 38, longPositions: 62000, shortPositions: 38000, longVolume: 62, shortVolume: 38 },
-      { name: "USDCHF", longPercentage: 51, shortPercentage: 49, longPositions: 51000, shortPositions: 49000, longVolume: 51, shortVolume: 49 },
-      { name: "AUDUSD", longPercentage: 39, shortPercentage: 61, longPositions: 39000, shortPositions: 61000, longVolume: 39, shortVolume: 61 },
-      { name: "USDCAD", longPercentage: 54, shortPercentage: 46, longPositions: 54000, shortPositions: 46000, longVolume: 54, shortVolume: 46 },
-      { name: "NZDUSD", longPercentage: 47, shortPercentage: 53, longPositions: 47000, shortPositions: 53000, longVolume: 47, shortVolume: 53 },
-      { name: "XAUUSD", longPercentage: 71, shortPercentage: 29, longPositions: 71000, shortPositions: 29000, longVolume: 71, shortVolume: 29 },
-    ];
-
-    res.json({ symbols: fallbackSymbols, cached: true, fallback: true, error: msg });
+    res.json({ symbols: FALLBACK_SYMBOLS, live: false, fallback: true, hasCredentials, error: msg });
   }
 });
 
