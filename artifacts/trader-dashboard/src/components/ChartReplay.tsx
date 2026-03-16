@@ -13,10 +13,11 @@ import {
 } from "lightweight-charts";
 import {
   Play, Pause, SkipForward, SkipBack, RotateCcw,
-  TrendingUp, TrendingDown, X, ChevronLeft, ChevronRight,
-  Eye, EyeOff, Calendar,
+  TrendingUp, TrendingDown, X, ChevronRight,
+  Eye, EyeOff, Calendar, ChevronLeft, MousePointer2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "";
 
@@ -48,8 +49,26 @@ interface ChartReplayProps {
 }
 
 const SPEEDS = [1, 2, 5, 10];
-const START_VISIBLE = 50;
+const START_VISIBLE = 60;
 const TIMEFRAMES = ["M15", "M30", "H1", "H4", "D1", "W1"];
+
+function getPipMultiplier(symbol: string): number {
+  const s = symbol.replace("/", "").toUpperCase();
+  if (s.includes("JPY")) return 100;
+  if (s === "XAUUSD") return 10;
+  if (["US30", "NAS100", "SPX500"].includes(s)) return 1;
+  if (s.includes("BTC") || s.includes("ETH")) return 1;
+  return 10000;
+}
+
+function formatPrice(price: number, symbol: string): string {
+  const s = symbol.replace("/", "").toUpperCase();
+  if (s.includes("JPY")) return price.toFixed(3);
+  if (["US30", "NAS100", "SPX500"].includes(s)) return price.toFixed(1);
+  if (s.includes("BTC")) return price.toFixed(1);
+  if (s.includes("ETH")) return price.toFixed(2);
+  return price.toFixed(5);
+}
 
 export default function ChartReplay({ symbol, interval: initialInterval, onTradesChange }: ChartReplayProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -63,6 +82,8 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
   const [allCandles, setAllCandles] = useState<CandlestickData<Time>[]>([]);
   const [startIndex, setStartIndex] = useState(0);
   const [revealedCount, setRevealedCount] = useState(START_VISIBLE);
+  const prevRevealedRef = useRef(START_VISIBLE);
+
   const [isPlaying, setIsPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -73,12 +94,16 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
 
   const [trades, setTrades] = useState<ReplayTrade[]>([]);
   const [openTrade, setOpenTrade] = useState<ReplayTrade | null>(null);
+  const openTradeRef = useRef<ReplayTrade | null>(null);
+
   const [settingSL, setSettingSL] = useState(false);
   const [settingTP, setSettingTP] = useState(false);
+  const [slInput, setSLInput] = useState("");
+  const [tpInput, setTPInput] = useState("");
   const [showTradePanel, setShowTradePanel] = useState(false);
   const [showTrades, setShowTrades] = useState(true);
-  const tradeIdCounter = useRef(0);
 
+  const tradeIdCounter = useRef(0);
   const playingRef = useRef(false);
   const speedRef = useRef(speed);
   const revealedRef = useRef(revealedCount);
@@ -86,6 +111,9 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
 
   useEffect(() => { speedRef.current = speed; }, [speed]);
   useEffect(() => { revealedRef.current = revealedCount; }, [revealedCount]);
+  useEffect(() => { openTradeRef.current = openTrade; }, [openTrade]);
+
+  const pipMultiplier = useMemo(() => getPipMultiplier(symbol), [symbol]);
 
   useEffect(() => {
     const s = symbol.replace("/", "");
@@ -94,6 +122,7 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
     setError(null);
     setIsPlaying(false);
     playingRef.current = false;
+    if (timerRef.current) clearTimeout(timerRef.current);
 
     fetch(`${API_BASE}/api/backtest/candles?symbol=${s}&interval=${activeInterval}`, {
       signal: controller.signal,
@@ -113,17 +142,19 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
         }));
         setAllCandles(candles);
 
+        let initialRevealed = START_VISIBLE;
+        let initialStart = 0;
+
         if (startDate && candles.length > 0) {
           const targetTs = new Date(startDate).getTime() / 1000;
           let idx = candles.findIndex((c) => (c.time as number) >= targetTs);
           if (idx === -1) idx = Math.max(0, candles.length - START_VISIBLE);
-          setStartIndex(idx);
-          setRevealedCount(START_VISIBLE);
-        } else {
-          setStartIndex(0);
-          setRevealedCount(START_VISIBLE);
+          initialStart = idx;
         }
 
+        setStartIndex(initialStart);
+        setRevealedCount(initialRevealed);
+        prevRevealedRef.current = initialRevealed;
         setLoading(false);
       })
       .catch((err: unknown) => {
@@ -135,15 +166,8 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
     return () => controller.abort();
   }, [symbol, activeInterval, startDate]);
 
-  const replayCandles = useMemo(
-    () => allCandles.slice(startIndex),
-    [allCandles, startIndex]
-  );
-
-  const visibleCandles = useMemo(
-    () => replayCandles.slice(0, revealedCount),
-    [replayCandles, revealedCount]
-  );
+  const replayCandles = useMemo(() => allCandles.slice(startIndex), [allCandles, startIndex]);
+  const visibleCandles = useMemo(() => replayCandles.slice(0, revealedCount), [replayCandles, revealedCount]);
 
   const currentPrice = useMemo(() => {
     if (visibleCandles.length === 0) return 0;
@@ -162,10 +186,7 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
     if (allCandles.length === 0) return { min: "", max: "" };
     const minTs = allCandles[0].time as number;
     const maxTs = allCandles[allCandles.length - 1].time as number;
-    const fmt = (ts: number) => {
-      const d = new Date(ts * 1000);
-      return d.toISOString().split("T")[0];
-    };
+    const fmt = (ts: number) => new Date(ts * 1000).toISOString().split("T")[0];
     return { min: fmt(minTs), max: fmt(maxTs) };
   }, [allCandles]);
 
@@ -268,7 +289,7 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
             position: t.direction === "buy" ? "belowBar" : "aboveBar",
             color: t.direction === "buy" ? "#10b981" : "#ef4444",
             shape: t.direction === "buy" ? "arrowUp" : "arrowDown",
-            text: `${t.direction.toUpperCase()} @ ${t.entryPrice.toFixed(5)}`,
+            text: `${t.direction.toUpperCase()} @ ${formatPrice(t.entryPrice, symbol)}`,
           });
         }
         if (t.exitIndex != null && t.exitIndex < visibleCandles.length) {
@@ -277,7 +298,7 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
             position: "aboveBar",
             color: t.result === "win" ? "#10b981" : t.result === "loss" ? "#ef4444" : "#eab308",
             shape: "circle",
-            text: `EXIT @ ${t.exitPrice?.toFixed(5) ?? ""}`,
+            text: `EXIT @ ${t.exitPrice != null ? formatPrice(t.exitPrice, symbol) : ""}`,
           });
         }
       });
@@ -313,57 +334,101 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
     }
 
     chartRef.current?.timeScale().scrollToPosition(2, false);
-  }, [visibleCandles, trades, openTrade, showTrades]);
+  }, [visibleCandles, trades, openTrade, showTrades, symbol]);
 
-  const advanceCandle = useCallback((count = 1) => {
-    setRevealedCount((prev) => {
-      const next = Math.min(prev + count, replayCandles.length);
+  useEffect(() => {
+    const trade = openTradeRef.current;
+    const prev = prevRevealedRef.current;
+    prevRevealedRef.current = revealedCount;
 
-      if (openTrade) {
-        for (let i = prev; i < next; i++) {
-          const candle = replayCandles[i];
-          if (openTrade.stopLoss != null) {
-            const hitSL = openTrade.direction === "buy"
-              ? candle.low <= openTrade.stopLoss
-              : candle.high >= openTrade.stopLoss;
-            if (hitSL) {
-              closeTrade(openTrade.stopLoss, i);
-              break;
-            }
-          }
-          if (openTrade.takeProfit != null) {
-            const hitTP = openTrade.direction === "buy"
-              ? candle.high >= openTrade.takeProfit
-              : candle.low <= openTrade.takeProfit;
-            if (hitTP) {
-              closeTrade(openTrade.takeProfit, i);
-              break;
-            }
-          }
+    if (!trade || prev >= revealedCount) return;
+
+    for (let i = prev; i < revealedCount; i++) {
+      const candle = replayCandles[i];
+      if (!candle) continue;
+
+      if (trade.stopLoss != null) {
+        const hitSL = trade.direction === "buy"
+          ? candle.low <= trade.stopLoss
+          : candle.high >= trade.stopLoss;
+        if (hitSL) {
+          const diff = trade.direction === "buy"
+            ? trade.stopLoss - trade.entryPrice
+            : trade.entryPrice - trade.stopLoss;
+          const pips = parseFloat((diff * pipMultiplier).toFixed(1));
+          const closedTrade = { ...trade, exitPrice: trade.stopLoss, exitIndex: i, pips, result: "loss" as const };
+          setOpenTrade(null);
+          setSLInput("");
+          setTPInput("");
+          setTrades((old) => {
+            const updated = [...old, closedTrade];
+            onTradesChange?.(updated);
+            return updated;
+          });
+          setIsPlaying(false);
+          playingRef.current = false;
+          return;
         }
       }
 
+      if (trade.takeProfit != null) {
+        const hitTP = trade.direction === "buy"
+          ? candle.high >= trade.takeProfit
+          : candle.low <= trade.takeProfit;
+        if (hitTP) {
+          const diff = trade.direction === "buy"
+            ? trade.takeProfit - trade.entryPrice
+            : trade.entryPrice - trade.takeProfit;
+          const pips = parseFloat((diff * pipMultiplier).toFixed(1));
+          const closedTrade = { ...trade, exitPrice: trade.takeProfit, exitIndex: i, pips, result: "win" as const };
+          setOpenTrade(null);
+          setSLInput("");
+          setTPInput("");
+          setTrades((old) => {
+            const updated = [...old, closedTrade];
+            onTradesChange?.(updated);
+            return updated;
+          });
+          setIsPlaying(false);
+          playingRef.current = false;
+          return;
+        }
+      }
+    }
+  }, [revealedCount, replayCandles, pipMultiplier, onTradesChange]);
+
+  const advanceCandle = useCallback((count = 1) => {
+    setRevealedCount((prev) => Math.min(prev + count, replayCandles.length));
+  }, [replayCandles.length]);
+
+  const goBack = useCallback((count = 1) => {
+    setIsPlaying(false);
+    playingRef.current = false;
+    setRevealedCount((prev) => {
+      const next = Math.max(START_VISIBLE, prev - count);
+      prevRevealedRef.current = next;
       return next;
     });
-  }, [replayCandles, openTrade]);
+  }, []);
 
   const closeTrade = useCallback((exitPrice: number, exitIndex: number) => {
-    setOpenTrade((prev) => {
-      if (!prev) return null;
-      const diff = prev.direction === "buy"
-        ? exitPrice - prev.entryPrice
-        : prev.entryPrice - exitPrice;
-      const pips = parseFloat((diff * 10000).toFixed(1));
-      const result: "win" | "loss" | "breakeven" = pips > 0 ? "win" : pips < 0 ? "loss" : "breakeven";
-      const closedTrade = { ...prev, exitPrice, exitIndex, pips, result };
-      setTrades((old) => {
-        const updated = [...old, closedTrade];
-        onTradesChange?.(updated);
-        return updated;
-      });
-      return null;
+    const trade = openTradeRef.current;
+    if (!trade) return;
+    const diff = trade.direction === "buy"
+      ? exitPrice - trade.entryPrice
+      : trade.entryPrice - exitPrice;
+    const pips = parseFloat((diff * pipMultiplier).toFixed(1));
+    const result: "win" | "loss" | "breakeven" = pips > 0 ? "win" : pips < 0 ? "loss" : "breakeven";
+    const closedTrade = { ...trade, exitPrice, exitIndex, pips, result };
+    setOpenTrade(null);
+    setSLInput("");
+    setTPInput("");
+    setTrades((old) => {
+      const updated = [...old, closedTrade];
+      onTradesChange?.(updated);
+      return updated;
     });
-  }, [onTradesChange]);
+  }, [pipMultiplier, onTradesChange]);
 
   useEffect(() => {
     if (!isPlaying) return;
@@ -392,6 +457,8 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
 
   const handleBuy = () => {
     if (openTrade) return;
+    setIsPlaying(false);
+    playingRef.current = false;
     const trade: ReplayTrade = {
       id: ++tradeIdCounter.current,
       direction: "buy",
@@ -399,11 +466,15 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
       entryIndex: revealedCount - 1,
     };
     setOpenTrade(trade);
+    setSLInput("");
+    setTPInput("");
     setShowTradePanel(true);
   };
 
   const handleSell = () => {
     if (openTrade) return;
+    setIsPlaying(false);
+    playingRef.current = false;
     const trade: ReplayTrade = {
       id: ++tradeIdCounter.current,
       direction: "sell",
@@ -411,6 +482,8 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
       entryIndex: revealedCount - 1,
     };
     setOpenTrade(trade);
+    setSLInput("");
+    setTPInput("");
     setShowTradePanel(true);
   };
 
@@ -430,6 +503,22 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
     setSettingSL(false);
   };
 
+  const handleSLInputChange = (val: string) => {
+    setSLInput(val);
+    const price = parseFloat(val);
+    if (!isNaN(price) && price > 0) {
+      setOpenTrade((prev) => prev ? { ...prev, stopLoss: price } : null);
+    }
+  };
+
+  const handleTPInputChange = (val: string) => {
+    setTPInput(val);
+    const price = parseFloat(val);
+    if (!isNaN(price) && price > 0) {
+      setOpenTrade((prev) => prev ? { ...prev, takeProfit: price } : null);
+    }
+  };
+
   useEffect(() => {
     if (!chartRef.current || (!settingSL && !settingTP)) return;
     const chart = chartRef.current;
@@ -441,8 +530,14 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
 
       setOpenTrade((prev) => {
         if (!prev) return null;
-        if (settingSL) return { ...prev, stopLoss: price as number };
-        if (settingTP) return { ...prev, takeProfit: price as number };
+        if (settingSL) {
+          setSLInput((price as number).toFixed(5));
+          return { ...prev, stopLoss: price as number };
+        }
+        if (settingTP) {
+          setTPInput((price as number).toFixed(5));
+          return { ...prev, takeProfit: price as number };
+        }
         return prev;
       });
       setSettingSL(false);
@@ -455,9 +550,14 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
 
   const handleReset = () => {
     setIsPlaying(false);
+    playingRef.current = false;
+    if (timerRef.current) clearTimeout(timerRef.current);
     setRevealedCount(START_VISIBLE);
+    prevRevealedRef.current = START_VISIBLE;
     setTrades([]);
     setOpenTrade(null);
+    setSLInput("");
+    setTPInput("");
     setShowTradePanel(false);
     onTradesChange?.([]);
   };
@@ -477,6 +577,8 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
     setShowDatePicker(false);
     setTrades([]);
     setOpenTrade(null);
+    setSLInput("");
+    setTPInput("");
     onTradesChange?.([]);
   };
 
@@ -494,8 +596,8 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
     const diff = openTrade.direction === "buy"
       ? currentPrice - openTrade.entryPrice
       : openTrade.entryPrice - currentPrice;
-    return parseFloat((diff * 10000).toFixed(1));
-  }, [openTrade, currentPrice]);
+    return parseFloat((diff * pipMultiplier).toFixed(1));
+  }, [openTrade, currentPrice, pipMultiplier]);
 
   const progress = replayCandles.length > 0 ? Math.round((revealedCount / replayCandles.length) * 100) : 0;
 
@@ -508,14 +610,16 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
               <span className="text-xs font-mono font-bold text-primary">{symbol}</span>
               <span className="text-[10px] text-muted-foreground">{activeInterval}</span>
               {!loading && (
-                <span className="text-[10px] text-muted-foreground">
-                  {revealedCount}/{replayCandles.length}
+                <span className="text-[10px] text-muted-foreground/60">
+                  {revealedCount}/{replayCandles.length} candele
                 </span>
               )}
             </div>
             <div className="flex items-center gap-2">
               {!loading && <span className="text-[10px] text-muted-foreground">{currentDate}</span>}
-              {!loading && <span className="text-xs font-mono font-bold">{currentPrice.toFixed(5)}</span>}
+              {!loading && (
+                <span className="text-xs font-mono font-bold">{formatPrice(currentPrice, symbol)}</span>
+              )}
               <button
                 onClick={() => setShowDatePicker(!showDatePicker)}
                 className={`p-1 rounded hover:bg-white/5 ${showDatePicker ? "text-primary" : "text-muted-foreground"}`}
@@ -528,7 +632,9 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
                 className="p-1 rounded hover:bg-white/5"
                 title={showTrades ? "Nascondi trade" : "Mostra trade"}
               >
-                {showTrades ? <Eye className="w-3.5 h-3.5 text-primary" /> : <EyeOff className="w-3.5 h-3.5 text-muted-foreground" />}
+                {showTrades
+                  ? <Eye className="w-3.5 h-3.5 text-primary" />
+                  : <EyeOff className="w-3.5 h-3.5 text-muted-foreground" />}
               </button>
             </div>
           </div>
@@ -573,7 +679,19 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
           </div>
         )}
 
-        <div className="relative" style={{ height: "clamp(280px, 45vh, 500px)" }}>
+        {(settingSL || settingTP) && (
+          <div className={`px-3 py-1.5 border-b border-border/30 text-xs font-medium flex items-center gap-2 ${
+            settingSL ? "bg-red-500/10 text-red-400" : "bg-green-500/10 text-green-400"
+          }`}>
+            <MousePointer2 className="w-3.5 h-3.5 shrink-0" />
+            {settingSL ? "Clicca sul grafico per impostare Stop Loss" : "Clicca sul grafico per impostare Take Profit"}
+            <button onClick={() => { setSettingSL(false); setSettingTP(false); }} className="ml-auto opacity-60 hover:opacity-100">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
+        <div className="relative" style={{ height: "clamp(300px, 48vh, 520px)" }}>
           {loading && (
             <div className="absolute inset-0 flex flex-col items-center justify-center z-10">
               <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mb-3" />
@@ -588,149 +706,213 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
           )}
           <div
             ref={chartContainerRef}
-            className="w-full h-full"
+            className={`w-full h-full ${settingSL || settingTP ? "cursor-crosshair" : ""}`}
             style={{ visibility: loading || error ? "hidden" : "visible" }}
           />
         </div>
 
-        {!loading && !error && <div className="px-3 py-2 border-t border-border/30">
-          <div className="h-1 rounded-full bg-secondary/40 overflow-hidden mb-2">
-            <div
-              className="h-full bg-primary/60 transition-all duration-200"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1">
-              <Button
-                variant="ghost" size="sm"
-                className="h-8 w-8 p-0"
-                onClick={() => { setRevealedCount((p) => Math.max(START_VISIBLE, p - 10)); }}
-                disabled={revealedCount <= START_VISIBLE}
-              >
-                <SkipBack className="w-3.5 h-3.5" />
-              </Button>
-
-              <Button
-                variant="ghost" size="sm"
-                className="h-8 w-8 p-0"
-                onClick={() => setIsPlaying(!isPlaying)}
-                disabled={revealedCount >= replayCandles.length}
-              >
-                {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-              </Button>
-
-              <Button
-                variant="ghost" size="sm"
-                className="h-8 w-8 p-0"
-                onClick={() => advanceCandle(1)}
-                disabled={isPlaying || revealedCount >= replayCandles.length}
-              >
-                <SkipForward className="w-3.5 h-3.5" />
-              </Button>
-
-              <Button
-                variant="ghost" size="sm"
-                className="h-8 w-8 p-0"
-                onClick={() => advanceCandle(10)}
-                disabled={isPlaying || revealedCount >= replayCandles.length}
-                title="+10 candele"
-              >
-                <ChevronRight className="w-4 h-4" />
-                <ChevronRight className="w-4 h-4 -ml-3" />
-              </Button>
+        {!loading && !error && (
+          <div className="px-3 py-2 border-t border-border/30">
+            <div className="h-1 rounded-full bg-secondary/40 overflow-hidden mb-2">
+              <div
+                className="h-full bg-primary/60 transition-all duration-200"
+                style={{ width: `${progress}%` }}
+              />
             </div>
 
-            <div className="flex items-center gap-1">
-              {SPEEDS.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => setSpeed(s)}
-                  className={`px-2 py-1 rounded text-[10px] font-bold transition-all ${
-                    speed === s
-                      ? "bg-primary/20 text-primary"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost" size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={() => goBack(10)}
+                  disabled={revealedCount <= START_VISIBLE}
+                  title="Indietro 10 candele"
                 >
-                  {s}x
-                </button>
-              ))}
-            </div>
+                  <SkipBack className="w-3.5 h-3.5" />
+                </Button>
 
-            <Button
-              variant="ghost" size="sm"
-              className="h-8 w-8 p-0 text-orange-400"
-              onClick={handleReset}
-              title="Reset"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-            </Button>
+                <Button
+                  variant="ghost" size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={() => goBack(1)}
+                  disabled={revealedCount <= START_VISIBLE}
+                  title="Indietro 1 candela"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </Button>
+
+                <Button
+                  variant="ghost" size="sm"
+                  className="h-8 px-3"
+                  onClick={() => setIsPlaying(!isPlaying)}
+                  disabled={revealedCount >= replayCandles.length}
+                >
+                  {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                </Button>
+
+                <Button
+                  variant="ghost" size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={() => advanceCandle(1)}
+                  disabled={isPlaying || revealedCount >= replayCandles.length}
+                  title="Avanti 1 candela"
+                >
+                  <SkipForward className="w-3.5 h-3.5" />
+                </Button>
+
+                <Button
+                  variant="ghost" size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={() => advanceCandle(10)}
+                  disabled={isPlaying || revealedCount >= replayCandles.length}
+                  title="Avanti 10 candele"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                  <ChevronRight className="w-4 h-4 -ml-3" />
+                </Button>
+              </div>
+
+              <div className="flex items-center gap-1">
+                {SPEEDS.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => setSpeed(s)}
+                    className={`px-2 py-1 rounded text-[10px] font-bold transition-all ${
+                      speed === s
+                        ? "bg-primary/20 text-primary"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {s}x
+                  </button>
+                ))}
+              </div>
+
+              <Button
+                variant="ghost" size="sm"
+                className="h-8 w-8 p-0 text-orange-400"
+                onClick={handleReset}
+                title="Reset"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+              </Button>
+            </div>
           </div>
-        </div>}
+        )}
       </div>
 
-      {!loading && !error && <div className="flex gap-2">
-        <Button
-          onClick={handleBuy}
-          disabled={!!openTrade || isPlaying}
-          className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold"
-        >
-          <TrendingUp className="w-4 h-4 mr-2" />
-          BUY
-        </Button>
-        <Button
-          onClick={handleSell}
-          disabled={!!openTrade || isPlaying}
-          className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold"
-        >
-          <TrendingDown className="w-4 h-4 mr-2" />
-          SELL
-        </Button>
-      </div>}
+      {!loading && !error && (
+        <div className="flex gap-2">
+          <Button
+            onClick={handleBuy}
+            disabled={!!openTrade}
+            className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold h-12 text-base"
+          >
+            <TrendingUp className="w-5 h-5 mr-2" />
+            BUY
+          </Button>
+          <Button
+            onClick={handleSell}
+            disabled={!!openTrade}
+            className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold h-12 text-base"
+          >
+            <TrendingDown className="w-5 h-5 mr-2" />
+            SELL
+          </Button>
+        </div>
+      )}
 
       {openTrade && (
-        <div className="rounded-2xl bg-card/60 backdrop-blur-sm border border-primary/30 p-3 space-y-3">
+        <div className="rounded-2xl bg-card/60 backdrop-blur-sm border border-primary/30 p-4 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className={`px-2 py-0.5 rounded text-xs font-bold ${
+              <span className={`px-2.5 py-1 rounded-lg text-sm font-bold ${
                 openTrade.direction === "buy" ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
               }`}>
                 {openTrade.direction.toUpperCase()}
               </span>
-              <span className="text-xs font-mono">@ {openTrade.entryPrice.toFixed(5)}</span>
+              <span className="text-xs font-mono text-muted-foreground">
+                Entry: {formatPrice(openTrade.entryPrice, symbol)}
+              </span>
             </div>
-            <div className={`text-sm font-mono font-bold ${
+            <div className={`text-lg font-mono font-bold ${
               (openPnL ?? 0) >= 0 ? "text-green-400" : "text-red-400"
             }`}>
-              {(openPnL ?? 0) >= 0 ? "+" : ""}{openPnL?.toFixed(1)} pips
+              {(openPnL ?? 0) >= 0 ? "+" : ""}{openPnL?.toFixed(1)} pip
             </div>
           </div>
 
-          <div className="flex gap-2">
-            <Button
-              variant="outline" size="sm"
-              className={`flex-1 text-xs ${settingSL ? "border-red-500 text-red-400" : ""} ${openTrade.stopLoss ? "border-red-500/30" : ""}`}
-              onClick={handleSetSL}
-            >
-              {settingSL ? "Clicca sul grafico..." : openTrade.stopLoss ? `SL: ${openTrade.stopLoss.toFixed(5)}` : "Imposta SL"}
-            </Button>
-            <Button
-              variant="outline" size="sm"
-              className={`flex-1 text-xs ${settingTP ? "border-green-500 text-green-400" : ""} ${openTrade.takeProfit ? "border-green-500/30" : ""}`}
-              onClick={handleSetTP}
-            >
-              {settingTP ? "Clicca sul grafico..." : openTrade.takeProfit ? `TP: ${openTrade.takeProfit.toFixed(5)}` : "Imposta TP"}
-            </Button>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <label className="text-[10px] text-red-400 uppercase tracking-wider font-medium">Stop Loss</label>
+              <div className="flex gap-1">
+                <Input
+                  type="number"
+                  step="any"
+                  value={slInput}
+                  onChange={(e) => handleSLInputChange(e.target.value)}
+                  placeholder={formatPrice(currentPrice, symbol)}
+                  className="h-8 text-xs font-mono border-red-500/30 focus:border-red-500/60"
+                />
+                <button
+                  onClick={handleSetSL}
+                  className={`px-2 rounded border text-[10px] shrink-0 transition-all ${
+                    settingSL
+                      ? "border-red-500 bg-red-500/20 text-red-400"
+                      : "border-red-500/30 text-red-400/60 hover:border-red-500/60"
+                  }`}
+                  title="Clicca sul grafico"
+                >
+                  <MousePointer2 className="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] text-green-400 uppercase tracking-wider font-medium">Take Profit</label>
+              <div className="flex gap-1">
+                <Input
+                  type="number"
+                  step="any"
+                  value={tpInput}
+                  onChange={(e) => handleTPInputChange(e.target.value)}
+                  placeholder={formatPrice(currentPrice, symbol)}
+                  className="h-8 text-xs font-mono border-green-500/30 focus:border-green-500/60"
+                />
+                <button
+                  onClick={handleSetTP}
+                  className={`px-2 rounded border text-[10px] shrink-0 transition-all ${
+                    settingTP
+                      ? "border-green-500 bg-green-500/20 text-green-400"
+                      : "border-green-500/30 text-green-400/60 hover:border-green-500/60"
+                  }`}
+                  title="Clicca sul grafico"
+                >
+                  <MousePointer2 className="w-3 h-3" />
+                </button>
+              </div>
+            </div>
           </div>
 
+          {openTrade.stopLoss && openTrade.takeProfit && (
+            <div className="text-[10px] text-muted-foreground/60 font-mono text-center">
+              {(() => {
+                const risk = Math.abs(openTrade.entryPrice - openTrade.stopLoss) * pipMultiplier;
+                const reward = Math.abs(openTrade.entryPrice - openTrade.takeProfit) * pipMultiplier;
+                const rr = risk > 0 ? (reward / risk).toFixed(2) : "—";
+                return `Risk: ${risk.toFixed(1)} pip · Reward: ${reward.toFixed(1)} pip · R:R ${rr}`;
+              })()}
+            </div>
+          )}
+
           <Button
-            variant="outline" size="sm"
-            className="w-full text-orange-400 border-orange-500/30"
+            variant="outline"
+            size="sm"
+            className="w-full text-orange-400 border-orange-500/30 hover:bg-orange-500/10"
             onClick={handleCloseTrade}
           >
             <X className="w-3.5 h-3.5 mr-2" />
-            Chiudi Trade al prezzo corrente ({currentPrice.toFixed(5)})
+            Chiudi al prezzo corrente · {formatPrice(currentPrice, symbol)}
           </Button>
         </div>
       )}
@@ -754,7 +936,7 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
             </div>
           </div>
           <div className="rounded-xl bg-card/40 border border-border/30 p-2 text-center">
-            <div className="text-[10px] text-muted-foreground">W/L</div>
+            <div className="text-[10px] text-muted-foreground">W / L</div>
             <div className="text-sm font-bold font-mono">
               <span className="text-green-400">{stats.wins}</span>
               <span className="text-muted-foreground">/</span>
@@ -764,41 +946,37 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
         </div>
       )}
 
-      {trades.length > 0 && showTradePanel && (
-        <div className="rounded-2xl bg-card/40 border border-border/30 p-3 space-y-2 max-h-48 overflow-y-auto">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Storico Trade</span>
-            <button onClick={() => setShowTradePanel(false)} className="text-muted-foreground hover:text-foreground">
-              <ChevronLeft className="w-3.5 h-3.5" />
-            </button>
-          </div>
-          {trades.map((t) => (
-            <div key={t.id} className="flex items-center justify-between text-xs py-1 border-b border-border/20 last:border-0">
-              <div className="flex items-center gap-2">
-                <span className={t.direction === "buy" ? "text-green-400" : "text-red-400"}>
-                  {t.direction.toUpperCase()}
-                </span>
-                <span className="font-mono text-muted-foreground">
-                  {t.entryPrice.toFixed(5)} → {t.exitPrice?.toFixed(5)}
-                </span>
-              </div>
-              <span className={`font-bold font-mono ${
-                t.result === "win" ? "text-green-400" : t.result === "loss" ? "text-red-400" : "text-yellow-400"
-              }`}>
-                {(t.pips ?? 0) >= 0 ? "+" : ""}{t.pips?.toFixed(1)} pips
-              </span>
+      {trades.length > 0 && (
+        <div className="rounded-2xl bg-card/40 border border-border/30 overflow-hidden">
+          <button
+            onClick={() => setShowTradePanel(!showTradePanel)}
+            className="w-full flex items-center justify-between px-4 py-2.5 text-xs font-bold text-muted-foreground uppercase tracking-wider hover:bg-white/5 transition-colors"
+          >
+            <span>Storico trade ({trades.length})</span>
+            <ChevronRight className={`w-3.5 h-3.5 transition-transform ${showTradePanel ? "rotate-90" : ""}`} />
+          </button>
+          {showTradePanel && (
+            <div className="max-h-48 overflow-y-auto divide-y divide-border/20 border-t border-border/20">
+              {trades.map((t) => (
+                <div key={t.id} className="flex items-center justify-between text-xs px-4 py-2">
+                  <div className="flex items-center gap-2">
+                    <span className={t.direction === "buy" ? "text-green-400 font-bold" : "text-red-400 font-bold"}>
+                      {t.direction.toUpperCase()}
+                    </span>
+                    <span className="font-mono text-muted-foreground text-[10px]">
+                      {formatPrice(t.entryPrice, symbol)} → {t.exitPrice != null ? formatPrice(t.exitPrice, symbol) : "—"}
+                    </span>
+                  </div>
+                  <span className={`font-bold font-mono ${
+                    t.result === "win" ? "text-green-400" : t.result === "loss" ? "text-red-400" : "text-yellow-400"
+                  }`}>
+                    {(t.pips ?? 0) >= 0 ? "+" : ""}{t.pips?.toFixed(1)} pip
+                  </span>
+                </div>
+              ))}
             </div>
-          ))}
+          )}
         </div>
-      )}
-
-      {trades.length > 0 && !showTradePanel && (
-        <button
-          onClick={() => setShowTradePanel(true)}
-          className="w-full text-xs text-muted-foreground hover:text-foreground py-2 text-center"
-        >
-          Mostra storico ({trades.length} trade)
-        </button>
       )}
     </div>
   );
