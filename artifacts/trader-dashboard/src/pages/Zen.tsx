@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageLayout } from "@/components/PageLayout";
+import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -403,18 +404,19 @@ function MeditationTimer() {
 export default function Zen() {
   return (
     <PageLayout>
+      <PageHeader title="Zona Zen" subtitle="Respira, medita e coltiva la mentalità giusta" />
       <motion.section
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
       >
         <Tabs defaultValue="breathing" className="w-full">
-          <TabsList className="flex w-full h-auto gap-1 bg-card/50 backdrop-blur-md p-1.5 rounded-xl border border-border/40 mb-4">
-            <TabsTrigger value="breathing" className="flex-1 text-xs py-2">Respira</TabsTrigger>
-            <TabsTrigger value="visualization" className="flex-1 text-xs py-2">Visualizza</TabsTrigger>
-            <TabsTrigger value="quotes" className="flex-1 text-xs py-2">Frasi</TabsTrigger>
-            <TabsTrigger value="gratitude" className="flex-1 text-xs py-2">Gratitudine</TabsTrigger>
-            <TabsTrigger value="meditation" className="flex-1 text-xs py-2">Meditazione</TabsTrigger>
+          <TabsList className="flex w-full h-auto gap-1 bg-card/50 backdrop-blur-md p-1.5 rounded-xl border border-border mb-4 overflow-x-auto">
+            <TabsTrigger value="breathing" className="flex items-center justify-center px-3 py-2 rounded-xl text-xs font-semibold data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm flex-1">Respira</TabsTrigger>
+            <TabsTrigger value="visualization" className="flex items-center justify-center px-3 py-2 rounded-xl text-xs font-semibold data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm flex-1">Visualizza</TabsTrigger>
+            <TabsTrigger value="quotes" className="flex items-center justify-center px-3 py-2 rounded-xl text-xs font-semibold data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm flex-1">Frasi</TabsTrigger>
+            <TabsTrigger value="gratitude" className="flex items-center justify-center px-3 py-2 rounded-xl text-xs font-semibold data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm flex-1">Gratitudine</TabsTrigger>
+            <TabsTrigger value="meditation" className="flex items-center justify-center px-3 py-2 rounded-xl text-xs font-semibold data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm flex-1">Meditazione</TabsTrigger>
           </TabsList>
 
           <TabsContent value="breathing" className="mt-0">

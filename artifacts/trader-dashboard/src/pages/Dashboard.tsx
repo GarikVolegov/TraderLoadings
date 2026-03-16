@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { PageLayout } from "@/components/PageLayout";
+import { PageHeader } from "@/components/PageHeader";
 import { ClockWidget } from "@/components/ClockWidget";
 import { QuoteWidget } from "@/components/QuoteWidget";
 import { MissionsWidget } from "@/components/MissionsWidget";
@@ -13,6 +14,7 @@ export default function Dashboard() {
 
   return (
     <PageLayout>
+      <PageHeader title="Dashboard" subtitle="Panoramica giornaliera del tuo trading" />
       <motion.section
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
