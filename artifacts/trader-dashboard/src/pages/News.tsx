@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { Newspaper, TrendingUp, TrendingDown, Minus, RefreshCw, ExternalLink, Rss, Cpu } from "lucide-react";
 import { PageLayout } from "@/components/PageLayout";
+import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -79,16 +80,16 @@ export default function News() {
 
   return (
     <PageLayout>
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl sm:text-3xl font-bold font-mono">Notizie Macro</h2>
-          <p className="text-muted-foreground mt-1">News su oro (XAU) e dollaro (USD) in tempo reale.</p>
-        </div>
-        <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isFetching}>
-          <RefreshCw className={`w-4 h-4 mr-2 ${isFetching ? "animate-spin" : ""}`} />
-          Aggiorna
-        </Button>
-      </div>
+      <PageHeader
+        title="Notizie Macro"
+        subtitle="News su oro (XAU) e dollaro (USD) in tempo reale."
+        action={
+          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isFetching}>
+            <RefreshCw className={`w-4 h-4 mr-2 ${isFetching ? "animate-spin" : ""}`} />
+            Aggiorna
+          </Button>
+        }
+      />
 
       {isLoading ? (
         <div className="space-y-4">
@@ -118,7 +119,7 @@ export default function News() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: idx * 0.07 }}
               >
-                <Card className="glass-card hover:border-primary/40 transition-all duration-200 group">
+                <Card className="bg-card/60 backdrop-blur-sm border-border/30 hover:border-primary/40 transition-all duration-200 group">
                   <CardContent className="p-3 sm:p-5">
                     <div className="flex items-start justify-between gap-4 mb-2">
                       <h3 className="font-bold text-base leading-snug group-hover:text-primary transition-colors flex-1">
@@ -161,7 +162,7 @@ export default function News() {
           </div>
         </>
       ) : (
-        <Card className="glass-card">
+        <Card className="bg-card/60 backdrop-blur-sm border-border/30">
           <CardContent className="p-16 text-center">
             <Newspaper className="w-14 h-14 mx-auto mb-5 opacity-15" />
             <h3 className="text-xl font-bold mb-2">Nessuna notizia disponibile</h3>

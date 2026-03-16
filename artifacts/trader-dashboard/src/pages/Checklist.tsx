@@ -2,6 +2,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckSquare, Plus, Trash2, Check, GripVertical } from "lucide-react";
 import { PageLayout } from "@/components/PageLayout";
+import { PageHeader } from "@/components/PageHeader";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,17 +65,15 @@ export default function Checklist() {
 
   return (
     <PageLayout>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
-        <div>
-          <h2 className="text-2xl sm:text-3xl font-bold font-mono">Checklist Pre-Trade</h2>
-          <p className="text-muted-foreground mt-1 text-sm sm:text-base">Verifica ogni passaggio prima di entrare in trade.</p>
-        </div>
-        {total > 0 && (
+      <PageHeader
+        title="Checklist Pre-Trade"
+        subtitle="Verifica ogni passaggio prima di entrare in trade."
+        action={total > 0 ? (
           <Button variant="outline" size="sm" onClick={handleResetAll}>
             Reset Giornaliero
           </Button>
-        )}
-      </div>
+        ) : undefined}
+      />
 
       {total > 0 && (
         <Card className="p-4">

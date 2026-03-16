@@ -4,6 +4,7 @@ import { format, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth, sub
 import { it } from "date-fns/locale";
 import { Plus, Edit2, Trash2, Image as ImageIcon, CalendarDays, Tag, Lightbulb, Target, BookOpen, Check, TrendingUp, TrendingDown, Minus, ChevronLeft, ChevronRight, BarChart3, Calendar, Bell, BellOff, CalendarPlus, RefreshCw } from "lucide-react";
 import { PageLayout } from "@/components/PageLayout";
+import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -66,7 +67,7 @@ function TradesTab() {
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {[1, 2, 3].map(i => (
-            <div key={i} className="glass-card h-64 rounded-2xl animate-pulse bg-white/5" />
+            <div key={i} className="h-64 rounded-2xl animate-pulse bg-card/60 border border-border/30" />
           ))}
         </div>
       ) : entries && entries.length > 0 ? (
@@ -83,7 +84,7 @@ function TradesTab() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95 }}
                     transition={{ delay: idx * 0.05 }}
-                    className="glass-card rounded-2xl p-3 sm:p-5 flex flex-col group hover:border-primary/50 transition-colors"
+                    className="bg-card/60 backdrop-blur-sm border border-border/30 rounded-2xl p-3 sm:p-5 flex flex-col group hover:border-primary/50 transition-colors"
                   >
                     <div className="flex justify-between items-start mb-3">
                       <div className="flex items-center gap-2 text-sm text-muted-foreground font-medium">
@@ -140,7 +141,7 @@ function TradesTab() {
           </AnimatePresence>
         </div>
       ) : (
-        <Card className="glass-card border-dashed border-white/10">
+        <Card className="bg-card/60 backdrop-blur-sm border-dashed border-border/30">
           <CardContent className="p-16 text-center">
             <BookOpen className="w-12 h-12 mx-auto mb-4 opacity-20" />
             <h3 className="text-xl font-bold mb-2">Nessun trade registrato</h3>
@@ -344,7 +345,7 @@ function IdeasTab({ type }: { type: "idea" | "goal" }) {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, x: -20 }}
                 transition={{ delay: idx * 0.04 }}
-                className="glass-card rounded-xl p-4 flex items-start gap-4 group hover:border-primary/40 transition-colors"
+                className="bg-card/60 backdrop-blur-sm border border-border/30 rounded-xl p-4 flex items-start gap-4 group hover:border-primary/40 transition-colors"
               >
                 <button
                   onClick={() => handleToggle(item.id, item.content, item.completed)}
@@ -704,12 +705,7 @@ export default function Journal() {
 
   return (
     <PageLayout>
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl sm:text-3xl font-bold font-mono">Diario</h2>
-          <p className="text-muted-foreground mt-1">Registra trade, idee e obiettivi di trading.</p>
-        </div>
-      </div>
+      <PageHeader title="Diario" subtitle="Registra trade, idee e obiettivi di trading." />
 
       <div className="flex items-center gap-1 bg-card/50 backdrop-blur-md p-1.5 rounded-xl border border-border w-full overflow-x-auto">
         {tabs.map(t => {

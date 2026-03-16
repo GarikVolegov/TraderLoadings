@@ -6,6 +6,7 @@ import {
   AreaChart, Area, BarChart, Bar, Cell, ReferenceLine, Legend,
 } from "recharts";
 import { PageLayout } from "@/components/PageLayout";
+import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1511,7 +1512,7 @@ function BacktestTool() {
                 exit={{ opacity: 0, scale: 0.95 }}
                 transition={{ delay: idx * 0.05 }}
                 onClick={() => setActiveSession(session)}
-                className="glass-card rounded-2xl p-4 cursor-pointer group hover:border-primary/50 transition-colors relative"
+                className="bg-card/60 backdrop-blur-sm border border-border/30 rounded-2xl p-4 cursor-pointer group hover:border-primary/50 transition-colors relative"
               >
                 <div className="flex items-center justify-between mb-3">
                   <div className="min-w-0">
@@ -1550,10 +1551,7 @@ const TABS = [
 export default function Tools() {
   return (
     <PageLayout>
-      <div className="space-y-1 mb-4">
-        <h1 className="text-xl font-bold font-mono tracking-tight">Strumenti Avanzati</h1>
-        <p className="text-xs text-muted-foreground">Analisi quantitativa, sentiment e dati istituzionali</p>
-      </div>
+      <PageHeader title="Strumenti Avanzati" subtitle="Analisi quantitativa, sentiment e dati istituzionali" />
 
       <Tabs defaultValue="montecarlo">
         <TabsList className="flex w-full h-auto gap-1 bg-card/50 backdrop-blur-md p-1.5 rounded-xl border border-border mb-4 overflow-x-auto">

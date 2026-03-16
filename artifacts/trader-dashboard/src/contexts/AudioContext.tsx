@@ -125,6 +125,10 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (hasAutoStarted.current) return;
 
+    const safetyTimeout = setTimeout(() => {
+      completeLoading();
+    }, 2000);
+
     const tryAutoStart = () => {
       if (hasAutoStarted.current) return;
       hasAutoStarted.current = true;
@@ -145,6 +149,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       setModeRef.current(modeToStart);
 
       setTimeout(() => {
+        clearTimeout(safetyTimeout);
         completeLoading();
       }, 800);
 
@@ -153,10 +158,8 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       document.removeEventListener("touchstart", tryAutoStart, true);
     };
 
-    // Try immediately on mount
     tryAutoStart();
     
-    // Fallback: retry on user interaction if initial attempt didn't work
     if (!hasAutoStarted.current) {
       document.addEventListener("click", tryAutoStart, true);
       document.addEventListener("keydown", tryAutoStart, true);
@@ -164,6 +167,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     }
 
     return () => {
+      clearTimeout(safetyTimeout);
       document.removeEventListener("click", tryAutoStart, true);
       document.removeEventListener("keydown", tryAutoStart, true);
       document.removeEventListener("touchstart", tryAutoStart, true);

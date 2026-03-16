@@ -7,6 +7,7 @@ import {
   BarChart3, FlaskConical, ChevronRight, Play,
 } from "lucide-react";
 import { PageLayout } from "@/components/PageLayout";
+import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -504,19 +505,16 @@ export default function Backtest() {
 
   return (
     <PageLayout>
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl sm:text-3xl font-bold font-mono flex items-center gap-2">
-            <FlaskConical className="w-7 h-7 text-primary" />
-            Backtest
-          </h2>
-          <p className="text-muted-foreground mt-1">Replay su grafici reali. Testa le tue strategie come su FX Replay.</p>
-        </div>
-        <Button onClick={() => setShowNew(!showNew)}>
-          <Plus className="w-4 h-4 mr-2" />
-          Nuova Sessione
-        </Button>
-      </div>
+      <PageHeader
+        title="Backtest"
+        subtitle="Replay su grafici reali. Testa le tue strategie come su FX Replay."
+        action={
+          <Button onClick={() => setShowNew(!showNew)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Nuova Sessione
+          </Button>
+        }
+      />
 
       <AnimatePresence>
         {showNew && (
@@ -555,7 +553,7 @@ export default function Backtest() {
                 exit={{ opacity: 0, scale: 0.95 }}
                 transition={{ delay: idx * 0.05 }}
                 onClick={() => setActiveSession(session)}
-                className="glass-card rounded-2xl p-4 sm:p-5 cursor-pointer group hover:border-primary/50 transition-colors relative"
+                className="bg-card/60 backdrop-blur-sm border border-border/30 rounded-2xl p-4 sm:p-5 cursor-pointer group hover:border-primary/50 transition-colors relative"
               >
                 <div className="flex items-start justify-between mb-3">
                   <div>
