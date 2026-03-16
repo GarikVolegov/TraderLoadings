@@ -5,7 +5,6 @@ import { useGetUnreadCount } from "@workspace/api-client-react";
 const NAV_ITEMS = [
   { href: "/", icon: LayoutDashboard, label: "Home" },
   { href: "/journal", icon: BookOpen, label: "Diario" },
-  { href: "/backtest", icon: TrendingDown, label: "Backtest" },
   { href: "/tools", icon: Wrench, label: "Strumenti" },
   { href: "/zen", icon: Brain, label: "Zen" },
   { href: "/chat", icon: MessageCircle, label: "Chat" },
