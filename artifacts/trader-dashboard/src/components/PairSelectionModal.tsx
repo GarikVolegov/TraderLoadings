@@ -91,9 +91,9 @@ export function PairSelectionModal({ open, onConfirm, initialPairs = [], dismiss
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.92, opacity: 0, y: 20 }}
           transition={{ type: "spring", damping: 25, stiffness: 300 }}
-          className="w-full max-w-lg bg-card border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]"
+          className="w-full max-w-lg bg-card border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
         >
-          <div className="p-5 border-b border-border">
+          <div className="p-5 border-b border-border shrink-0">
             <div className="flex items-center justify-between mb-1">
               <h2 className="text-lg font-bold">Scegli i tuoi Strumenti</h2>
               {dismissible && (
@@ -108,7 +108,7 @@ export function PairSelectionModal({ open, onConfirm, initialPairs = [], dismiss
           </div>
 
           {selected.length > 0 && (
-            <div className="px-5 pt-3 flex flex-wrap gap-1.5">
+            <div className="px-5 pt-3 flex flex-wrap gap-1.5 shrink-0">
               {selected.map((sym) => {
                 const entry = PAIR_CATALOG.find((p) => p.symbol === sym);
                 return (
@@ -126,7 +126,7 @@ export function PairSelectionModal({ open, onConfirm, initialPairs = [], dismiss
             </div>
           )}
 
-          <div className="px-5 pt-3">
+          <div className="px-5 pt-3 shrink-0">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
@@ -194,7 +194,7 @@ export function PairSelectionModal({ open, onConfirm, initialPairs = [], dismiss
             )}
           </div>
 
-          <div className="sticky bottom-0 p-5 border-t border-border flex items-center justify-between bg-card/95 backdrop-blur-sm">
+          <div className="p-5 border-t border-border flex items-center justify-between bg-card shrink-0">
             <span className="text-xs text-muted-foreground">
               {selected.length} pair selezionat{selected.length === 1 ? "o" : "i"}
             </span>
