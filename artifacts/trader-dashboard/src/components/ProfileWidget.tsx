@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Trophy, Edit2, Hexagon, Star, Upload, Sparkles, Check, X, Loader2, Flame } from "lucide-react";
+import { Edit2, Hexagon, Star, Upload, Sparkles, Check, X, Loader2, Flame } from "lucide-react";
 import { getLevelName, getLevelBadge } from "@/utils/levelNames";
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
@@ -197,7 +197,6 @@ export function ProfileWidget() {
                   <span>{streak}d</span>
                 </div>
               )}
-              <Trophy className="w-6 h-6 text-accent/40" />
             </div>
           </div>
 
