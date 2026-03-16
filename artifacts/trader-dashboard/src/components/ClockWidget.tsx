@@ -19,6 +19,32 @@ function isInSession(utcHours: number, session: TradingSessionConfig): boolean {
   return utcHours >= open || utcHours < close;
 }
 
+function getNextSession(utcHours: number, sessions: TradingSessionConfig[]): { session: TradingSessionConfig; minutesUntil: number } | null {
+  const enabled = sessions.filter(s => s.enabled);
+  if (enabled.length === 0) return null;
+
+  let best: { session: TradingSessionConfig; minutesUntil: number } | null = null;
+
+  for (const s of enabled) {
+    const open = parseTime(s.openUTC);
+    let diff = open - utcHours;
+    if (diff <= 0) diff += 24;
+    const minutes = Math.round(diff * 60);
+    if (!best || minutes < best.minutesUntil) {
+      best = { session: s, minutesUntil: minutes };
+    }
+  }
+
+  return best;
+}
+
+function formatCountdown(totalMinutes: number): string {
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+
 export function ClockWidget() {
   const [time, setTime] = useState(new Date());
   const { tradingSessions } = useBackground();
@@ -44,6 +70,12 @@ export function ClockWidget() {
     const enabledSessions = tradingSessions.filter(s => s.enabled);
     return enabledSessions.find(s => isInSession(utcHours, s)) || null;
   }, [time, tradingSessions]);
+
+  const nextSessionInfo = useMemo(() => {
+    if (activeSession) return null;
+    const utcHours = time.getUTCHours() + time.getUTCMinutes() / 60;
+    return getNextSession(utcHours, tradingSessions);
+  }, [time, tradingSessions, activeSession]);
 
   useEffect(() => {
     const sessionName = activeSession?.name || null;
@@ -83,6 +115,8 @@ export function ClockWidget() {
   const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
   const marketStatus = isWeekend ? "Mercato chiuso" : "Mercato aperto";
 
+  const utcTimeStr = `UTC ${String(time.getUTCHours()).padStart(2, "0")}:${String(time.getUTCMinutes()).padStart(2, "0")}`;
+
   return (
     <Card className="overflow-hidden border-t-4 border-t-primary/50 relative">
       <div className="absolute top-0 right-0 p-32 opacity-5 pointer-events-none">
@@ -104,6 +138,14 @@ export function ClockWidget() {
             <p className="text-muted-foreground font-medium uppercase tracking-widest text-[9px] sm:text-xs leading-tight">
               {format(time, "EEEE", { locale: it })}
             </p>
+            <p className="text-primary/80 font-mono text-[10px] sm:text-xs leading-tight mt-0.5">
+              {utcTimeStr}
+            </p>
+            {nextSessionInfo && (
+              <p className="text-muted-foreground text-[9px] sm:text-[10px] leading-tight mt-0.5 truncate max-w-[100px] sm:max-w-none">
+                {nextSessionInfo.session.name} tra {formatCountdown(nextSessionInfo.minutesUntil)}
+              </p>
+            )}
           </div>
 
           {activeSession && activeColors && (

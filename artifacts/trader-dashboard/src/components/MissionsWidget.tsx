@@ -1,7 +1,8 @@
 import { useQueryClient } from "@tanstack/react-query";
 import confetti from "canvas-confetti";
-import { CheckCircle2, Circle, Target, Zap, ChevronRight, CalendarPlus } from "lucide-react";
+import { CheckCircle2, Circle, Target, Zap, ChevronRight, CalendarPlus, ArrowRight, Settings } from "lucide-react";
 import { motion } from "framer-motion";
+import { Link } from "wouter";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -32,7 +33,6 @@ export function MissionsWidget() {
   const completeMutation = useCompleteMission({
     mutation: {
       onSuccess: (data) => {
-        // Invalidate to refresh lists
         queryClient.invalidateQueries({ queryKey: getGetMissionsQueryKey() });
         queryClient.invalidateQueries({ queryKey: getGetProfileQueryKey() });
         
@@ -105,13 +105,22 @@ export function MissionsWidget() {
       
       <CardContent className="p-0">
         {isLoading ? (
-          <div className="p-8 flex justify-center">
+          <div className="p-4 flex justify-center">
             <div className="w-8 h-8 rounded-full border-4 border-primary border-t-transparent animate-spin" />
           </div>
         ) : !missions || missions.length === 0 ? (
-          <div className="p-8 text-center text-muted-foreground font-medium">
-            Nessuna missione disponibile oggi.
-          </div>
+          <Link href="/settings">
+            <div className="px-4 py-4 flex items-center gap-3 text-muted-foreground hover:text-foreground hover:bg-secondary/20 transition-colors cursor-pointer group">
+              <Settings className="w-5 h-5 opacity-40 group-hover:opacity-70 transition-opacity shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium">Nessuna missione disponibile oggi</p>
+                <span className="text-xs flex items-center gap-1 text-primary mt-0.5">
+                  Configura le missioni in Impostazioni
+                  <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-0.5" />
+                </span>
+              </div>
+            </div>
+          </Link>
         ) : (
           <div className="divide-y divide-border/50">
             {missions.map((mission, idx) => (

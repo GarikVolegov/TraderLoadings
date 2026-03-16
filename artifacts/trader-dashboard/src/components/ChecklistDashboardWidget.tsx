@@ -7,13 +7,30 @@ import { useGetChecklist } from "@workspace/api-client-react";
 export function ChecklistDashboardWidget() {
   const { data: items, isLoading } = useGetChecklist();
 
+  const completed = items?.filter((i) => i.completed).length ?? 0;
+  const total = items?.length ?? 0;
+  const progressPct = total > 0 ? (completed / total) * 100 : 0;
+
   return (
     <Card className="h-full relative overflow-hidden bg-card/60 backdrop-blur-sm border-border/30">
       <CardHeader className="pb-3 sm:pb-4 px-3 sm:px-6 pt-3 sm:pt-6 border-b border-border/30">
         <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
           <ClipboardCheck className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
           Checklist Pre-Trade
+          {total > 0 && (
+            <span className="ml-auto text-xs sm:text-sm font-mono text-muted-foreground">
+              {completed}/{total}
+            </span>
+          )}
         </CardTitle>
+        {total > 0 && (
+          <div className="w-full h-1.5 bg-secondary rounded-full overflow-hidden mt-2">
+            <div
+              className="h-full bg-primary rounded-full transition-all duration-500"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+        )}
       </CardHeader>
 
       <CardContent className="p-3 sm:p-4">
