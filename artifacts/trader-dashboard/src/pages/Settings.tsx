@@ -1125,15 +1125,7 @@ export default function Settings() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0 }}
-          className="space-y-2"
         >
-          <div className="flex items-center gap-3 px-4 py-3">
-            <div className="text-primary"><UserPlus className="w-6 h-6" /></div>
-            <div>
-              <h2 className="text-lg font-bold">Profilo</h2>
-              <p className="text-xs text-muted-foreground">Nome, avatar, XP</p>
-            </div>
-          </div>
           <div className="bg-card/60 backdrop-blur-sm border border-border rounded-2xl p-5 sm:p-6">
             <ProfileWidget />
           </div>
