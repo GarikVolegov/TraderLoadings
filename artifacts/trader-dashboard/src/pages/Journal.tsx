@@ -177,7 +177,18 @@ function IdeasTab({ type }: { type: "idea" | "goal" }) {
   const deleteMutation = useDeleteIdea();
   const invalidate = () => qc.invalidateQueries({ queryKey: getGetIdeasQueryKey() });
 
-  const items = all?.filter(i => i.type === type) ?? [];
+  const baseItems = all?.filter(i => i.type === type) ?? [];
+  // Filtra gli obiettivi per mostrare solo quelli con data nel futuro
+  const items = baseItems.filter(item => {
+    if (type === "goal" && item.deadlineDate) {
+      const deadlineDate = parseISO(item.deadlineDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      return deadlineDate >= today;
+    }
+    // Le idee senza deadline vengono sempre mostrate
+    return true;
+  });
   const Icon = type === "idea" ? Lightbulb : Target;
   const label = type === "idea" ? "idea" : "obiettivo";
   const placeholder = type === "idea" ? "Nuova strategia o osservazione..." : "Obiettivo da raggiungere...";
