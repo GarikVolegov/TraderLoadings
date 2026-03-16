@@ -194,7 +194,7 @@ export function PairSelectionModal({ open, onConfirm, initialPairs = [], dismiss
             )}
           </div>
 
-          <div className="p-5 border-t border-border flex items-center justify-between">
+          <div className="sticky bottom-0 p-5 border-t border-border flex items-center justify-between bg-card/95 backdrop-blur-sm">
             <span className="text-xs text-muted-foreground">
               {selected.length} pair selezionat{selected.length === 1 ? "o" : "i"}
             </span>
