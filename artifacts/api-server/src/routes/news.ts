@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { getCurrenciesFromPairs } from "@workspace/pair-catalog";
 
 const router: IRouter = Router();
 
@@ -11,7 +12,7 @@ interface NewsArticle {
   sentiment: string | null;
 }
 
-let cache: { data: unknown; ts: number } | null = null;
+let cache: { data: unknown; ts: number; key: string } | null = null;
 const CACHE_TTL = 10 * 60 * 1000; // 10 min
 
 function extractCDATA(block: string, tag: string): string {
@@ -82,7 +83,46 @@ async function fetchFeed(url: string, sourceName: string): Promise<NewsArticle[]
   return parseRSS(xml, sourceName);
 }
 
-async function fetchRSSNews(): Promise<NewsArticle[]> {
+const PAIR_KEYWORDS: Record<string, string[]> = {
+  EUR: ["euro", "eur", "ecb", "bce", "lagarde", "eurozone"],
+  USD: ["dollar", "usd", "dxy", "fed", "fomc", "powell", "treasury", "nonfarm", "payroll"],
+  GBP: ["pound", "gbp", "sterling", "boe", "bank of england", "bailey"],
+  JPY: ["yen", "jpy", "boj", "bank of japan", "ueda"],
+  CHF: ["swiss", "chf", "snb", "franc"],
+  CAD: ["canadian", "cad", "boc", "bank of canada"],
+  AUD: ["aussie", "aud", "rba", "reserve bank of australia"],
+  NZD: ["kiwi", "nzd", "rbnz"],
+  XAU: ["gold", "xau", "bullion", "world gold council"],
+  XAG: ["silver", "xag"],
+  BTC: ["bitcoin", "btc", "crypto"],
+  ETH: ["ethereum", "eth"],
+  MXN: ["peso", "mxn", "banxico"],
+  ZAR: ["rand", "zar", "sarb"],
+  TRY: ["lira", "try", "tcmb"],
+  SGD: ["singapore", "sgd", "mas"],
+  HKD: ["hong kong", "hkd", "hkma"],
+  NOK: ["krone", "nok", "norges"],
+  SEK: ["krona", "sek", "riksbank"],
+};
+
+function buildKeywordsRegex(pairCurrencies: string[]): RegExp {
+  const baseKeywords = ["inflation", "gdp", "cpi", "rate\\s*(cut|hike|decision)", "central\\s*bank", "monetary\\s*policy", "yield"];
+  const pairKw: string[] = [];
+  for (const c of pairCurrencies) {
+    const kws = PAIR_KEYWORDS[c.toUpperCase()];
+    if (kws) pairKw.push(...kws);
+  }
+  const allKw = [...new Set([...baseKeywords, ...pairKw])];
+  return new RegExp(allKw.join("|"), "i");
+}
+
+function pairsToCurrencies(pairsStr: string): string[] {
+  if (!pairsStr) return [];
+  const symbols = pairsStr.split(",").map((s) => s.trim()).filter(Boolean);
+  return getCurrenciesFromPairs(symbols);
+}
+
+async function fetchRSSNews(pairCurrencies: string[]): Promise<NewsArticle[]> {
   const feeds = [
     { url: "https://seekingalpha.com/tag/gold.xml", source: "Seeking Alpha – Gold" },
     { url: "https://seekingalpha.com/tag/forex.xml", source: "Seeking Alpha – Forex" },
@@ -101,10 +141,9 @@ async function fetchRSSNews(): Promise<NewsArticle[]> {
     }
   }
 
-  const keywords = /gold|xau|dollar|usd|dxy|fed|fomc|powell|treasury|yield|inflation|gdp|cpi|nonfarm|payroll|rate\s*(cut|hike|decision)|central\s*bank|monetary\s*policy/i;
+  const keywords = buildKeywordsRegex(pairCurrencies);
   const filtered = all.filter((a) => keywords.test(a.title) || keywords.test(a.summary));
 
-  // Deduplicate by title prefix
   const seen = new Set<string>();
   const deduped = (filtered.length >= 5 ? filtered : all).filter((a) => {
     const key = a.title.toLowerCase().slice(0, 50);
@@ -113,7 +152,6 @@ async function fetchRSSNews(): Promise<NewsArticle[]> {
     return true;
   });
 
-  // Sort by date descending
   deduped.sort((a, b) => {
     if (!a.publishedAt && !b.publishedAt) return 0;
     if (!a.publishedAt) return 1;
@@ -124,7 +162,11 @@ async function fetchRSSNews(): Promise<NewsArticle[]> {
   return deduped.slice(0, 10);
 }
 
-async function tryPerplexity(apiKey: string): Promise<NewsArticle[] | null> {
+async function tryPerplexity(apiKey: string, pairCurrencies: string[]): Promise<NewsArticle[] | null> {
+  const currencyFocus = pairCurrencies.length > 0
+    ? pairCurrencies.join(", ")
+    : "gold (XAU/USD) or the US dollar";
+
   try {
     const response = await fetch("https://api.perplexity.ai/chat/completions", {
       method: "POST",
@@ -141,7 +183,7 @@ async function tryPerplexity(apiKey: string): Promise<NewsArticle[] | null> {
           },
           {
             role: "user",
-            content: `Give me the 5 most recent macro-economic news (last 24h) affecting gold (XAU/USD) or the US dollar.
+            content: `Give me the 5 most recent macro-economic news (last 24h) affecting ${currencyFocus}.
 Return ONLY this JSON (no markdown): {"articles":[{"title":"...","summary":"2-3 sentences","source":"...","publishedAt":"ISO date","sentiment":"bullish|bearish|neutral","url":null}]}`,
           },
         ],
@@ -165,7 +207,11 @@ Return ONLY this JSON (no markdown): {"articles":[{"title":"...","summary":"2-3 
 
 router.get("/news", async (req, res) => {
   const noCache = req.query.nocache === "1";
-  if (!noCache && cache && Date.now() - cache.ts < CACHE_TTL) {
+  const pairsStr = (req.query.pairs as string) || "";
+  const pairCurrencies = pairsToCurrencies(pairsStr);
+  const cacheKey = pairCurrencies.length > 0 ? pairCurrencies.sort().join(",") : "all";
+
+  if (!noCache && cache && cache.key === cacheKey && Date.now() - cache.ts < CACHE_TTL) {
     res.json(cache.data);
     return;
   }
@@ -175,7 +221,7 @@ router.get("/news", async (req, res) => {
   let source: "ai" | "rss" = "rss";
 
   if (apiKey) {
-    const aiArticles = await tryPerplexity(apiKey);
+    const aiArticles = await tryPerplexity(apiKey, pairCurrencies);
     if (aiArticles && aiArticles.length > 0) {
       articles = aiArticles;
       source = "ai";
@@ -184,7 +230,7 @@ router.get("/news", async (req, res) => {
 
   if (source !== "ai") {
     try {
-      articles = await fetchRSSNews();
+      articles = await fetchRSSNews(pairCurrencies.length > 0 ? pairCurrencies : ["USD", "XAU"]);
     } catch {
       articles = [];
     }
@@ -197,7 +243,7 @@ router.get("/news", async (req, res) => {
     source,
   };
 
-  cache = { data: result, ts: Date.now() };
+  cache = { data: result, ts: Date.now(), key: cacheKey };
   res.json(result);
 });
 

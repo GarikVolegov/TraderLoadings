@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
+import { getPairLabel } from "@workspace/pair-catalog";
 import { motion, AnimatePresence } from "framer-motion";
 import { format, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
@@ -25,8 +26,9 @@ import {
   type BacktestSession,
 } from "@workspace/api-client-react";
 import ChartReplay from "@/components/ChartReplay";
+import { useBackground } from "@/contexts/BackgroundContext";
 
-const PAIRS = [
+const ALL_BT_PAIRS = [
   "EUR/USD", "GBP/USD", "USD/JPY", "USD/CHF", "AUD/USD", "NZD/USD", "USD/CAD",
   "EUR/GBP", "EUR/JPY", "GBP/JPY", "AUD/JPY", "XAU/USD", "US30", "NAS100", "SPX500",
   "BTC/USD", "ETH/USD",
@@ -37,9 +39,29 @@ const TIMEFRAMES = ["M15", "M30", "H1", "H4", "D1", "W1"];
 function NewSessionForm({ onClose }: { onClose: () => void }) {
   const { toast } = useToast();
   const qc = useQueryClient();
+  const { selectedPairs: userPairs } = useBackground();
   const createMutation = useCreateBacktestSession();
   const [name, setName] = useState("");
-  const [pair, setPair] = useState("EUR/USD");
+  const pairOptions = useMemo(() => {
+    if (userPairs.length === 0) return ALL_BT_PAIRS;
+    const supportedSet = new Set(ALL_BT_PAIRS);
+    const userLabels = userPairs.map((p) => getPairLabel(p)).filter((l) => supportedSet.has(l));
+    const userSet = new Set(userLabels);
+    const advanced = ALL_BT_PAIRS.filter((p) => !userSet.has(p));
+    return userLabels.length > 0 ? [...userLabels, ...advanced] : ALL_BT_PAIRS;
+  }, [userPairs]);
+  const [pair, setPair] = useState(pairOptions[0] || "EUR/USD");
+  const defaultAppliedRef = useRef(false);
+
+  useEffect(() => {
+    if (userPairs.length > 0 && !defaultAppliedRef.current) {
+      defaultAppliedRef.current = true;
+      if (pairOptions.length > 0) setPair(pairOptions[0]);
+    } else if (pairOptions.length > 0 && !pairOptions.includes(pair)) {
+      setPair(pairOptions[0]);
+    }
+  }, [pairOptions, pair, userPairs]);
+
   const [timeframe, setTimeframe] = useState("H1");
   const [strategy, setStrategy] = useState("");
 
@@ -77,7 +99,16 @@ function NewSessionForm({ onClose }: { onClose: () => void }) {
               onChange={(e) => setPair(e.target.value)}
               className="w-full h-10 px-3 rounded-md border border-border bg-background text-sm"
             >
-              {PAIRS.map((p) => <option key={p} value={p}>{p}</option>)}
+              {pairOptions.map((p, i) => {
+                const userLabelCount = userPairs.length;
+                if (userLabelCount > 0 && i === userLabelCount) {
+                  return [
+                    <option key="__sep" disabled>── Avanzati ──</option>,
+                    <option key={p} value={p}>{p}</option>
+                  ];
+                }
+                return <option key={p} value={p}>{p}</option>;
+              })}
             </select>
           </div>
           <div className="space-y-1.5">

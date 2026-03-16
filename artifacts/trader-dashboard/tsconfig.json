@@ -19,6 +19,9 @@
       "path": "../../lib/api-client-react"
     },
     {
+      "path": "../../lib/pair-catalog"
+    },
+    {
       "path": "../../lib/replit-auth-web"
     }
   ]

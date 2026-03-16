@@ -27,4 +27,5 @@ export interface UpdateUserSettingsRequest {
   /** @minimum 0 */
   preMacroMinutes?: number;
   maxDailyLoss?: number | null;
+  selectedPairs?: string[] | null;
 }

@@ -349,6 +349,7 @@ export interface UserSettings {
   /** @minimum 0 */
   preMacroMinutes: number;
   maxDailyLoss?: number | null;
+  selectedPairs?: string[] | null;
 }
 
 export type UpdateUserSettingsRequestBackgroundType =
@@ -388,6 +389,7 @@ export interface UpdateUserSettingsRequest {
   /** @minimum 0 */
   preMacroMinutes?: number;
   maxDailyLoss?: number | null;
+  selectedPairs?: string[] | null;
 }
 
 export interface UploadBackgroundResponse {

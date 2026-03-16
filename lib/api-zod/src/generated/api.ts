@@ -779,6 +779,7 @@ export const GetUserSettingsResponse = zod.object({
   dailyReminderTime: zod.string().nullish(),
   preMacroMinutes: zod.number().min(getUserSettingsResponsePreMacroMinutesMin),
   maxDailyLoss: zod.number().nullish(),
+  selectedPairs: zod.array(zod.string()).nullish(),
 });
 
 /**
@@ -821,6 +822,7 @@ export const UpdateUserSettingsBody = zod.object({
     .min(updateUserSettingsBodyPreMacroMinutesMin)
     .optional(),
   maxDailyLoss: zod.number().nullish(),
+  selectedPairs: zod.array(zod.string()).nullish(),
 });
 
 export const updateUserSettingsResponseBackgroundDarknessMin = 0;
@@ -863,6 +865,7 @@ export const UpdateUserSettingsResponse = zod.object({
     .number()
     .min(updateUserSettingsResponsePreMacroMinutesMin),
   maxDailyLoss: zod.number().nullish(),
+  selectedPairs: zod.array(zod.string()).nullish(),
 });
 
 /**

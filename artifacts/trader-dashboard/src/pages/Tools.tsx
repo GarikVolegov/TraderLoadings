@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -19,6 +19,8 @@ import {
 import { LotCalculatorWidget } from "@/components/LotCalculatorWidget";
 import ChartReplay from "@/components/ChartReplay";
 import { useToast } from "@/hooks/use-toast";
+import { useBackground } from "@/contexts/BackgroundContext";
+import { getPairLabel } from "@workspace/pair-catalog";
 import {
   useGetBacktestSessions,
   useCreateBacktestSession,
@@ -331,6 +333,7 @@ function EmotionalWave({ score }: { score: number }) {
 
 // ─── 2. SENTIMENT ─────────────────────────────────────────────────────────────
 function SentimentTool() {
+  const { selectedPairs: userPairs } = useBackground();
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ["tools", "sentiment"],
     queryFn: () => apiFetch<{
@@ -349,8 +352,19 @@ function SentimentTool() {
   const [selectedPairs, setSelectedPairs] = useState<string[]>([]);
   const [filterOpen, setFilterOpen] = useState(false);
 
+  const sortedSymbols = useMemo(() => {
+    if (!data?.symbols) return [];
+    if (userPairs.length === 0) return data.symbols;
+    const userSet = new Set(userPairs);
+    return [...data.symbols].sort((a, b) => {
+      const aUser = userSet.has(a.name) ? 0 : 1;
+      const bUser = userSet.has(b.name) ? 0 : 1;
+      return aUser - bUser;
+    });
+  }, [data?.symbols, userPairs]);
+
   const effectiveSelected = selectedPairs.length > 0 ? selectedPairs : allPairs;
-  const visibleSymbols = data?.symbols?.filter((s) => effectiveSelected.includes(s.name)) ?? [];
+  const visibleSymbols = sortedSymbols.filter((s) => effectiveSelected.includes(s.name));
 
   const togglePair = (name: string) => {
     setSelectedPairs((prev) =>
@@ -530,11 +544,28 @@ function SentimentTool() {
 }
 
 // ─── 3. VOLATILITY (stile Mataf) ──────────────────────────────────────────────
-const PAIRS = ["EURUSD", "GBPUSD", "USDJPY", "USDCHF", "AUDUSD", "USDCAD", "NZDUSD", "EURGBP", "EURJPY", "GBPJPY", "XAUUSD", "XAGUSD"];
+const ALL_VOL_PAIRS = ["EURUSD", "GBPUSD", "USDJPY", "USDCHF", "AUDUSD", "USDCAD", "NZDUSD", "EURGBP", "EURJPY", "GBPJPY", "XAUUSD", "XAGUSD"];
 
 function VolatilityTool() {
-  const [selectedPair, setSelectedPair] = useState("EURUSD");
+  const { selectedPairs: userPairs } = useBackground();
+  const volPairs = useMemo(() => {
+    if (userPairs.length === 0) return ALL_VOL_PAIRS;
+    const supported = new Set(ALL_VOL_PAIRS);
+    const filtered = userPairs.filter((p) => supported.has(p));
+    return filtered.length > 0 ? filtered : ALL_VOL_PAIRS;
+  }, [userPairs]);
+  const [selectedPair, setSelectedPair] = useState(volPairs[0] || "EURUSD");
   const [open, setOpen] = useState(false);
+  const defaultAppliedRef = useRef(false);
+
+  useEffect(() => {
+    if (userPairs.length > 0 && !defaultAppliedRef.current) {
+      defaultAppliedRef.current = true;
+      if (volPairs.length > 0) setSelectedPair(volPairs[0]);
+    } else if (volPairs.length > 0 && !volPairs.includes(selectedPair)) {
+      setSelectedPair(volPairs[0]);
+    }
+  }, [volPairs, selectedPair, userPairs]);
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ["tools", "volatility", selectedPair],
@@ -569,7 +600,7 @@ function VolatilityTool() {
                 initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                 className="absolute top-full mt-1 left-0 z-20 bg-card border border-border rounded-xl shadow-xl overflow-hidden min-w-40"
               >
-                {PAIRS.map((p) => (
+                {volPairs.map((p) => (
                   <button key={p} onClick={() => { setSelectedPair(p); setOpen(false); }}
                     className={`w-full text-left px-4 py-2 text-sm font-mono hover:bg-secondary transition-colors ${p === selectedPair ? "text-primary bg-primary/10" : ""}`}
                   >{p}</button>
@@ -720,6 +751,7 @@ function VolatilityTool() {
 
 // ─── 4. COT REPORT (dati reali CFTC, aggiornato ogni venerdì) ────────────────
 function CotTool() {
+  const { selectedCurrencies } = useBackground();
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ["tools", "cot"],
     queryFn: () => apiFetch<{
@@ -732,6 +764,13 @@ function CotTool() {
     staleTime: 60 * 60_000,
     refetchInterval: 60 * 60_000,
   });
+
+  const filteredReports = useMemo(() => {
+    if (!data?.reports) return [];
+    if (selectedCurrencies.length === 0) return data.reports;
+    const userCurrSet = new Set(selectedCurrencies);
+    return data.reports.filter((r) => userCurrSet.has(r.currency));
+  }, [data?.reports, selectedCurrencies]);
 
   const [selected, setSelected] = useState<CotReport | null>(null);
 
@@ -772,7 +811,7 @@ function CotTool() {
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
           {/* Currency grid */}
           <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-            {data.reports.map((r) => {
+            {filteredReports.map((r) => {
               const trend = r.history.length >= 2
                 ? r.nonCommNet - r.history[r.history.length - 2]?.nonCommNet
                 : 0;
@@ -954,12 +993,16 @@ const SENTIMENT_STYLES: Record<string, string> = {
 
 function MacroNewsTool() {
   const [currency, setCurrency] = useState("Tutte");
+  const { selectedPairs } = useBackground();
 
   const mutation = useMutation({
     mutationFn: () =>
       apiFetch<MacroNewsResult>(`${API}/tools/macro-news`, {
         method: "POST",
-        body: JSON.stringify({ currency: currency === "Tutte" ? "tutte le principali valute" : currency }),
+        body: JSON.stringify({
+          currency: currency === "Tutte" ? "tutte le principali valute" : currency,
+          pairs: selectedPairs.join(","),
+        }),
       }),
   });
 
@@ -1084,9 +1127,29 @@ const TIMEFRAMES_BACKTEST = ["M15", "M30", "H1", "H4", "D1", "W1"];
 function NewSessionForm({ onClose }: { onClose: () => void }) {
   const { toast } = useToast();
   const qc = useQueryClient();
+  const { selectedPairs: userPairs } = useBackground();
   const createMutation = useCreateBacktestSession();
   const [name, setName] = useState("");
-  const [pair, setPair] = useState("EUR/USD");
+  const backtestPairOptions = useMemo(() => {
+    if (userPairs.length === 0) return PAIRS_BACKTEST;
+    const supportedSet = new Set(PAIRS_BACKTEST);
+    const userLabels = userPairs.map((p) => getPairLabel(p)).filter((l) => supportedSet.has(l));
+    const userSet = new Set(userLabels);
+    const advanced = PAIRS_BACKTEST.filter((p) => !userSet.has(p));
+    return userLabels.length > 0 ? [...userLabels, ...advanced] : PAIRS_BACKTEST;
+  }, [userPairs]);
+  const [pair, setPair] = useState(backtestPairOptions[0] || "EUR/USD");
+  const btDefaultAppliedRef = useRef(false);
+
+  useEffect(() => {
+    if (userPairs.length > 0 && !btDefaultAppliedRef.current) {
+      btDefaultAppliedRef.current = true;
+      if (backtestPairOptions.length > 0) setPair(backtestPairOptions[0]);
+    } else if (backtestPairOptions.length > 0 && !backtestPairOptions.includes(pair)) {
+      setPair(backtestPairOptions[0]);
+    }
+  }, [backtestPairOptions, pair, userPairs]);
+
   const [timeframe, setTimeframe] = useState("H1");
   const [strategy, setStrategy] = useState("");
 
@@ -1120,7 +1183,16 @@ function NewSessionForm({ onClose }: { onClose: () => void }) {
           <div className="space-y-1.5">
             <label className="text-xs text-muted-foreground uppercase tracking-wider">Coppia</label>
             <select value={pair} onChange={(e) => setPair(e.target.value)} className="w-full h-10 px-3 rounded-md border border-border bg-background text-sm">
-              {PAIRS_BACKTEST.map((p) => <option key={p} value={p}>{p}</option>)}
+              {backtestPairOptions.map((p, i) => {
+                const userLabelCount = userPairs.length;
+                if (userLabelCount > 0 && i === userLabelCount) {
+                  return [
+                    <option key="__sep" disabled>── Avanzati ──</option>,
+                    <option key={p} value={p}>{p}</option>
+                  ];
+                }
+                return <option key={p} value={p}>{p}</option>;
+              })}
             </select>
           </div>
           <div className="space-y-1.5">

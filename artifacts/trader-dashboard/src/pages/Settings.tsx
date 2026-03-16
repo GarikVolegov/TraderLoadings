@@ -9,7 +9,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { Image, Upload, X, LogIn, LogOut, UserPlus, RefreshCw, Type, Sun, TrendingUp, Target, Plus, Pencil, Trash2, Quote, Bell, ShieldAlert, Lock, Globe, Music, ChevronRight, Check, Shield, KeyRound, CheckSquare, ChevronDown } from "lucide-react";
+import { Image, Upload, X, LogIn, LogOut, UserPlus, RefreshCw, Type, Sun, TrendingUp, Target, Plus, Pencil, Trash2, Quote, Bell, ShieldAlert, Lock, Globe, Music, ChevronRight, Check, Shield, KeyRound, CheckSquare, ChevronDown, BarChart2 } from "lucide-react";
 import { useBackground, DEFAULT_TRADING_SESSIONS, DEFAULT_LOT_DIVISOR, type TradingSessionConfig } from "@/contexts/BackgroundContext";
 import { useGetUserSettings, useUpdateUserSettings, getGetUserSettingsQueryKey, useGetMissionTemplates, useCreateMissionTemplate, useUpdateMissionTemplate, useDeleteMissionTemplate, getGetMissionTemplatesQueryKey, useGetQuotes, useCreateQuote, useUpdateQuote, useDeleteQuote, getGetQuotesQueryKey, getGetRandomQuoteQueryKey, useGetChecklist, useCreateChecklistItem, useDeleteChecklistItem, getGetChecklistQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -17,6 +17,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@workspace/replit-auth-web";
 import { usePinLock } from "@/contexts/PinLockContext";
 import { useLanguage, LANGUAGES, type Language } from "@/contexts/LanguageContext";
+import { getPairLabel } from "@workspace/pair-catalog";
+import { PairSelectionModal } from "@/components/PairSelectionModal";
 
 const FONT_OPTIONS = [
   { value: "inter", label: "Inter", sample: "font-['Inter']" },
@@ -1077,7 +1079,91 @@ function AuthSection({ login }: { login: () => void }) {
   );
 }
 
-type TileId = "profilo" | "audio" | "aspetto" | "notifiche" | "sicurezza" | "lingua" | "trading" | "missioni" | "citazioni" | "checklist" | "account";
+function PairPreferencesSettings() {
+  const { selectedPairs, setSelectedPairs } = useBackground();
+  const updateMutation = useUpdateUserSettings();
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [showModal, setShowModal] = useState(false);
+
+  const removePair = async (symbol: string) => {
+    const newPairs = selectedPairs.filter((p) => p !== symbol);
+    if (newPairs.length === 0) {
+      toast({ description: "Devi avere almeno un pair selezionato.", variant: "destructive" });
+      return;
+    }
+    setSelectedPairs(newPairs);
+    try {
+      await updateMutation.mutateAsync({ data: { selectedPairs: newPairs } });
+      qc.invalidateQueries({ queryKey: getGetUserSettingsQueryKey() });
+      toast({ description: "Pair rimosso." });
+    } catch {
+      toast({ description: "Errore.", variant: "destructive" });
+    }
+  };
+
+  const handleConfirm = async (pairs: string[]) => {
+    setSelectedPairs(pairs);
+    setShowModal(false);
+    try {
+      await updateMutation.mutateAsync({ data: { selectedPairs: pairs } });
+      qc.invalidateQueries({ queryKey: getGetUserSettingsQueryKey() });
+      toast({ description: "Pair aggiornati." });
+    } catch {
+      toast({ description: "Errore.", variant: "destructive" });
+    }
+  };
+
+  return (
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BarChart2 className="w-5 h-5 text-indigo-400" />
+            Pair Preferiti
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            I pair selezionati vengono usati per personalizzare tutti gli strumenti della dashboard.
+          </p>
+
+          {selectedPairs.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {selectedPairs.map((sym) => (
+                <span
+                  key={sym}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold bg-primary/15 text-primary border border-primary/30"
+                >
+                  {getPairLabel(sym)}
+                  <button onClick={() => removePair(sym)} className="hover:text-foreground">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground/60">Nessun pair selezionato</p>
+          )}
+
+          <Button variant="outline" onClick={() => setShowModal(true)} className="w-full">
+            <Plus className="w-4 h-4 mr-2" />
+            Modifica Pair
+          </Button>
+        </CardContent>
+      </Card>
+      <PairSelectionModal
+        open={showModal}
+        onConfirm={handleConfirm}
+        initialPairs={selectedPairs}
+        dismissible
+        onClose={() => setShowModal(false)}
+      />
+    </>
+  );
+}
+
+type TileId = "profilo" | "pairs" | "audio" | "aspetto" | "notifiche" | "sicurezza" | "lingua" | "trading" | "missioni" | "citazioni" | "checklist" | "account";
 
 interface SettingsTile {
   id: TileId;
@@ -1094,6 +1180,7 @@ export default function Settings() {
   const { language } = useLanguage();
   const [activeDesktopSection, setActiveDesktopSection] = useState<TileId>("audio");
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    pairs: false,
     audio: false,
     aspetto: false,
     notifiche: false,
@@ -1108,6 +1195,7 @@ export default function Settings() {
 
   const tiles: SettingsTile[] = [
     { id: "profilo", icon: <UserPlus className="w-6 h-6" />, label: "Profilo", subtitle: "Nome, avatar, XP", color: "text-primary", glow: "group-hover:shadow-primary/20" },
+    { id: "pairs", icon: <BarChart2 className="w-6 h-6" />, label: "Pair Preferiti", subtitle: "Strumenti di trading", color: "text-indigo-400", glow: "group-hover:shadow-indigo-400/20" },
     { id: "audio", icon: <Music className="w-6 h-6" />, label: "Audio", subtitle: "Binaural & focus", color: "text-blue-400", glow: "group-hover:shadow-blue-400/20" },
     { id: "aspetto", icon: <Sun className="w-6 h-6" />, label: "Aspetto", subtitle: "Sfondo, font, tema", color: "text-yellow-400", glow: "group-hover:shadow-yellow-400/20" },
     { id: "notifiche", icon: <Bell className="w-6 h-6" />, label: "Notifiche", subtitle: "Allarmi & reminder", color: "text-orange-400", glow: "group-hover:shadow-orange-400/20" },
@@ -1124,6 +1212,7 @@ export default function Settings() {
 
   const tileContent: Record<TileId, React.ReactNode> = {
     profilo: <ProfileWidget />,
+    pairs: <PairPreferencesSettings />,
     audio: <AudioPlayer />,
     aspetto: (
       <div className="space-y-6">

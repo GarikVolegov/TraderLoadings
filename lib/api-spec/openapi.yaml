@@ -1825,6 +1825,11 @@ components:
         maxDailyLoss:
           type: integer
           nullable: true
+        selectedPairs:
+          type: array
+          items:
+            type: string
+          nullable: true
       required:
         - id
         - backgroundType
@@ -1875,6 +1880,11 @@ components:
           minimum: 0
         maxDailyLoss:
           type: integer
+          nullable: true
+        selectedPairs:
+          type: array
+          items:
+            type: string
           nullable: true
 
     UploadBackgroundResponse:

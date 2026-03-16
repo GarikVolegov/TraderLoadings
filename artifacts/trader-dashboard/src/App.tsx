@@ -15,6 +15,7 @@ import { MacroNotifier } from "./components/MacroNotifier";
 import { SessionCheckinModal } from "./components/SessionCheckinModal";
 import { PinLockScreen } from "./components/PinLockScreen";
 import { ChecklistSetupModal } from "./components/ChecklistSetupModal";
+import { PairOnboardingWrapper } from "./components/PairOnboardingWrapper";
 import Dashboard from "./pages/Dashboard";
 import Journal from "./pages/Journal";
 import Settings from "./pages/Settings";
@@ -69,6 +70,7 @@ function App() {
                 <MacroNotifier />
                 <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
                   <BackgroundProvider>
+                    <PairOnboardingWrapper />
                     <SessionCheckinModal />
                     <Router />
                   </BackgroundProvider>

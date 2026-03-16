@@ -1,6 +1,7 @@
 import { Router } from "express";
 import OpenAI from "openai";
 import cron from "node-cron";
+import { getCurrenciesFromPairs } from "@workspace/pair-catalog";
 
 const router = Router();
 
@@ -610,7 +611,14 @@ Genera 6-8 articoli rilevanti e recenti per il trading forex intraday e swing.`,
 }
 
 router.get("/tools/macro-news", async (req, res) => {
-  const { key, label } = normalizeCurrencies((req.query.currencies as string) || "");
+  let currenciesInput = (req.query.currencies as string) || "";
+  const pairsInput = (req.query.pairs as string) || "";
+  if (!currenciesInput && pairsInput) {
+    const symbols = pairsInput.split(",").map((s) => s.trim()).filter(Boolean);
+    const derived = getCurrenciesFromPairs(symbols);
+    currenciesInput = derived.join(",");
+  }
+  const { key, label } = normalizeCurrencies(currenciesInput);
   const forceRefresh = req.query.force === "1";
 
   const cached = macroNewsCache.get(key);
@@ -630,8 +638,17 @@ router.get("/tools/macro-news", async (req, res) => {
 });
 
 router.post("/tools/macro-news", async (req, res) => {
-  const { currency = "" } = req.body as { currency?: string };
-  const { key, label } = normalizeCurrencies(currency);
+  const { currency = "", pairs = "" } = req.body as { currency?: string; pairs?: string };
+  let currencyInput = currency;
+  const isGeneric = !currencyInput || currencyInput.toLowerCase().includes("tutte");
+  if (isGeneric && pairs) {
+    const symbols = pairs.split(",").map((s: string) => s.trim()).filter(Boolean);
+    const derived = getCurrenciesFromPairs(symbols);
+    if (derived.length > 0) {
+      currencyInput = derived.join(",");
+    }
+  }
+  const { key, label } = normalizeCurrencies(currencyInput);
 
   const cached = macroNewsCache.get(key);
   if (cached && Date.now() < cached.expiresAt) {

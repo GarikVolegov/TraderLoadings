@@ -37,6 +37,7 @@ export const userSettingsTable = pgTable("user_settings", {
   dailyReminderTime: text("daily_reminder_time"),
   preMacroMinutes: integer("pre_macro_minutes").notNull().default(15),
   maxDailyLoss: integer("max_daily_loss"),
+  selectedPairs: text("selected_pairs"),
 });
 
 export const quotesTable = pgTable("quotes", {

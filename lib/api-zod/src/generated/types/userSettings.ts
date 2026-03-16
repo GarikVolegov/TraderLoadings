@@ -28,4 +28,5 @@ export interface UserSettings {
   /** @minimum 0 */
   preMacroMinutes: number;
   maxDailyLoss?: number | null;
+  selectedPairs?: string[] | null;
 }

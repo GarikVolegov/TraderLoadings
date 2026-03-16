@@ -48,12 +48,15 @@ router.get("/settings", async (req, res) => {
   if (settings.calendarImpacts) {
     try { result.calendarImpacts = JSON.parse(settings.calendarImpacts); } catch { result.calendarImpacts = null; }
   }
+  if (settings.selectedPairs) {
+    try { result.selectedPairs = JSON.parse(settings.selectedPairs); } catch { result.selectedPairs = null; }
+  }
   res.json(result);
 });
 
 router.put("/settings", async (req, res) => {
   const userId = getUserId(req);
-  const { backgroundUrl, backgroundType, fontChoice, backgroundDarkness, tradingSessions, lotDivisor, calendarCurrencies, calendarImpacts, dailyReminderTime, preMacroMinutes, maxDailyLoss } = req.body;
+  const { backgroundUrl, backgroundType, fontChoice, backgroundDarkness, tradingSessions, lotDivisor, calendarCurrencies, calendarImpacts, dailyReminderTime, preMacroMinutes, maxDailyLoss, selectedPairs } = req.body;
   const settings = await getOrCreateSettings(userId);
 
   const updateData: Record<string, unknown> = {};
@@ -79,6 +82,9 @@ router.put("/settings", async (req, res) => {
   if (dailyReminderTime !== undefined) updateData.dailyReminderTime = dailyReminderTime || null;
   if (preMacroMinutes !== undefined) updateData.preMacroMinutes = Math.max(0, Number(preMacroMinutes));
   if (maxDailyLoss !== undefined) updateData.maxDailyLoss = maxDailyLoss ? Math.abs(Number(maxDailyLoss)) : null;
+  if (selectedPairs !== undefined) {
+    updateData.selectedPairs = Array.isArray(selectedPairs) ? JSON.stringify(selectedPairs) : null;
+  }
 
   const [updated] = await db.update(userSettingsTable)
     .set(updateData)
@@ -94,6 +100,9 @@ router.put("/settings", async (req, res) => {
   }
   if (updated.calendarImpacts) {
     try { result.calendarImpacts = JSON.parse(updated.calendarImpacts); } catch { result.calendarImpacts = null; }
+  }
+  if (updated.selectedPairs) {
+    try { result.selectedPairs = JSON.parse(updated.selectedPairs); } catch { result.selectedPairs = null; }
   }
   res.json(result);
 });

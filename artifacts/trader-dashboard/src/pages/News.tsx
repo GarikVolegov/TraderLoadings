@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import { it } from "date-fns/locale";
+import { useBackground } from "@/contexts/BackgroundContext";
 
 interface Article {
   title: string;
@@ -56,10 +57,12 @@ function TimeAgo({ iso }: { iso?: string | null }) {
 
 export default function News() {
   const qc = useQueryClient();
+  const { selectedPairs } = useBackground();
+  const pairsParam = selectedPairs.length > 0 ? `&pairs=${selectedPairs.join(",")}` : "";
   const { data, isLoading, isFetching, refetch } = useQuery<NewsData>({
-    queryKey: ["macro-news"],
+    queryKey: ["macro-news", selectedPairs],
     queryFn: async () => {
-      const res = await fetch("api/news", { credentials: "include" });
+      const res = await fetch(`api/news?_=1${pairsParam}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch news");
       return res.json();
     },
@@ -68,10 +71,10 @@ export default function News() {
   const newsData = data;
 
   const handleRefresh = async () => {
-    const res = await fetch("api/news?nocache=1", { credentials: "include" });
+    const res = await fetch(`api/news?nocache=1${pairsParam}`, { credentials: "include" });
     if (res.ok) {
       const freshData = await res.json();
-      qc.setQueryData(["macro-news"], freshData);
+      qc.setQueryData(["macro-news", selectedPairs], freshData);
     }
   };
 

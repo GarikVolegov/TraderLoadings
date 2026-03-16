@@ -1,5 +1,6 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useMemo, type ReactNode } from "react";
 import { useGetUserSettings, type TradingSessionConfig } from "@workspace/api-client-react";
+import { getCurrenciesFromPairs } from "@workspace/pair-catalog";
 
 export type { TradingSessionConfig };
 
@@ -52,6 +53,10 @@ interface BackgroundContextValue {
   setCalendarImpacts: (i: string[]) => void;
   backgroundPresets: BackgroundPreset[];
   setBackgroundPresets: (p: BackgroundPreset[]) => void;
+  selectedPairs: string[];
+  setSelectedPairs: (p: string[]) => void;
+  selectedCurrencies: string[];
+  settingsLoaded: boolean;
 }
 
 const BackgroundCtx = createContext<BackgroundContextValue>({
@@ -71,6 +76,10 @@ const BackgroundCtx = createContext<BackgroundContextValue>({
   setCalendarImpacts: () => {},
   backgroundPresets: DEFAULT_BACKGROUND_PRESETS,
   setBackgroundPresets: () => {},
+  selectedPairs: [],
+  setSelectedPairs: () => {},
+  selectedCurrencies: [],
+  settingsLoaded: false,
 });
 
 export function BackgroundProvider({ children }: { children: ReactNode }) {
@@ -82,7 +91,11 @@ export function BackgroundProvider({ children }: { children: ReactNode }) {
   const [calendarCurrencies, setCalendarCurrencies] = useState<string[]>(["USD"]);
   const [calendarImpacts, setCalendarImpacts] = useState<string[]>(["High"]);
   const [backgroundPresets, setBackgroundPresets] = useState<BackgroundPreset[]>(DEFAULT_BACKGROUND_PRESETS);
+  const [selectedPairs, setSelectedPairs] = useState<string[]>([]);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
   const { data: settings } = useGetUserSettings();
+
+  const selectedCurrencies = useMemo(() => getCurrenciesFromPairs(selectedPairs), [selectedPairs]);
 
   useEffect(() => {
     if (settings?.backgroundType === "custom" && settings.backgroundUrl) {
@@ -111,6 +124,12 @@ export function BackgroundProvider({ children }: { children: ReactNode }) {
     if (settings?.backgroundPresets && Array.isArray(settings.backgroundPresets)) {
       setBackgroundPresets(settings.backgroundPresets);
     }
+    if (settings?.selectedPairs && Array.isArray(settings.selectedPairs)) {
+      setSelectedPairs(settings.selectedPairs as string[]);
+    }
+    if (settings) {
+      setSettingsLoaded(true);
+    }
   }, [settings]);
 
   useEffect(() => {
@@ -120,7 +139,7 @@ export function BackgroundProvider({ children }: { children: ReactNode }) {
   }, [fontChoice]);
 
   return (
-    <BackgroundCtx.Provider value={{ backgroundUrl, setBackgroundUrl, darkness, setDarkness, fontChoice, setFontChoice, tradingSessions, setTradingSessions, lotDivisor, setLotDivisor, calendarCurrencies, setCalendarCurrencies, calendarImpacts, setCalendarImpacts, backgroundPresets, setBackgroundPresets }}>
+    <BackgroundCtx.Provider value={{ backgroundUrl, setBackgroundUrl, darkness, setDarkness, fontChoice, setFontChoice, tradingSessions, setTradingSessions, lotDivisor, setLotDivisor, calendarCurrencies, setCalendarCurrencies, calendarImpacts, setCalendarImpacts, backgroundPresets, setBackgroundPresets, selectedPairs, setSelectedPairs, selectedCurrencies, settingsLoaded }}>
       {children}
     </BackgroundCtx.Provider>
   );
