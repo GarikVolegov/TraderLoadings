@@ -605,9 +605,10 @@ Genera 6-8 articoli rilevanti e recenti per il trading forex intraday e swing.`,
 
 router.get("/tools/macro-news", async (req, res) => {
   const { key, label } = normalizeCurrencies((req.query.currencies as string) || "");
+  const forceRefresh = req.query.force === "1";
 
   const cached = macroNewsCache.get(key);
-  if (cached && Date.now() < cached.expiresAt) {
+  if (!forceRefresh && cached && Date.now() < cached.expiresAt) {
     return res.json(cached.data);
   }
 

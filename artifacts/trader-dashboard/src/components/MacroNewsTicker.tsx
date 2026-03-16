@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -92,10 +92,13 @@ function saveCurrencies(currencies: string[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(currencies));
 }
 
-async function fetchMacroNews(currencies: string[]): Promise<MacroNewsData> {
-  const qs = currencies.length === ALL_CURRENCIES.length || currencies.length === 0
-    ? ""
-    : `?currencies=${currencies.join(",")}`;
+async function fetchMacroNews(currencies: string[], force = false): Promise<MacroNewsData> {
+  const params = new URLSearchParams();
+  if (currencies.length > 0 && currencies.length < ALL_CURRENCIES.length) {
+    params.set("currencies", currencies.join(","));
+  }
+  if (force) params.set("force", "1");
+  const qs = params.toString() ? `?${params.toString()}` : "";
   const res = await fetch(`${API}/tools/macro-news${qs}`);
   if (!res.ok) throw new Error(`Errore ${res.status}`);
   return res.json();
@@ -104,6 +107,7 @@ async function fetchMacroNews(currencies: string[]): Promise<MacroNewsData> {
 export function MacroNewsTicker() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selectedCurrencies, setSelectedCurrencies] = useState<string[]>(loadCurrencies);
+  const forceNextRef = useRef(false);
 
   useEffect(() => {
     saveCurrencies(selectedCurrencies);
@@ -116,7 +120,11 @@ export function MacroNewsTicker() {
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ["macro-news", currenciesKey],
-    queryFn: () => fetchMacroNews(selectedCurrencies),
+    queryFn: () => {
+      const force = forceNextRef.current;
+      forceNextRef.current = false;
+      return fetchMacroNews(selectedCurrencies, force);
+    },
     refetchInterval: 30 * 60 * 1000,
     staleTime: 25 * 60 * 1000,
     retry: 1,
@@ -224,7 +232,7 @@ export function MacroNewsTicker() {
                 </SheetDescription>
               </div>
               <button
-                onClick={() => refetch()}
+                onClick={() => { forceNextRef.current = true; refetch(); }}
                 disabled={isFetching}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border border-primary/30 bg-primary/10 text-primary hover:bg-primary/20 transition-all disabled:opacity-50"
               >
