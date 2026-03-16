@@ -11,6 +11,8 @@ import {
   Activity,
   Check,
   ExternalLink,
+  ShieldCheck,
+  Clock,
 } from "lucide-react";
 import {
   Sheet,
@@ -29,6 +31,8 @@ interface MacroArticle {
   currency: string;
   direction: string;
   source: string;
+  sources?: string[];
+  verified?: boolean;
   timestamp?: string;
 }
 
@@ -102,6 +106,22 @@ function searchSourceUrl(source: string, title: string): string {
   return `https://www.google.com/search?q=${q}`;
 }
 
+function timeAgo(isoDate: string): string {
+  const now = Date.now();
+  const then = new Date(isoDate).getTime();
+  if (isNaN(then)) return "";
+  const diffMs = now - then;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+  if (diffMins < 1) return "adesso";
+  if (diffMins < 60) return `${diffMins} min fa`;
+  if (diffHours < 24) return `${diffHours}h fa`;
+  if (diffDays === 1) return "ieri";
+  if (diffDays < 7) return `${diffDays} giorni fa`;
+  return new Date(isoDate).toLocaleDateString("it-IT", { day: "numeric", month: "short" });
+}
+
 async function fetchMacroNews(currencies: string[], force = false): Promise<MacroNewsData> {
   const params = new URLSearchParams();
   if (currencies.length > 0 && currencies.length < ALL_CURRENCIES.length) {
@@ -165,12 +185,9 @@ export function MacroNewsTicker() {
     setSelectedCurrencies([...ALL_CURRENCIES]);
   }, []);
 
-  const fetchedTime = useMemo(() => {
+  const fetchedTimeAgo = useMemo(() => {
     if (!data?.fetchedAt) return null;
-    return new Date(data.fetchedAt).toLocaleTimeString("it-IT", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    return timeAgo(data.fetchedAt);
   }, [data?.fetchedAt]);
 
   return (
@@ -222,10 +239,11 @@ export function MacroNewsTicker() {
                   Agente Notizie Macro
                 </SheetTitle>
                 <SheetDescription className="text-xs mt-0.5">
-                  Briefing AI sulle notizie macroeconomiche
-                  {fetchedTime && (
-                    <span className="ml-2 text-muted-foreground/60">
-                      Aggiornato alle {fetchedTime}
+                  Briefing AI verificato su fonti multiple
+                  {fetchedTimeAgo && (
+                    <span className="ml-2 text-muted-foreground/60 inline-flex items-center gap-1">
+                      <Clock className="w-2.5 h-2.5" />
+                      Aggiornato {fetchedTimeAgo}
                     </span>
                   )}
                 </SheetDescription>
@@ -354,23 +372,36 @@ export function MacroNewsTicker() {
                         >
                           {article.direction}
                         </span>
-                        {article.source && (
-                          <a
-                            href={searchSourceUrl(article.source, article.title)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-medium border border-blue-500/20 bg-blue-500/5 text-blue-400 hover:bg-blue-500/15 hover:border-blue-500/40 transition-all cursor-pointer"
-                          >
-                            <ExternalLink className="w-2.5 h-2.5" />
-                            {article.source}
-                          </a>
+                        {article.verified && (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[9px] font-bold border border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
+                            <ShieldCheck className="w-2.5 h-2.5" />
+                            VERIFICATO
+                          </span>
                         )}
                         {article.timestamp && (
-                          <span className="text-[10px] text-muted-foreground/50 ml-auto">
-                            {new Date(article.timestamp).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
+                          <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground/60 ml-auto">
+                            <Clock className="w-2.5 h-2.5" />
+                            {timeAgo(article.timestamp)}
                           </span>
                         )}
                       </div>
+                      {article.sources && article.sources.length > 0 && (
+                        <div className="flex items-center gap-1.5 flex-wrap pt-0.5 border-t border-border/30">
+                          <span className="text-[9px] text-muted-foreground/50 font-semibold uppercase">Fonti:</span>
+                          {article.sources.map((src, si) => (
+                            <a
+                              key={si}
+                              href={searchSourceUrl(src, article.title)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[9px] font-medium border border-blue-500/20 bg-blue-500/5 text-blue-400 hover:bg-blue-500/15 transition-all"
+                            >
+                              <ExternalLink className="w-2 h-2" />
+                              {src}
+                            </a>
+                          ))}
+                        </div>
+                      )}
                     </motion.div>
                   ))}
                 </AnimatePresence>

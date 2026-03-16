@@ -529,6 +529,8 @@ interface MacroNewsResult {
     currency: string;
     direction: string;
     source: string;
+    sources?: string[];
+    verified?: boolean;
     timestamp?: string;
   }>;
   sentiment: string;
@@ -565,45 +567,72 @@ async function fetchMacroNews(currencyLabel: string): Promise<MacroNewsResult> {
     messages: [
       {
         role: "system",
-        content: `Sei un analista macro forex e commodities esperto. Fornisci un briefing sintetico sulle notizie macroeconomiche più rilevanti per i mercati forex e oro. Oggi è ${today}.
+        content: `Sei un analista macro forex e commodities esperto con accesso a dati da molteplici fonti primarie. Oggi è ${today}.
 
-Per le notizie sull'oro (XAU), includi SEMPRE dati dal World Gold Council: acquisti di oro da parte delle banche centrali (Cina, India, Polonia, ecc.), variazioni nelle riserve auree nazionali, domanda fisica vs investimento, flussi ETF auriferi, e report trimestrali Gold Demand Trends.
-          
+Il tuo compito è fornire un briefing macro VERIFICATO: ogni notizia deve essere confermata da ALMENO 2 fonti indipendenti prima di essere inclusa. Se una notizia ha una sola fonte, non includerla o segnarla come non verificata.
+
+Fonti primarie da consultare e incrociare:
+- Banche centrali: BCE, Federal Reserve (Fed), BoE, BoJ, SNB, BoC, RBA, RBNZ
+- Agenzie statistiche: Bureau of Labor Statistics (BLS), Eurostat, ONS, Statistics Canada
+- Istituzioni internazionali: FMI, Banca Mondiale, BIS, OCSE
+- Mercati oro/commodities: World Gold Council (WGC), LBMA, CFTC COT Report
+- Media finanziari tier-1: Bloomberg, Reuters, Financial Times, Wall Street Journal
+- Report ufficiali: Beige Book Fed, ECB Economic Bulletin, BOE Monetary Policy Report
+
+Per XAU includi SEMPRE: acquisti banche centrali (WGC/LBMA), variazioni riserve auree, flussi ETF auriferi, domanda fisica, dati CFTC.
+
 Rispondi SEMPRE in formato JSON valido con questa struttura esatta:
 {
   "articles": [
     {
       "title": "Titolo breve della notizia",
-      "summary": "Riassunto in 2-3 frasi della notizia e del suo contesto",
+      "summary": "Riassunto in 2-3 frasi della notizia, contesto e implicazioni per il trading",
       "impact": "alto|medio|basso",
       "currency": "EUR|USD|GBP|JPY|CHF|CAD|AUD|NZD|XAU|GLOBALE",
       "direction": "bullish|bearish|neutrale",
-      "source": "Nome fonte (es: World Gold Council, BCE, Federal Reserve, Reuters, Bloomberg, FMI, BIS, CFTC, Bureau of Labor Statistics)",
-      "timestamp": "2025-03-15T09:00:00Z"
+      "source": "Fonte primaria principale (es: Federal Reserve, World Gold Council)",
+      "sources": ["Fonte 1", "Fonte 2", "Fonte 3"],
+      "verified": true,
+      "timestamp": "ISO timestamp approssimativo della notizia"
     }
   ],
   "sentiment": "risk-on|risk-off|neutrale",
   "summary": "Frase di sintesi del quadro macro generale"
 }
 
-IMPORTANTE: Ogni articolo DEVE avere il campo "source" con il nome della fonte primaria dell'informazione. Per XAU usa principalmente "World Gold Council", "LBMA", "WGC Gold Demand Trends". Per valute usa fonti come banche centrali, agenzie statistiche, o media finanziari.
-
-Genera 6-8 articoli rilevanti e recenti per il trading forex intraday e swing.`,
+REGOLE CRITICHE:
+1. "sources" deve contenere ALMENO 2 fonti distinte per notizia verificata
+2. "verified" = true solo se confermato da 2+ fonti indipendenti
+3. "source" = la fonte più autorevole tra quelle in "sources"
+4. Preferisci notizie recenti degli ultimi 1-7 giorni
+5. Genera 6-8 articoli per le valute richieste`,
       },
       {
         role: "user",
-        content: `Genera il briefing macro per oggi con focus su ${currencyLabel}. Includi: decisioni banche centrali, inflazione, PIL, dati occupazione, geopolitica, sentiment risk-on/off. Per XAU includi dati World Gold Council su acquisti banche centrali e riserve auree. Cita SEMPRE la fonte per ogni notizia. Sii preciso e utile per un trader.`,
+        content: `Genera il briefing macro MULTI-FONTE per oggi con focus su ${currencyLabel}. 
+        
+Per ogni notizia:
+- Verifica su almeno 2 fonti primarie indipendenti
+- Includi tutte le fonti nell'array "sources"
+- Priorità: decisioni banche centrali, inflazione, PIL, dati occupazione, geopolitica, sentiment risk
+- Per XAU: dati WGC acquisti banche centrali, CFTC COT, flussi ETF
+- Sii preciso e utile per un trader forex intraday/swing`,
       },
     ],
-    temperature: 0.7,
-    max_tokens: 2500,
+    temperature: 0.6,
+    max_tokens: 3000,
     response_format: { type: "json_object" },
   });
 
   const raw = completion.choices[0]?.message?.content ?? "{}";
   const parsed = JSON.parse(raw) as Partial<MacroNewsResult>;
   return {
-    articles: (parsed.articles ?? []).map((a) => ({ ...a, source: a.source || "" })),
+    articles: (parsed.articles ?? []).map((a) => ({
+      ...a,
+      source: a.source || "",
+      sources: Array.isArray(a.sources) && a.sources.length > 0 ? a.sources : (a.source ? [a.source] : []),
+      verified: a.verified ?? (Array.isArray(a.sources) && a.sources.length >= 2),
+    })),
     sentiment: parsed.sentiment ?? "neutrale",
     summary: parsed.summary ?? "",
     fetchedAt: new Date().toISOString(),
