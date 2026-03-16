@@ -1,6 +1,6 @@
 kind = "web"
 previewPath = "/"
-title = "Trader Dashboard"
+title = "TraderLoading"
 version = "1.0.0"
 id = "artifacts/trader-dashboard"
 router = "path"
