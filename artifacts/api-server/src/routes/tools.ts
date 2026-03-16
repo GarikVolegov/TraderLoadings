@@ -520,20 +520,50 @@ router.get("/tools/cot", async (req, res) => {
 });
 
 // ─── 5. MACRO NEWS AI ─────────────────────────────────────────────────────────
-router.post("/tools/macro-news", async (req, res) => {
-  const { currency = "tutte le principali valute" } = req.body as { currency?: string };
+interface MacroNewsResult {
+  articles: Array<{
+    title: string;
+    summary: string;
+    impact: string;
+    currency: string;
+    direction: string;
+    timestamp?: string;
+  }>;
+  sentiment: string;
+  summary: string;
+  fetchedAt: string;
+}
 
+const macroNewsCache = new Map<string, { data: MacroNewsResult; expiresAt: number }>();
+const MACRO_NEWS_TTL = 30 * 60 * 1000;
+const VALID_CURRENCIES = new Set(["EUR", "USD", "GBP", "JPY", "CHF", "CAD", "AUD", "NZD"]);
+
+function normalizeCurrencies(raw: string): { key: string; label: string } {
+  if (!raw || raw.trim().length === 0) {
+    return { key: "all", label: "tutte le principali valute" };
+  }
+  const filtered = raw
+    .split(",")
+    .map((c) => c.trim().toUpperCase())
+    .filter((c) => VALID_CURRENCIES.has(c));
+  const unique = [...new Set(filtered)].sort();
+  if (unique.length === 0 || unique.length === VALID_CURRENCIES.size) {
+    return { key: "all", label: "tutte le principali valute" };
+  }
+  return { key: unique.join(",").toLowerCase(), label: unique.join(", ") };
+}
+
+async function fetchMacroNews(currencyLabel: string): Promise<MacroNewsResult> {
   const today = new Date().toLocaleDateString("it-IT", {
     weekday: "long", day: "numeric", month: "long", year: "numeric",
   });
 
-  try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-5-mini",
-      messages: [
-        {
-          role: "system",
-          content: `Sei un analista macro forex esperto. Fornisci un briefing sintetico sulle notizie macroeconomiche più rilevanti per i mercati forex. Oggi è ${today}.
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [
+      {
+        role: "system",
+        content: `Sei un analista macro forex esperto. Fornisci un briefing sintetico sulle notizie macroeconomiche più rilevanti per i mercati forex. Oggi è ${today}.
           
 Rispondi SEMPRE in formato JSON valido con questa struttura esatta:
 {
@@ -552,32 +582,59 @@ Rispondi SEMPRE in formato JSON valido con questa struttura esatta:
 }
 
 Genera 6-8 articoli rilevanti e recenti per il trading forex intraday e swing.`,
-        },
-        {
-          role: "user",
-          content: `Genera il briefing macro per oggi con focus su ${currency}. Includi: decisioni banche centrali, inflazione, PIL, dati occupazione, geopolitica, sentiment risk-on/off. Sii preciso e utile per un trader.`,
-        },
-      ],
-      temperature: 0.7,
-      max_tokens: 2000,
-      response_format: { type: "json_object" },
-    });
+      },
+      {
+        role: "user",
+        content: `Genera il briefing macro per oggi con focus su ${currencyLabel}. Includi: decisioni banche centrali, inflazione, PIL, dati occupazione, geopolitica, sentiment risk-on/off. Sii preciso e utile per un trader.`,
+      },
+    ],
+    temperature: 0.7,
+    max_tokens: 2000,
+    response_format: { type: "json_object" },
+  });
 
-    const raw = completion.choices[0]?.message?.content ?? "{}";
-    const parsed = JSON.parse(raw) as {
-      articles?: Array<{
-        title: string;
-        summary: string;
-        impact: string;
-        currency: string;
-        direction: string;
-        timestamp?: string;
-      }>;
-      sentiment?: string;
-      summary?: string;
-    };
+  const raw = completion.choices[0]?.message?.content ?? "{}";
+  const parsed = JSON.parse(raw) as Partial<MacroNewsResult>;
+  return {
+    articles: parsed.articles ?? [],
+    sentiment: parsed.sentiment ?? "neutrale",
+    summary: parsed.summary ?? "",
+    fetchedAt: new Date().toISOString(),
+  };
+}
 
-    res.json(parsed);
+router.get("/tools/macro-news", async (req, res) => {
+  const { key, label } = normalizeCurrencies((req.query.currencies as string) || "");
+
+  const cached = macroNewsCache.get(key);
+  if (cached && Date.now() < cached.expiresAt) {
+    return res.json(cached.data);
+  }
+
+  try {
+    const result = await fetchMacroNews(label);
+    macroNewsCache.set(key, { data: result, expiresAt: Date.now() + MACRO_NEWS_TTL });
+    res.json(result);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[tools/macro-news GET]", msg);
+    res.status(500).json({ error: msg });
+  }
+});
+
+router.post("/tools/macro-news", async (req, res) => {
+  const { currency = "" } = req.body as { currency?: string };
+  const { key, label } = normalizeCurrencies(currency);
+
+  const cached = macroNewsCache.get(key);
+  if (cached && Date.now() < cached.expiresAt) {
+    return res.json(cached.data);
+  }
+
+  try {
+    const result = await fetchMacroNews(label);
+    macroNewsCache.set(key, { data: result, expiresAt: Date.now() + MACRO_NEWS_TTL });
+    res.json(result);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[tools/macro-news]", msg);

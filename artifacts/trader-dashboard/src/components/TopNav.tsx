@@ -2,25 +2,11 @@ import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { Settings, Volume2, VolumeX } from "lucide-react";
 import { useAudio } from "@/contexts/AudioContext";
-import { useGetEconomicCalendar } from "@workspace/api-client-react";
-import { useMemo } from "react";
+import { MacroNewsTicker } from "@/components/MacroNewsTicker";
 
 export function TopNav() {
   const { mode, setMode } = useAudio();
   const isPlaying = mode !== "off";
-
-  const { data: events } = useGetEconomicCalendar({});
-
-  const tickerItems = useMemo(() => {
-    if (!events || events.length === 0) return [];
-    return events
-      .filter((e) => e.impact === "High" || e.impact === "Medium")
-      .slice(0, 10)
-      .map((e) => {
-        const flag = e.country === "USD" ? "🇺🇸" : e.country === "EUR" ? "🇪🇺" : e.country === "GBP" ? "🇬🇧" : e.country === "JPY" ? "🇯🇵" : "📊";
-        return `${flag} ${e.country}: ${e.title}`;
-      });
-  }, [events]);
 
   return (
     <motion.header
@@ -28,26 +14,7 @@ export function TopNav() {
       animate={{ opacity: 1, y: 0 }}
       className="flex items-center gap-2 h-10"
     >
-      <Link href="/news" className="flex-1 min-w-0 overflow-hidden relative cursor-pointer group">
-        {tickerItems.length > 0 ? (
-          <div className="overflow-hidden whitespace-nowrap mask-fade">
-            <div className="inline-flex animate-marquee gap-8">
-              {tickerItems.map((item, i) => (
-                <span key={i} className="text-xs text-muted-foreground font-medium group-hover:text-primary transition-colors">
-                  {item}
-                </span>
-              ))}
-              {tickerItems.map((item, i) => (
-                <span key={`dup-${i}`} className="text-xs text-muted-foreground font-medium group-hover:text-primary transition-colors">
-                  {item}
-                </span>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <span className="text-xs text-muted-foreground">Caricamento news...</span>
-        )}
-      </Link>
+      <MacroNewsTicker />
 
       <h1 className="text-sm font-bold font-mono tracking-widest whitespace-nowrap bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">
         TRADER<span className="text-primary">LOADING</span>
