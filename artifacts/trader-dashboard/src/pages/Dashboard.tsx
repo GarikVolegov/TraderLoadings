@@ -6,7 +6,6 @@ import { QuoteWidget } from "@/components/QuoteWidget";
 import { MissionsWidget } from "@/components/MissionsWidget";
 import { CalendarWidget } from "@/components/CalendarWidget";
 import { ChecklistDashboardWidget } from "@/components/ChecklistDashboardWidget";
-import { LeaderboardWidget } from "@/components/LeaderboardWidget";
 
 export default function Dashboard() {
   return (
@@ -46,14 +45,6 @@ export default function Dashboard() {
             transition={{ delay: 0.15 }}
           >
             <ChecklistDashboardWidget />
-          </motion.section>
-
-          <motion.section
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.35 }}
-          >
-            <LeaderboardWidget />
           </motion.section>
 
           <motion.section
