@@ -14,8 +14,8 @@ const FONT_MAP: Record<string, string> = {
 export const DEFAULT_TRADING_SESSIONS: TradingSessionConfig[] = [
   { id: "asian", name: "Asiatica", openUTC: "19:00", closeUTC: "03:00", color: "session-asian", enabled: true },
   { id: "london", name: "Londinese", openUTC: "03:00", closeUTC: "08:30", color: "session-london", enabled: true },
-  { id: "ny", name: "New York", openUTC: "08:30", closeUTC: "15:00", color: "session-ny", enabled: true },
-  { id: "volume", name: "Conferma Vol.", openUTC: "15:00", closeUTC: "19:00", color: "session-volume", enabled: true },
+  { id: "ny", name: "New York", openUTC: "14:30", closeUTC: "21:00", color: "session-ny", enabled: true },
+  { id: "volume", name: "Conferma Vol.", openUTC: "21:00", closeUTC: "23:00", color: "session-volume", enabled: true },
 ];
 
 export const DEFAULT_LOT_DIVISOR = 11;
