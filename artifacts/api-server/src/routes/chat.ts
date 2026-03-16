@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { db, chatMessagesTable, userPublicKeysTable, friendshipsTable } from "@workspace/db";
-import { eq, or, and, desc, sql, lt } from "drizzle-orm";
+import { db, chatMessagesTable, userPublicKeysTable, friendshipsTable, globalChatMessagesTable, profileTable } from "@workspace/db";
+import { eq, or, and, desc, sql, lt, asc } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -194,6 +194,75 @@ router.get("/chat/unread", async (req, res) => {
     res.json({ count: result[0]?.count ?? 0 });
   } catch (err) {
     console.error("chat/unread error:", err);
+    res.status(500).json({ error: "Errore interno" });
+  }
+});
+
+router.get("/chat/global", async (req, res) => {
+  const userId = requireAuth(req, res);
+  if (!userId) return;
+
+  try {
+    const cursorParam = req.query.cursor as string | undefined;
+    const cursor = cursorParam ? parseInt(cursorParam) : undefined;
+    const limit = 60;
+
+    const conditions = [];
+    if (cursor && !isNaN(cursor)) {
+      conditions.push(lt(globalChatMessagesTable.id, cursor));
+    }
+
+    const messages = await db
+      .select()
+      .from(globalChatMessagesTable)
+      .where(conditions.length ? and(...conditions) : undefined)
+      .orderBy(desc(globalChatMessagesTable.id))
+      .limit(limit);
+
+    res.json({
+      messages: messages.reverse(),
+      nextCursor: messages.length === limit ? messages[0]?.id : null,
+    });
+  } catch (err) {
+    console.error("chat/global GET error:", err);
+    res.status(500).json({ error: "Errore interno" });
+  }
+});
+
+router.post("/chat/global", async (req, res) => {
+  const userId = requireAuth(req, res);
+  if (!userId) return;
+
+  try {
+    const { message } = req.body;
+    if (!message || typeof message !== "string" || message.trim().length === 0) {
+      res.status(400).json({ error: "Messaggio vuoto" });
+      return;
+    }
+    if (message.trim().length > 1000) {
+      res.status(400).json({ error: "Messaggio troppo lungo" });
+      return;
+    }
+
+    const [profile] = await db
+      .select({ name: profileTable.name, avatarUrl: profileTable.avatarUrl })
+      .from(profileTable)
+      .where(eq(profileTable.userId, userId))
+      .limit(1);
+
+    const [created] = await db
+      .insert(globalChatMessagesTable)
+      .values({
+        userId,
+        userName: profile?.name ?? "Trader",
+        avatarUrl: profile?.avatarUrl ?? null,
+        message: message.trim(),
+      })
+      .returning();
+
+    res.status(201).json(created);
+  } catch (err) {
+    console.error("chat/global POST error:", err);
     res.status(500).json({ error: "Errore interno" });
   }
 });

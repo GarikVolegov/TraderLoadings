@@ -1,4 +1,4 @@
-import { index, pgTable, serial, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { index, pgTable, serial, text, timestamp, uniqueIndex, integer } from "drizzle-orm/pg-core";
 
 export const friendshipsTable = pgTable("friendships", {
   id: serial("id").primaryKey(),
@@ -34,6 +34,18 @@ export const userPublicKeysTable = pgTable("user_public_keys", {
   uniqueIndex("idx_user_public_keys_user").on(table.userId),
 ]);
 
+export const globalChatMessagesTable = pgTable("global_chat_messages", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  userName: text("user_name").notNull(),
+  avatarUrl: text("avatar_url"),
+  message: text("message").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_global_chat_created").on(table.createdAt),
+]);
+
 export type Friendship = typeof friendshipsTable.$inferSelect;
 export type ChatMessage = typeof chatMessagesTable.$inferSelect;
 export type UserPublicKey = typeof userPublicKeysTable.$inferSelect;
+export type GlobalChatMessage = typeof globalChatMessagesTable.$inferSelect;
