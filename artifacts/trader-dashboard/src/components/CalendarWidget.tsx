@@ -193,7 +193,7 @@ export function CalendarWidget() {
               Nessun evento trovato con i filtri selezionati.
             </div>
           ) : (
-            <div className="space-y-1 max-h-[500px] overflow-y-auto pr-1 scrollbar-thin">
+            <div className="space-y-1 pr-1">
               <p className="text-xs font-semibold text-primary uppercase tracking-wider mb-2 flex items-center gap-1.5">
                 <TrendingUp className="w-3.5 h-3.5" />
                 {upcomingCount > 0 && recentCount > 0
