@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { motion } from "framer-motion";
 import { useBackground } from "@/contexts/BackgroundContext";
 
 export function LotCalculatorWidget() {
@@ -14,49 +15,52 @@ export function LotCalculatorWidget() {
   }, [riskEuro, stopLossPips, lotDivisor]);
 
   return (
-    <div className="h-full rounded-2xl bg-card/60 backdrop-blur-sm border border-border/50 p-4 sm:p-6 space-y-4 sm:space-y-5">
-      <h2 className="flex items-center gap-2 text-sm sm:text-base font-bold uppercase tracking-[0.2em] text-foreground/90">
-        <span className="w-2.5 h-2.5 rounded-full bg-blue-500 shrink-0" />
-        Dimensionamento Posizione
-      </h2>
-
-      <div className="grid grid-cols-2 gap-3 sm:gap-4">
-        <div className="space-y-1.5">
-          <label className="text-[11px] sm:text-xs font-medium text-muted-foreground uppercase tracking-wider">
-            Rischio (€)
-          </label>
+    <div className="space-y-6">
+      <div className="space-y-4">
+        <div>
+          <label className="text-xs text-muted-foreground mb-2 block">Rischio (€)</label>
           <input
             type="number"
-            inputMode="decimal"
-            placeholder="0.00"
             value={riskEuro}
             onChange={(e) => setRiskEuro(e.target.value)}
-            className="w-full bg-secondary/60 border-0 rounded-xl px-4 py-3 sm:py-4 text-lg sm:text-xl font-mono text-foreground/80 placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all"
+            placeholder="Es: 50"
+            step="0.01"
+            min="0"
+            className="w-full px-3 py-2 text-base rounded-lg bg-secondary/50 border border-border hover:border-primary/50 transition-colors focus:outline-none focus:border-primary/50"
           />
         </div>
-
-        <div className="space-y-1.5">
-          <label className="text-[11px] sm:text-xs font-medium text-muted-foreground uppercase tracking-wider">
-            Stop Pips
-          </label>
+        <div>
+          <label className="text-xs text-muted-foreground mb-2 block">Stop Loss (pips)</label>
           <input
             type="number"
-            inputMode="numeric"
-            placeholder="0"
             value={stopLossPips}
             onChange={(e) => setStopLossPips(e.target.value)}
-            className="w-full bg-secondary/60 border-0 rounded-xl px-4 py-3 sm:py-4 text-lg sm:text-xl font-mono text-foreground/80 placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all"
+            placeholder="Es: 100"
+            step="1"
+            min="0"
+            className="w-full px-3 py-2 text-base rounded-lg bg-secondary/50 border border-border hover:border-primary/50 transition-colors focus:outline-none focus:border-primary/50"
           />
         </div>
       </div>
 
-      <div className="rounded-2xl border-2 border-foreground/20 bg-background/40 p-4 sm:p-6 text-center">
-        <p className="text-[11px] sm:text-xs text-muted-foreground uppercase tracking-[0.25em] mb-2">
-          Lotti Risultanti
+      {lotSize && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="rounded-xl bg-primary/10 border border-primary/30 p-4 text-center"
+        >
+          <p className="text-xs text-muted-foreground mb-1">Dimensione Lotto</p>
+          <p className="text-3xl font-bold text-primary font-mono">{lotSize}</p>
+          <p className="text-xs text-muted-foreground mt-2">
+            Formula: ({Number(riskEuro).toFixed(2)} € / {Number(stopLossPips).toFixed(0)} pips) / {lotDivisor}
+          </p>
+        </motion.div>
+      )}
+
+      <div className="rounded-xl bg-card border border-border p-4">
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          <strong>Come usare:</strong> Inserisci il rischio in € e lo stop loss in pips. La formula calcola la dimensione del lotto in base al tuo divisore configurato.
         </p>
-        <div className="text-4xl sm:text-5xl font-mono font-bold text-foreground tracking-wider">
-          {lotSize ?? "0.00"}
-        </div>
       </div>
     </div>
   );
