@@ -1,5 +1,5 @@
 import { Link, useRoute } from "wouter";
-import { LayoutDashboard, BookOpen, TrendingDown, MessageCircle, Wrench, Brain } from "lucide-react";
+import { LayoutDashboard, BookOpen, MessageCircle, Wrench, Brain } from "lucide-react";
 import { useGetUnreadCount } from "@workspace/api-client-react";
 
 const NAV_ITEMS = [
@@ -16,11 +16,11 @@ function NavItem({ href, icon: Icon, label, badge }: { href: string; icon: typeo
   return (
     <Link
       href={href}
-      className="flex flex-col items-center justify-center gap-0.5 flex-1 py-2 relative"
+      className="flex flex-col items-center justify-center gap-1 flex-1 py-3 relative"
     >
       <div className="relative">
         <Icon
-          className={`w-5 h-5 transition-colors ${
+          className={`w-6 h-6 transition-colors ${
             isActive ? "text-primary" : "text-muted-foreground"
           }`}
         />
@@ -31,14 +31,14 @@ function NavItem({ href, icon: Icon, label, badge }: { href: string; icon: typeo
         )}
       </div>
       <span
-        className={`text-[10px] font-medium transition-colors ${
+        className={`text-[11px] font-medium transition-colors ${
           isActive ? "text-primary" : "text-muted-foreground"
         }`}
       >
         {label}
       </span>
       {isActive && (
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-primary rounded-full" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-10 h-0.5 bg-primary rounded-full" />
       )}
     </Link>
   );
@@ -49,7 +49,7 @@ export function BottomNav() {
   const unreadCount = unreadData?.count ?? 0;
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card/80 backdrop-blur-xl border-t border-border/50">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card/90 backdrop-blur-xl border-t border-border/50">
       <div className="max-w-7xl mx-auto flex items-center">
         {NAV_ITEMS.map((item) => (
           <NavItem

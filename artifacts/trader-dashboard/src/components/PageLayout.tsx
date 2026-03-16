@@ -11,7 +11,7 @@ export function PageLayout({ children }: PageLayoutProps) {
   const { backgroundUrl, darkness } = useBackground();
 
   return (
-    <div className="min-h-screen relative bg-background pb-20">
+    <div className="min-h-screen relative bg-background pb-24">
       <div className="fixed inset-0 z-0 pointer-events-none select-none">
         {backgroundUrl ? (
           <img
@@ -34,8 +34,8 @@ export function PageLayout({ children }: PageLayoutProps) {
           />
         )}
       </div>
-      <div className="relative z-10 max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-2 sm:pt-4 space-y-4 sm:space-y-6">
-        <TopNav />
+      <TopNav />
+      <div className="relative z-10 max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-14 sm:pt-16 space-y-4 sm:space-y-6">
         {children}
       </div>
       <BottomNav />

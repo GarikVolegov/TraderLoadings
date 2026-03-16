@@ -40,7 +40,6 @@ interface MacroNewsData {
 }
 
 const ALL_CURRENCIES = ["EUR", "USD", "GBP", "JPY", "CHF", "CAD", "AUD", "NZD", "XAU"];
-const MAX_VISIBLE_CHIPS = 5;
 
 const STORAGE_KEY = "macro-news-currencies";
 
@@ -174,94 +173,44 @@ export function MacroNewsTicker() {
     });
   }, [data?.fetchedAt]);
 
-  const visibleChips = ALL_CURRENCIES.slice(0, MAX_VISIBLE_CHIPS);
-  const overflowChips = ALL_CURRENCIES.slice(MAX_VISIBLE_CHIPS);
-  const overflowActiveCount = overflowChips.filter((c) => selectedCurrencies.includes(c)).length;
-
   return (
     <>
-      <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-        <div
-          className="overflow-hidden relative cursor-pointer group"
-          onClick={() => setSheetOpen(true)}
-        >
-          {isLoading ? (
-            <div className="flex items-center gap-2">
-              <Loader2 className="w-3 h-3 animate-spin text-primary" />
-              <span className="text-xs text-muted-foreground">Analisi macro AI...</span>
-            </div>
-          ) : isError ? (
-            <span className="text-xs text-destructive/70">Errore caricamento notizie</span>
-          ) : tickerItems.length > 0 ? (
-            <div className="overflow-hidden whitespace-nowrap mask-fade">
-              <div className="inline-flex animate-marquee gap-8">
-                {tickerItems.map((item, i) => (
-                  <span
-                    key={i}
-                    className="text-xs text-muted-foreground font-medium group-hover:text-primary transition-colors"
-                  >
-                    {item}
-                  </span>
-                ))}
-                {tickerItems.map((item, i) => (
-                  <span
-                    key={`dup-${i}`}
-                    className="text-xs text-muted-foreground font-medium group-hover:text-primary transition-colors"
-                  >
-                    {item}
-                  </span>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <span className="text-xs text-muted-foreground">Clicca per generare il briefing macro AI</span>
-          )}
-        </div>
-
-        <div className="flex gap-0.5 items-center">
-          {visibleChips.map((cur) => {
-            const active = selectedCurrencies.includes(cur);
-            return (
-              <button
-                key={cur}
-                onClick={() => toggleCurrency(cur)}
-                className={`px-1 py-px rounded text-[8px] font-mono font-bold border transition-all leading-tight ${
-                  active
-                    ? "border-primary/40 bg-primary/15 text-primary"
-                    : "border-transparent bg-secondary/20 text-muted-foreground/40 hover:text-muted-foreground"
-                }`}
-              >
-                {CURRENCY_FLAGS[cur]}{cur}
-              </button>
-            );
-          })}
-          {overflowChips.length > 0 && (
-            <button
-              onClick={() => setSheetOpen(true)}
-              className={`px-1 py-px rounded text-[8px] font-mono font-bold border transition-all leading-tight ${
-                overflowActiveCount > 0
-                  ? "border-primary/40 bg-primary/15 text-primary"
-                  : "border-transparent bg-secondary/20 text-muted-foreground/40 hover:text-muted-foreground"
-              }`}
-              title={overflowChips.map((c) => `${CURRENCY_FLAGS[c]}${c}`).join(" ")}
-            >
-              +{overflowChips.length}
-            </button>
-          )}
-        </div>
-      </div>
-
-      <button
-        onClick={() => setSheetOpen((v) => !v)}
-        className={`flex items-center justify-center w-8 h-8 rounded-lg transition-all shrink-0 ${
-          sheetOpen
-            ? "bg-primary/20 text-primary border border-primary/40"
-            : "bg-card/50 text-muted-foreground border border-border hover:border-primary/30 hover:text-primary"
-        }`}
-        title="Agente Notizie Macro"
+      <div
+        className="flex-1 min-w-0 overflow-hidden relative cursor-pointer group"
+        onClick={() => setSheetOpen(true)}
       >
-        <Brain className="w-4 h-4" />
-      </button>
+        {isLoading ? (
+          <div className="flex items-center gap-2">
+            <Loader2 className="w-3 h-3 animate-spin text-primary" />
+            <span className="text-xs text-muted-foreground">Analisi macro AI...</span>
+          </div>
+        ) : isError ? (
+          <span className="text-xs text-destructive/70">Errore caricamento notizie</span>
+        ) : tickerItems.length > 0 ? (
+          <div className="overflow-hidden whitespace-nowrap mask-fade">
+            <div className="inline-flex animate-marquee gap-8">
+              {tickerItems.map((item, i) => (
+                <span
+                  key={i}
+                  className="text-xs text-muted-foreground font-medium group-hover:text-primary transition-colors"
+                >
+                  {item}
+                </span>
+              ))}
+              {tickerItems.map((item, i) => (
+                <span
+                  key={`dup-${i}`}
+                  className="text-xs text-muted-foreground font-medium group-hover:text-primary transition-colors"
+                >
+                  {item}
+                </span>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <span className="text-xs text-muted-foreground">Clicca per il briefing macro AI</span>
+        )}
+      </div>
 
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
         <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto rounded-t-2xl">
