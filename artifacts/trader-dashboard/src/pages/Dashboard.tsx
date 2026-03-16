@@ -6,66 +6,65 @@ import { QuoteWidget } from "@/components/QuoteWidget";
 import { MissionsWidget } from "@/components/MissionsWidget";
 import { CalendarWidget } from "@/components/CalendarWidget";
 import { ChecklistDashboardWidget } from "@/components/ChecklistDashboardWidget";
-import { useGetMissions } from "@workspace/api-client-react";
+import { LeaderboardWidget } from "@/components/LeaderboardWidget";
 
 export default function Dashboard() {
-  const { data: missions } = useGetMissions();
-  const hasMissions = (missions && missions.length > 0) ?? false;
-
   return (
     <PageLayout>
       <PageHeader title="Dashboard" subtitle="Panoramica giornaliera del tuo trading" />
-      <motion.section
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-      >
-        <ClockWidget />
-      </motion.section>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1fr_2fr] gap-4 sm:gap-6">
+        <div className="space-y-4 sm:space-y-6">
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+          >
+            <ClockWidget />
+          </motion.section>
 
-      <motion.section
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.12 }}
-      >
-        <QuoteWidget />
-      </motion.section>
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.12 }}
+          >
+            <QuoteWidget />
+          </motion.section>
 
-      <motion.section
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.15 }}
-      >
-        <ChecklistDashboardWidget />
-      </motion.section>
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            <MissionsWidget />
+          </motion.section>
+        </div>
 
-      {hasMissions && (
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-        >
-          <MissionsWidget />
-        </motion.section>
-      )}
+        <div className="space-y-4 sm:space-y-6">
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+          >
+            <ChecklistDashboardWidget />
+          </motion.section>
 
-      <motion.section
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
-      >
-        <CalendarWidget />
-      </motion.section>
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.35 }}
+          >
+            <LeaderboardWidget />
+          </motion.section>
 
-      {!hasMissions && (
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
-        >
-          <MissionsWidget />
-        </motion.section>
-      )}
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+          >
+            <CalendarWidget />
+          </motion.section>
+        </div>
+      </div>
     </PageLayout>
   );
 }

@@ -470,7 +470,7 @@ function SessionDetail({ session, onBack }: { session: BacktestSession; onBack: 
 
 function StatBox({ label, value, color, icon }: { label: string; value: string | number; color: string; icon: React.ReactNode }) {
   return (
-    <div className="rounded-2xl bg-card/60 backdrop-blur-sm border border-border/50 p-3 sm:p-4 text-center">
+    <div className="rounded-2xl bg-card/60 backdrop-blur-sm border border-border/50 p-3 sm:p-4 lg:p-5 text-center">
       <div className="flex items-center justify-center gap-1.5 mb-1">
         <span className={color}>{icon}</span>
         <span className="text-[10px] sm:text-[11px] uppercase tracking-wider font-medium text-muted-foreground">{label}</span>

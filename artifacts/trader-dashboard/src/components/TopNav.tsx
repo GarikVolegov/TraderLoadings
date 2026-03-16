@@ -8,11 +8,11 @@ export function TopNav() {
   const isPlaying = mode !== "off";
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-40 bg-background/85 backdrop-blur-xl border-b border-border/30">
+    <header className="fixed top-0 left-0 right-0 z-40 bg-background/85 backdrop-blur-xl border-b border-border/30 lg:left-48">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 flex items-center gap-2 h-12">
         <MacroNewsTicker />
 
-        <h1 className="text-sm font-bold font-mono tracking-widest whitespace-nowrap bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">
+        <h1 className="text-sm font-bold font-mono tracking-widest whitespace-nowrap bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent lg:hidden">
           TRADER<span className="text-primary">LOADING</span>
         </h1>
 

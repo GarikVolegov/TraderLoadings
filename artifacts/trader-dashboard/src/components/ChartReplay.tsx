@@ -691,7 +691,7 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
           </div>
         )}
 
-        <div className="relative" style={{ height: "clamp(300px, 48vh, 520px)" }}>
+        <div className="relative" style={{ height: "clamp(300px, 48vh, 680px)" }}>
           {loading && (
             <div className="absolute inset-0 flex flex-col items-center justify-center z-10">
               <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mb-3" />

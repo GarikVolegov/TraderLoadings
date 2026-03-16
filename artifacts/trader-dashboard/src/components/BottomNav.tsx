@@ -10,8 +10,34 @@ const NAV_ITEMS = [
   { href: "/chat", icon: MessageCircle, label: "Chat" },
 ] as const;
 
-function NavItem({ href, icon: Icon, label, badge }: { href: string; icon: typeof LayoutDashboard; label: string; badge?: number }) {
+function NavItem({ href, icon: Icon, label, badge, vertical }: { href: string; icon: typeof LayoutDashboard; label: string; badge?: number; vertical?: boolean }) {
   const [isActive] = useRoute(href);
+
+  if (vertical) {
+    return (
+      <Link
+        href={href}
+        className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all relative ${
+          isActive
+            ? "bg-primary/10 text-primary border border-primary/30"
+            : "text-muted-foreground hover:bg-card/80 hover:text-foreground border border-transparent"
+        }`}
+      >
+        <div className="relative">
+          <Icon className="w-5 h-5" />
+          {badge != null && badge > 0 && (
+            <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-[16px] flex items-center justify-center bg-destructive text-destructive-foreground text-[9px] font-bold rounded-full px-0.5">
+              {badge > 99 ? "99+" : badge}
+            </span>
+          )}
+        </div>
+        <span className="text-sm font-medium">{label}</span>
+        {isActive && (
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-6 bg-primary rounded-full" />
+        )}
+      </Link>
+    );
+  }
 
   return (
     <Link
@@ -49,19 +75,41 @@ export function BottomNav() {
   const unreadCount = unreadData?.count ?? 0;
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card/90 backdrop-blur-xl border-t border-border/50">
-      <div className="max-w-7xl mx-auto flex items-center">
-        {NAV_ITEMS.map((item) => (
-          <NavItem
-            key={item.href}
-            href={item.href}
-            icon={item.icon}
-            label={item.label}
-            badge={item.label === "Chat" ? unreadCount : undefined}
-          />
-        ))}
-      </div>
-      <div className="h-[env(safe-area-inset-bottom,0px)]" />
-    </nav>
+    <>
+      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card/90 backdrop-blur-xl border-t border-border/50 lg:hidden">
+        <div className="max-w-7xl mx-auto flex items-center">
+          {NAV_ITEMS.map((item) => (
+            <NavItem
+              key={item.href}
+              href={item.href}
+              icon={item.icon}
+              label={item.label}
+              badge={item.label === "Chat" ? unreadCount : undefined}
+            />
+          ))}
+        </div>
+        <div className="h-[env(safe-area-inset-bottom,0px)]" />
+      </nav>
+
+      <nav className="hidden lg:flex fixed left-0 top-0 bottom-0 z-50 w-48 bg-card/90 backdrop-blur-xl border-r border-border/50 flex-col">
+        <div className="px-4 py-5 border-b border-border/30">
+          <h1 className="text-sm font-bold font-mono tracking-widest bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">
+            TRADER<span className="text-primary">LOADING</span>
+          </h1>
+        </div>
+        <div className="flex-1 flex flex-col gap-1 px-3 py-4">
+          {NAV_ITEMS.map((item) => (
+            <NavItem
+              key={item.href}
+              href={item.href}
+              icon={item.icon}
+              label={item.label}
+              badge={item.label === "Chat" ? unreadCount : undefined}
+              vertical
+            />
+          ))}
+        </div>
+      </nav>
+    </>
   );
 }

@@ -238,7 +238,7 @@ function MonteCarloTool() {
             ))}
           </div>
 
-          <div className="h-64 w-full">
+          <div className="h-64 lg:h-96 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
@@ -673,7 +673,7 @@ function VolatilityTool() {
           {/* Bar chart ultimi 30 giorni */}
           <div>
             <p className="text-xs text-muted-foreground font-medium mb-2">Range giornaliero — ultimi 30 giorni</p>
-            <div className="h-48">
+            <div className="h-48 lg:h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={data.last30} barSize={7} margin={{ top: 4, right: 0, left: -20, bottom: 18 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
@@ -1559,39 +1559,45 @@ export default function Tools() {
         transition={{ delay: 0.1 }}
       >
       <Tabs defaultValue="montecarlo">
-        <TabsList className="mb-4">
-          {TABS.map((tab) => (
-            <TabsTrigger key={tab.id} value={tab.id}>
-              <tab.icon className="w-3.5 h-3.5" />
-              {tab.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+        <div className="flex flex-col md:flex-row gap-4 md:gap-6">
+          <TabsList className="flex md:flex-col w-full md:w-1/4 h-auto gap-1 bg-card/50 backdrop-blur-md p-1.5 rounded-xl border border-border md:self-start overflow-x-auto">
+            {TABS.map((tab) => (
+              <TabsTrigger
+                key={tab.id}
+                value={tab.id}
+                className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm flex-1 md:w-full"
+              >
+                <tab.icon className="w-3.5 h-3.5" />
+                {tab.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
 
-        <Card>
-          <CardContent className="p-4 sm:p-6">
-            <TabsContent value="montecarlo" className="m-0">
-              <MonteCarloTool />
-            </TabsContent>
-            <TabsContent value="sentiment" className="m-0">
-              <SentimentTool />
-            </TabsContent>
-            <TabsContent value="volatility" className="m-0">
-              <VolatilityTool />
-            </TabsContent>
-            <TabsContent value="cot" className="m-0">
-              <CotTool />
-            </TabsContent>
-            <TabsContent value="backtest" className="m-0">
-              <BacktestTool />
-            </TabsContent>
-            <TabsContent value="lot" className="m-0">
-              <div className="p-4">
-                <LotCalculatorWidget />
-              </div>
-            </TabsContent>
-          </CardContent>
-        </Card>
+          <Card className="md:w-3/4">
+            <CardContent className="p-4 sm:p-6">
+              <TabsContent value="montecarlo" className="m-0">
+                <MonteCarloTool />
+              </TabsContent>
+              <TabsContent value="sentiment" className="m-0">
+                <SentimentTool />
+              </TabsContent>
+              <TabsContent value="volatility" className="m-0">
+                <VolatilityTool />
+              </TabsContent>
+              <TabsContent value="cot" className="m-0">
+                <CotTool />
+              </TabsContent>
+              <TabsContent value="backtest" className="m-0">
+                <BacktestTool />
+              </TabsContent>
+              <TabsContent value="lot" className="m-0">
+                <div className="p-4">
+                  <LotCalculatorWidget />
+                </div>
+              </TabsContent>
+            </CardContent>
+          </Card>
+        </div>
       </Tabs>
       </motion.section>
     </PageLayout>

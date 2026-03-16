@@ -411,29 +411,37 @@ export default function Zen() {
         transition={{ delay: 0.1 }}
       >
         <Tabs defaultValue="breathing" className="w-full">
-          <TabsList className="mb-4">
-            <TabsTrigger value="breathing">Respira</TabsTrigger>
-            <TabsTrigger value="visualization">Visualizza</TabsTrigger>
-            <TabsTrigger value="quotes">Frasi</TabsTrigger>
-            <TabsTrigger value="gratitude">Gratitudine</TabsTrigger>
-            <TabsTrigger value="meditation">Meditazione</TabsTrigger>
-          </TabsList>
+          <div className="flex flex-col md:flex-row gap-4 md:gap-6">
+            <TabsList className="flex md:flex-col w-full md:w-1/3 h-auto gap-1 bg-card/50 backdrop-blur-md p-1.5 rounded-xl border border-border md:self-start">
+              <TabsTrigger value="breathing" className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm flex-1 md:w-full">Respira</TabsTrigger>
+              <TabsTrigger value="visualization" className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm flex-1 md:w-full">Visualizza</TabsTrigger>
+              <TabsTrigger value="quotes" className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm flex-1 md:w-full">Frasi</TabsTrigger>
+              <TabsTrigger value="gratitude" className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm flex-1 md:w-full">Gratitudine</TabsTrigger>
+              <TabsTrigger value="meditation" className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm flex-1 md:w-full">Meditazione</TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="breathing" className="mt-0">
-            <BreathingExercise />
-          </TabsContent>
-          <TabsContent value="visualization" className="mt-0">
-            <ResultVisualization />
-          </TabsContent>
-          <TabsContent value="quotes" className="mt-0">
-            <MotivationalQuotes />
-          </TabsContent>
-          <TabsContent value="gratitude" className="mt-0">
-            <Gratitude />
-          </TabsContent>
-          <TabsContent value="meditation" className="mt-0">
-            <MeditationTimer />
-          </TabsContent>
+            <div className="md:w-2/3">
+              <TabsContent value="breathing" className="mt-0">
+                <BreathingExercise />
+              </TabsContent>
+
+              <TabsContent value="visualization" className="mt-0">
+                <ResultVisualization />
+              </TabsContent>
+
+              <TabsContent value="quotes" className="mt-0">
+                <MotivationalQuotes />
+              </TabsContent>
+
+              <TabsContent value="gratitude" className="mt-0">
+                <Gratitude />
+              </TabsContent>
+
+              <TabsContent value="meditation" className="mt-0">
+                <MeditationTimer />
+              </TabsContent>
+            </div>
+          </div>
         </Tabs>
       </motion.section>
     </PageLayout>

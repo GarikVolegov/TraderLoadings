@@ -1060,6 +1060,7 @@ export default function Settings() {
   const { isAuthenticated, isLoading, login, logout } = useAuth();
   const { isPinSet } = usePinLock();
   const { language } = useLanguage();
+  const [activeDesktopSection, setActiveDesktopSection] = useState<TileId>("audio");
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     audio: false,
     aspetto: false,
@@ -1121,7 +1122,7 @@ export default function Settings() {
   return (
     <PageLayout>
       <PageHeader title="Impostazioni" subtitle="Configura il tuo ambiente di trading" />
-      <div className="space-y-6 max-w-4xl mx-auto">
+      <div className="space-y-6 max-w-5xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -1132,52 +1133,104 @@ export default function Settings() {
           </div>
         </motion.div>
 
-        {/* Collapsible Sections */}
-        {collapsibleSections.map((tile, i) => (
-          <motion.div
-            key={tile.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: (i + 1) * 0.05 }}
-            className="space-y-2"
-          >
-            <button
-              onClick={() => setOpenSections(prev => ({ ...prev, [tile.id]: !prev[tile.id] }))}
-              className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-border bg-card/60 backdrop-blur-sm hover:border-primary/30 hover:bg-card transition-all group"
-            >
-              <div className="flex items-center gap-3">
-                <div className={`${tile.color} transition-transform duration-200 group-hover:scale-110`}>
-                  {tile.icon}
-                </div>
-                <div className="text-left">
-                  <h2 className="text-base font-bold">{tile.label}</h2>
-                  <p className="text-xs text-muted-foreground">{tile.subtitle}</p>
-                </div>
-              </div>
-              <ChevronDown
-                className={`w-5 h-5 text-muted-foreground transition-transform duration-300 ${
-                  openSections[tile.id] ? "rotate-180" : ""
-                }`}
-              />
-            </button>
-
-            <AnimatePresence>
-              {openSections[tile.id] && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.3 }}
-                  className="overflow-hidden"
+        <div className="hidden lg:flex gap-6">
+          <div className="w-64 shrink-0 space-y-1 self-start sticky top-16">
+            <div className="bg-card/60 backdrop-blur-sm border border-border rounded-2xl p-2">
+              {collapsibleSections.map((tile) => (
+                <button
+                  key={tile.id}
+                  onClick={() => setActiveDesktopSection(tile.id)}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${
+                    activeDesktopSection === tile.id
+                      ? "bg-primary/10 text-primary border border-primary/30"
+                      : "text-muted-foreground hover:bg-card/80 hover:text-foreground border border-transparent"
+                  }`}
                 >
-                  <div className="bg-card/60 backdrop-blur-sm border border-border rounded-2xl p-5 sm:p-6">
-                    {tileContent[tile.id]}
+                  <div className={`${activeDesktopSection === tile.id ? tile.color : "text-muted-foreground"} shrink-0`}>
+                    {React.cloneElement(tile.icon as React.ReactElement, { className: "w-4 h-4" })}
                   </div>
-                </motion.div>
-              )}
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{tile.label}</p>
+                    <p className="text-[10px] text-muted-foreground truncate">{tile.subtitle}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeDesktopSection}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+              >
+                <div className="bg-card/60 backdrop-blur-sm border border-border rounded-2xl p-5 sm:p-6">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className={tiles.find(t => t.id === activeDesktopSection)?.color}>
+                      {tiles.find(t => t.id === activeDesktopSection)?.icon}
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-bold">{tiles.find(t => t.id === activeDesktopSection)?.label}</h2>
+                      <p className="text-xs text-muted-foreground">{tiles.find(t => t.id === activeDesktopSection)?.subtitle}</p>
+                    </div>
+                  </div>
+                  {tileContent[activeDesktopSection]}
+                </div>
+              </motion.div>
             </AnimatePresence>
-          </motion.div>
-        ))}
+          </div>
+        </div>
+
+        <div className="lg:hidden grid grid-cols-1 md:grid-cols-2 gap-4">
+          {collapsibleSections.map((tile, i) => (
+            <motion.div
+              key={tile.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: (i + 1) * 0.05 }}
+              className="space-y-2"
+            >
+              <button
+                onClick={() => setOpenSections(prev => ({ ...prev, [tile.id]: !prev[tile.id] }))}
+                className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-border bg-card/60 backdrop-blur-sm hover:border-primary/30 hover:bg-card transition-all group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`${tile.color} transition-transform duration-200 group-hover:scale-110`}>
+                    {tile.icon}
+                  </div>
+                  <div className="text-left">
+                    <h2 className="text-base font-bold">{tile.label}</h2>
+                    <p className="text-xs text-muted-foreground">{tile.subtitle}</p>
+                  </div>
+                </div>
+                <ChevronDown
+                  className={`w-5 h-5 text-muted-foreground transition-transform duration-300 ${
+                    openSections[tile.id] ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+
+              <AnimatePresence>
+                {openSections[tile.id] && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="bg-card/60 backdrop-blur-sm border border-border rounded-2xl p-5 sm:p-6">
+                      {tileContent[tile.id]}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          ))}
+        </div>
       </div>
     </PageLayout>
   );
