@@ -127,7 +127,8 @@ export function MacroNewsTicker() {
     return data.articles.map((a) => {
       const flag = CURRENCY_FLAGS[a.currency] ?? "📊";
       const dot = IMPACT_DOT[a.impact] ?? "⚪";
-      return `${dot} ${flag} ${a.currency}: ${a.title}`;
+      const impactLabel = a.impact ? a.impact.toUpperCase() : "";
+      return `${dot} ${flag} ${a.currency}: ${a.title} — ${impactLabel}`;
     });
   }, [data]);
 
@@ -193,8 +194,12 @@ export function MacroNewsTicker() {
       </div>
 
       <button
-        onClick={() => setSheetOpen(true)}
-        className="flex items-center justify-center w-8 h-8 rounded-lg bg-card/50 text-muted-foreground border border-border hover:border-primary/30 hover:text-primary transition-all shrink-0"
+        onClick={() => setSheetOpen((v) => !v)}
+        className={`flex items-center justify-center w-8 h-8 rounded-lg transition-all shrink-0 ${
+          sheetOpen
+            ? "bg-primary/20 text-primary border border-primary/40"
+            : "bg-card/50 text-muted-foreground border border-border hover:border-primary/30 hover:text-primary"
+        }`}
         title="Agente Notizie Macro"
       >
         <Brain className="w-4 h-4" />
@@ -246,18 +251,27 @@ export function MacroNewsTicker() {
                 {ALL_CURRENCIES.map((cur) => {
                   const active = selectedCurrencies.includes(cur);
                   return (
-                    <button
+                    <label
                       key={cur}
-                      onClick={() => toggleCurrency(cur)}
-                      className={`px-2.5 py-1 rounded-lg text-[11px] font-mono font-semibold border transition-all flex items-center gap-1 ${
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-mono font-semibold border transition-all flex items-center gap-1.5 cursor-pointer select-none ${
                         active
                           ? "border-primary bg-primary/15 text-primary"
                           : "border-border bg-secondary/40 text-muted-foreground hover:border-primary/30"
                       }`}
                     >
+                      <input
+                        type="checkbox"
+                        checked={active}
+                        onChange={() => toggleCurrency(cur)}
+                        className="sr-only"
+                      />
+                      <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center flex-shrink-0 ${
+                        active ? "bg-primary border-primary" : "border-muted-foreground/40"
+                      }`}>
+                        {active && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
+                      </span>
                       {CURRENCY_FLAGS[cur]} {cur}
-                      {active && <Check className="w-2.5 h-2.5" />}
-                    </button>
+                    </label>
                   );
                 })}
               </div>
