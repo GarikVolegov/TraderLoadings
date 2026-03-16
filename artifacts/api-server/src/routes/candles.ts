@@ -36,7 +36,7 @@ const TWELVE_INTERVAL: Record<string, string> = {
 };
 
 const TWELVE_OUTPUTSIZE: Record<string, number> = {
-  M15: 8640, M30: 5000, H1: 5000, H4: 5000, D1: 5000, W1: 5000,
+  M15: 5000, M30: 5000, H1: 5000, H4: 5000, D1: 5000, W1: 5000,
 };
 
 interface CachedData { data: unknown; timestamp: number; }
@@ -172,11 +172,17 @@ async function fetchCoinGecko(symbol: string, interval: string): Promise<Candle[
 
 type FetchFn = (symbol: string, interval: string) => Promise<Candle[]>;
 
-function getFallbackChain(symbol: string): Array<{ name: string; fn: FetchFn }> {
+function getFallbackChain(symbol: string, interval: string): Array<{ name: string; fn: FetchFn }> {
   const chain: Array<{ name: string; fn: FetchFn }> = [];
-  chain.push({ name: "Yahoo", fn: fetchYahoo });
-  if (TWELVE_SYMBOLS[symbol]) {
+  const isIntraday = interval === "M15" || interval === "M30";
+  if (isIntraday && TWELVE_SYMBOLS[symbol]) {
     chain.push({ name: "TwelveData", fn: fetchTwelveData });
+    chain.push({ name: "Yahoo", fn: fetchYahoo });
+  } else {
+    chain.push({ name: "Yahoo", fn: fetchYahoo });
+    if (TWELVE_SYMBOLS[symbol]) {
+      chain.push({ name: "TwelveData", fn: fetchTwelveData });
+    }
   }
   if (COINGECKO_IDS[symbol]) {
     chain.push({ name: "CoinGecko", fn: fetchCoinGecko });
@@ -203,7 +209,7 @@ router.get("/backtest/candles", async (req, res) => {
   }
 
   const errors: string[] = [];
-  const chain = getFallbackChain(symbol);
+  const chain = getFallbackChain(symbol, interval);
 
   for (const { name, fn } of chain) {
     try {
