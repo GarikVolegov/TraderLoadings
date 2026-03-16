@@ -268,6 +268,22 @@ function TradingSettings() {
   const [localDivisor, setLocalDivisor] = useState(String(lotDivisor));
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
+  // Converti UTC a EST (UTC-5)
+  const utcToEst = (utcTime: string): string => {
+    const [h, m] = utcTime.split(":").map(Number);
+    let estH = h - 5;
+    if (estH < 0) estH += 24;
+    return `${String(estH).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  };
+
+  // Converti EST a UTC (EST+5)
+  const estToUtc = (estTime: string): string => {
+    const [h, m] = estTime.split(":").map(Number);
+    let utcH = h + 5;
+    if (utcH >= 24) utcH -= 24;
+    return `${String(utcH).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  };
+
   useEffect(() => {
     setLocalSessions(tradingSessions);
   }, [tradingSessions]);
@@ -288,6 +304,7 @@ function TradingSettings() {
       try {
         await updateMutation.mutateAsync({ data: { tradingSessions: sessions, lotDivisor: Number(localDivisor) || DEFAULT_LOT_DIVISOR } });
         qc.invalidateQueries({ queryKey: getGetUserSettingsQueryKey() });
+        toast({ description: "Sessioni salvate." });
       } catch {
         toast({ description: "Errore nel salvataggio.", variant: "destructive" });
       }
@@ -295,7 +312,16 @@ function TradingSettings() {
   };
 
   const handleSessionChange = (idx: number, field: keyof TradingSessionConfig, value: string | boolean) => {
-    const updated = localSessions.map((s, i) => i === idx ? { ...s, [field]: value } : s);
+    const updated = localSessions.map((s, i) => {
+      if (i === idx) {
+        // Se stai modificando openUTC o closeUTC, converti da EST a UTC
+        if (field === "openUTC" || field === "closeUTC") {
+          return { ...s, [field]: estToUtc(value as string) };
+        }
+        return { ...s, [field]: value };
+      }
+      return s;
+    });
     saveSessions(updated);
   };
 
@@ -309,6 +335,7 @@ function TradingSettings() {
         try {
           await updateMutation.mutateAsync({ data: { lotDivisor: num, tradingSessions: localSessions } });
           qc.invalidateQueries({ queryKey: getGetUserSettingsQueryKey() });
+          toast({ description: "Divisore salvato." });
         } catch {
           toast({ description: "Errore nel salvataggio.", variant: "destructive" });
         }
@@ -342,49 +369,54 @@ function TradingSettings() {
         <div className="space-y-4">
           <div>
             <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Sessioni di Trading</h4>
-            <p className="text-xs text-muted-foreground mt-1">Tutti gli orari sono impostati in EST (Eastern Standard Time - New York)</p>
+            <p className="text-xs text-muted-foreground mt-1">Gli orari visualizzati sono in EST (Eastern Standard Time). Adatta le sessioni ai tuoi bisogni.</p>
           </div>
           {localSessions.map((session, idx) => (
-            <div key={session.id} className="rounded-lg border border-border p-3 space-y-3">
-              <div className="flex items-center justify-between">
+            <motion.div 
+              key={session.id} 
+              className="rounded-xl border border-border/50 bg-card/40 backdrop-blur-sm p-4 space-y-3 hover:border-border/80 transition-colors"
+              whileHover={{ borderColor: "var(--border-hover)" }}
+            >
+              <div className="flex items-center justify-between gap-3">
                 <Input
                   value={session.name}
                   onChange={(e) => handleSessionChange(idx, "name", e.target.value)}
-                  className="text-sm font-medium w-40"
+                  className="text-sm font-semibold flex-1 bg-secondary/40 border-border/30 rounded-lg"
+                  placeholder="Nome sessione"
                 />
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">Visibile</span>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-xs text-muted-foreground font-medium">Visibile</span>
                   <Switch
                     checked={session.enabled}
                     onCheckedChange={(checked) => handleSessionChange(idx, "enabled", checked)}
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-muted-foreground block mb-1">Apertura (EST)</label>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Apertura (EST)</label>
                   <Input
                     type="time"
-                    value={session.openUTC}
+                    value={utcToEst(session.openUTC)}
                     onChange={(e) => handleSessionChange(idx, "openUTC", e.target.value)}
-                    className="text-sm"
+                    className="text-sm font-mono bg-secondary/40 border border-border/30 rounded-lg h-10 text-foreground"
                   />
                 </div>
-                <div>
-                  <label className="text-xs text-muted-foreground block mb-1">Chiusura (EST)</label>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Chiusura (EST)</label>
                   <Input
                     type="time"
-                    value={session.closeUTC}
+                    value={utcToEst(session.closeUTC)}
                     onChange={(e) => handleSessionChange(idx, "closeUTC", e.target.value)}
-                    className="text-sm"
+                    className="text-sm font-mono bg-secondary/40 border border-border/30 rounded-lg h-10 text-foreground"
                   />
                 </div>
               </div>
-            </div>
+            </motion.div>
           ))}
         </div>
 
-        <Button variant="outline" className="w-full" onClick={handleReset}>
+        <Button variant="outline" className="w-full rounded-lg" onClick={handleReset}>
           <RefreshCw className="w-4 h-4 mr-2" />
           Ripristina valori predefiniti
         </Button>
