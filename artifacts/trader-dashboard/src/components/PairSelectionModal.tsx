@@ -91,7 +91,7 @@ export function PairSelectionModal({ open, onConfirm, initialPairs = [], dismiss
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.92, opacity: 0, y: 20 }}
           transition={{ type: "spring", damping: 25, stiffness: 300 }}
-          className="w-full max-w-lg bg-card border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+          className="w-full max-w-lg bg-card border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] relative"
         >
           <div className="p-5 border-b border-border shrink-0">
             <div className="flex items-center justify-between mb-1">
@@ -138,7 +138,7 @@ export function PairSelectionModal({ open, onConfirm, initialPairs = [], dismiss
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-5 py-3 space-y-2 min-h-0">
+          <div className="flex-1 overflow-y-auto px-5 py-3 space-y-2 min-h-0 pb-20">
             {Array.from(grouped.entries()).map(([category, pairs]) => {
               const isExpanded = search.trim() !== "" || expandedCategories[category];
               return (
@@ -194,7 +194,7 @@ export function PairSelectionModal({ open, onConfirm, initialPairs = [], dismiss
             )}
           </div>
 
-          <div className="p-5 border-t border-border flex items-center justify-between bg-card shrink-0">
+          <div className="absolute bottom-0 left-0 right-0 p-5 border-t border-border flex items-center justify-between bg-gradient-to-t from-card via-card to-transparent backdrop-blur-sm rounded-b-2xl">
             <span className="text-xs text-muted-foreground">
               {selected.length} pair selezionat{selected.length === 1 ? "o" : "i"}
             </span>
