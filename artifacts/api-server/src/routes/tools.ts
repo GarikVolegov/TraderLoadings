@@ -108,7 +108,7 @@ async function fetchMyfxbookOutlook(): Promise<MyfxbookSymbol[]> {
   const session = await getMyfxbookSession();
   if (!session) throw new Error("No credentials");
 
-  const url = `https://www.myfxbook.com/api/get-community-outlook.json?session=${encodeURIComponent(session)}`;
+  const url = `https://www.myfxbook.com/api/get-community-outlook.json?session=${session}`;
   const res = await fetch(url, {
     headers: { "User-Agent": "Mozilla/5.0" },
     signal: AbortSignal.timeout(10000),

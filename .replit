@@ -24,3 +24,9 @@ expertMode = true
 [postMerge]
 path = "scripts/post-merge.sh"
 timeoutMs = 20000
+
+[userenv]
+
+[userenv.shared]
+MYFXBOOK_EMAIL = "volegovgarik9@gmail.com"
+MYFXBOOK_PASSWORD = "kAwven-fuptop-4bibge"
