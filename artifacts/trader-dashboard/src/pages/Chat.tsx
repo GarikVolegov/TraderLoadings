@@ -912,8 +912,9 @@ export default function Chat() {
   return (
     <PageLayout>
       <PageHeader title="Community Trader" subtitle="Social, messaggi crittografati e classifica" />
-      <motion.div
+      <motion.section
         initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
         className="bg-card/30 backdrop-blur-md border border-border rounded-2xl overflow-hidden flex flex-col"
         style={{ height: "calc(100vh - 180px)" }}
       >
@@ -932,7 +933,7 @@ export default function Chat() {
           {activeTab === "messaggi" && <MessaggiTab currentUser={{ id: user?.id ?? "" }} />}
           {activeTab === "classifica" && <ClassificaTab />}
         </div>
-      </motion.div>
+      </motion.section>
     </PageLayout>
   );
 }

@@ -1553,14 +1553,15 @@ export default function Tools() {
     <PageLayout>
       <PageHeader title="Strumenti Avanzati" subtitle="Analisi quantitativa, sentiment e dati istituzionali" />
 
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+      >
       <Tabs defaultValue="montecarlo">
-        <TabsList className="flex w-full h-auto gap-1 bg-card/50 backdrop-blur-md p-1.5 rounded-xl border border-border mb-4 overflow-x-auto">
+        <TabsList className="mb-4">
           {TABS.map((tab) => (
-            <TabsTrigger
-              key={tab.id}
-              value={tab.id}
-              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm flex-1"
-            >
+            <TabsTrigger key={tab.id} value={tab.id}>
               <tab.icon className="w-3.5 h-3.5" />
               {tab.label}
             </TabsTrigger>
@@ -1592,6 +1593,7 @@ export default function Tools() {
           </CardContent>
         </Card>
       </Tabs>
+      </motion.section>
     </PageLayout>
   );
 }

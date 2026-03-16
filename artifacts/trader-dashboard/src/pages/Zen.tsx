@@ -411,12 +411,12 @@ export default function Zen() {
         transition={{ delay: 0.1 }}
       >
         <Tabs defaultValue="breathing" className="w-full">
-          <TabsList className="flex w-full h-auto gap-1 bg-card/50 backdrop-blur-md p-1.5 rounded-xl border border-border mb-4 overflow-x-auto">
-            <TabsTrigger value="breathing" className="flex items-center justify-center px-3 py-2 rounded-xl text-xs font-semibold data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm flex-1">Respira</TabsTrigger>
-            <TabsTrigger value="visualization" className="flex items-center justify-center px-3 py-2 rounded-xl text-xs font-semibold data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm flex-1">Visualizza</TabsTrigger>
-            <TabsTrigger value="quotes" className="flex items-center justify-center px-3 py-2 rounded-xl text-xs font-semibold data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm flex-1">Frasi</TabsTrigger>
-            <TabsTrigger value="gratitude" className="flex items-center justify-center px-3 py-2 rounded-xl text-xs font-semibold data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm flex-1">Gratitudine</TabsTrigger>
-            <TabsTrigger value="meditation" className="flex items-center justify-center px-3 py-2 rounded-xl text-xs font-semibold data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm flex-1">Meditazione</TabsTrigger>
+          <TabsList className="mb-4">
+            <TabsTrigger value="breathing">Respira</TabsTrigger>
+            <TabsTrigger value="visualization">Visualizza</TabsTrigger>
+            <TabsTrigger value="quotes">Frasi</TabsTrigger>
+            <TabsTrigger value="gratitude">Gratitudine</TabsTrigger>
+            <TabsTrigger value="meditation">Meditazione</TabsTrigger>
           </TabsList>
 
           <TabsContent value="breathing" className="mt-0">
