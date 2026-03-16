@@ -1,5 +1,6 @@
 import { Router } from "express";
 import OpenAI from "openai";
+import cron from "node-cron";
 
 const router = Router();
 
@@ -300,7 +301,8 @@ router.get("/tools/volatility", async (req, res) => {
   }
 });
 
-// ─── 4. COT REPORT ────────────────────────────────────────────────────────────
+// ─── 4. COT REPORT (CFTC, aggiornamento ogni venerdì) ────────────────────────
+
 const COT_MARKET_MAP: Record<string, string> = {
   "EURO FX": "EUR",
   "BRITISH POUND": "GBP",
@@ -313,137 +315,188 @@ const COT_MARKET_MAP: Record<string, string> = {
   "US DOLLAR INDEX": "USD",
 };
 
-function parseCotCsv(text: string) {
+const COT_ORDER = ["EUR","GBP","JPY","CHF","CAD","AUD","NZD","XAU","USD"];
+const COT_HISTORY_WEEKS = 12; // settimane di storico da mostrare
+
+interface CotWeek {
+  date: string;
+  nonCommLong: number;
+  nonCommShort: number;
+  commLong: number;
+  commShort: number;
+  retailLong: number;
+  retailShort: number;
+  nonCommNet: number;
+  commNet: number;
+  retailNet: number;
+}
+interface CotEntry extends CotWeek {
+  market: string;
+  currency: string;
+  history: { date: string; nonCommNet: number; commNet: number }[];
+}
+
+function parseCotCsv(text: string): CotEntry[] {
   const lines = text.trim().split("\n");
   if (lines.length < 2) return [];
 
-  const rawHeader = lines[0];
-  const headers = rawHeader.split(",").map((h) => h.trim().replace(/^"|"$/g, "").toLowerCase());
+  const headers = lines[0].split(",").map((h) => h.trim().replace(/^"|"$/g, "").toLowerCase());
+  const col = (name: string) => headers.findIndex((h) => h.includes(name.toLowerCase()));
 
-  const col = (name: string) => {
-    const lower = name.toLowerCase();
-    return headers.findIndex((h) => h.includes(lower));
-  };
-
-  const marketCol = col("market_and_exchange_names");
-  const dateCol = col("report_date_as_yyyy");
-  const ncLongCol = col("noncomm_positions_long_all");
+  const marketCol  = col("market_and_exchange_names");
+  const dateCol    = col("report_date_as_yyyy");
+  const ncLongCol  = col("noncomm_positions_long_all");
   const ncShortCol = col("noncomm_positions_short_all");
-  const commLongCol = col("comm_positions_long_all");
-  const commShortCol = col("comm_positions_short_all");
-  const nrLongCol = col("nonrept_positions_long_all");
-  const nrShortCol = col("nonrept_positions_short_all");
+  const commLCol   = col("comm_positions_long_all");
+  const commSCol   = col("comm_positions_short_all");
+  const nrLCol     = col("nonrept_positions_long_all");
+  const nrSCol     = col("nonrept_positions_short_all");
 
-  const latestByMarket: Record<string, {
-    market: string;
-    currency: string;
-    date: string;
-    nonCommLong: number;
-    nonCommShort: number;
-    commLong: number;
-    commShort: number;
-    retailLong: number;
-    retailShort: number;
-    nonCommNet: number;
-    commNet: number;
-    retailNet: number;
-  }> = {};
+  const historyByMarket: Record<string, CotWeek[]> = {};
 
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i];
     if (!line.trim()) continue;
-
     const cols = line.split(",").map((c) => c.trim().replace(/^"|"$/g, ""));
     const market = cols[marketCol]?.toUpperCase() ?? "";
-
     const matchedKey = Object.keys(COT_MARKET_MAP).find((k) => market.includes(k));
     if (!matchedKey) continue;
 
     const currency = COT_MARKET_MAP[matchedKey];
     const date = cols[dateCol] ?? "";
-    const ncLong = parseInt(cols[ncLongCol]) || 0;
+    const ncLong  = parseInt(cols[ncLongCol])  || 0;
     const ncShort = parseInt(cols[ncShortCol]) || 0;
-    const commLong = parseInt(cols[commLongCol]) || 0;
-    const commShort = parseInt(cols[commShortCol]) || 0;
-    const nrLong = parseInt(cols[nrLongCol]) || 0;
-    const nrShort = parseInt(cols[nrShortCol]) || 0;
+    const commL   = parseInt(cols[commLCol])   || 0;
+    const commS   = parseInt(cols[commSCol])   || 0;
+    const nrL     = parseInt(cols[nrLCol])     || 0;
+    const nrS     = parseInt(cols[nrSCol])     || 0;
 
-    if (!latestByMarket[currency] || date > latestByMarket[currency].date) {
-      latestByMarket[currency] = {
-        market: matchedKey,
-        currency,
-        date,
-        nonCommLong: ncLong,
-        nonCommShort: ncShort,
-        commLong,
-        commShort,
-        retailLong: nrLong,
-        retailShort: nrShort,
+    if (!historyByMarket[currency]) historyByMarket[currency] = [];
+    // Avoid duplicate dates
+    if (!historyByMarket[currency].some((w) => w.date === date)) {
+      historyByMarket[currency].push({
+        date, nonCommLong: ncLong, nonCommShort: ncShort,
+        commLong: commL, commShort: commS,
+        retailLong: nrL, retailShort: nrS,
         nonCommNet: ncLong - ncShort,
-        commNet: commLong - commShort,
-        retailNet: nrLong - nrShort,
-      };
+        commNet: commL - commS,
+        retailNet: nrL - nrS,
+      });
     }
   }
 
-  return Object.values(latestByMarket).sort((a, b) =>
-    ["EUR", "GBP", "JPY", "CHF", "CAD", "AUD", "NZD", "XAU", "USD"].indexOf(a.currency) -
-    ["EUR", "GBP", "JPY", "CHF", "CAD", "AUD", "NZD", "XAU", "USD"].indexOf(b.currency)
-  );
+  return Object.entries(historyByMarket)
+    .map(([currency, weeks]) => {
+      // Sort by date desc, take latest as "current"
+      weeks.sort((a, b) => b.date.localeCompare(a.date));
+      const latest = weeks[0];
+      const history = weeks.slice(0, COT_HISTORY_WEEKS).reverse().map((w) => ({
+        date: w.date, nonCommNet: w.nonCommNet, commNet: w.commNet,
+      }));
+      const matchedKey = Object.keys(COT_MARKET_MAP).find((k) => COT_MARKET_MAP[k] === currency) ?? "";
+      return { ...latest, market: matchedKey, currency, history };
+    })
+    .sort((a, b) => COT_ORDER.indexOf(a.currency) - COT_ORDER.indexOf(b.currency));
 }
 
-const COT_FALLBACK: ReturnType<typeof parseCotCsv> = [
-  { market: "EURO FX", currency: "EUR", date: "2026-03-11", nonCommLong: 218450, nonCommShort: 142310, commLong: 136200, commShort: 211400, retailLong: 42100, retailShort: 42040, nonCommNet: 76140, commNet: -75200, retailNet: 60 },
-  { market: "BRITISH POUND", currency: "GBP", date: "2026-03-11", nonCommLong: 68250, nonCommShort: 112340, commLong: 124800, commShort: 78900, retailLong: 18200, retailShort: 20010, nonCommNet: -44090, commNet: 45900, retailNet: -1810 },
-  { market: "JAPANESE YEN", currency: "JPY", date: "2026-03-11", nonCommLong: 98200, nonCommShort: 54300, commLong: 62100, commShort: 107500, retailLong: 13400, retailShort: 12900, nonCommNet: 43900, commNet: -45400, retailNet: 500 },
-  { market: "SWISS FRANC", currency: "CHF", date: "2026-03-11", nonCommLong: 22100, nonCommShort: 38500, commLong: 41200, commShort: 24900, retailLong: 6800, retailShort: 6700, nonCommNet: -16400, commNet: 16300, retailNet: 100 },
-  { market: "CANADIAN DOLLAR", currency: "CAD", date: "2026-03-11", nonCommLong: 44500, nonCommShort: 112800, commLong: 118700, commShort: 51200, retailLong: 11400, retailShort: 10600, nonCommNet: -68300, commNet: 67500, retailNet: 800 },
-  { market: "AUSTRALIAN DOLLAR", currency: "AUD", date: "2026-03-11", nonCommLong: 51300, nonCommShort: 89200, commLong: 94800, commShort: 57100, retailLong: 12300, retailShort: 12100, nonCommNet: -37900, commNet: 37700, retailNet: 200 },
-  { market: "NEW ZEALAND DOLLAR", currency: "NZD", date: "2026-03-11", nonCommLong: 18200, nonCommShort: 32400, commLong: 34100, commShort: 19900, retailLong: 4500, retailShort: 4500, nonCommNet: -14200, commNet: 14200, retailNet: 0 },
-  { market: "GOLD", currency: "XAU", date: "2026-03-11", nonCommLong: 312800, nonCommShort: 42100, commLong: 48200, commShort: 320700, retailLong: 18400, retailShort: 16600, nonCommNet: 270700, commNet: -272500, retailNet: 1800 },
-  { market: "US DOLLAR INDEX", currency: "USD", date: "2026-03-11", nonCommLong: 28100, nonCommShort: 48200, commLong: 51400, commShort: 31200, retailLong: 6400, retailShort: 6500, nonCommNet: -20100, commNet: 20200, retailNet: -100 },
+const COT_FALLBACK: CotEntry[] = [
+  { market:"EURO FX",          currency:"EUR", date:"2026-03-11", nonCommLong:218450, nonCommShort:142310, commLong:136200, commShort:211400, retailLong:42100, retailShort:42040, nonCommNet:76140,  commNet:-75200, retailNet:60,   history:[{date:"2026-03-11",nonCommNet:76140,commNet:-75200}] },
+  { market:"BRITISH POUND",    currency:"GBP", date:"2026-03-11", nonCommLong:68250,  nonCommShort:112340, commLong:124800, commShort:78900,  retailLong:18200, retailShort:20010, nonCommNet:-44090, commNet:45900,  retailNet:-1810,history:[{date:"2026-03-11",nonCommNet:-44090,commNet:45900}] },
+  { market:"JAPANESE YEN",     currency:"JPY", date:"2026-03-11", nonCommLong:98200,  nonCommShort:54300,  commLong:62100,  commShort:107500, retailLong:13400, retailShort:12900, nonCommNet:43900,  commNet:-45400, retailNet:500,  history:[{date:"2026-03-11",nonCommNet:43900,commNet:-45400}] },
+  { market:"SWISS FRANC",      currency:"CHF", date:"2026-03-11", nonCommLong:22100,  nonCommShort:38500,  commLong:41200,  commShort:24900,  retailLong:6800,  retailShort:6700,  nonCommNet:-16400, commNet:16300,  retailNet:100,  history:[{date:"2026-03-11",nonCommNet:-16400,commNet:16300}] },
+  { market:"CANADIAN DOLLAR",  currency:"CAD", date:"2026-03-11", nonCommLong:44500,  nonCommShort:112800, commLong:118700, commShort:51200,  retailLong:11400, retailShort:10600, nonCommNet:-68300, commNet:67500,  retailNet:800,  history:[{date:"2026-03-11",nonCommNet:-68300,commNet:67500}] },
+  { market:"AUSTRALIAN DOLLAR",currency:"AUD", date:"2026-03-11", nonCommLong:51300,  nonCommShort:89200,  commLong:94800,  commShort:57100,  retailLong:12300, retailShort:12100, nonCommNet:-37900, commNet:37700,  retailNet:200,  history:[{date:"2026-03-11",nonCommNet:-37900,commNet:37700}] },
+  { market:"NEW ZEALAND DOLLAR",currency:"NZD",date:"2026-03-11", nonCommLong:18200,  nonCommShort:32400,  commLong:34100,  commShort:19900,  retailLong:4500,  retailShort:4500,  nonCommNet:-14200, commNet:14200,  retailNet:0,    history:[{date:"2026-03-11",nonCommNet:-14200,commNet:14200}] },
+  { market:"GOLD",             currency:"XAU", date:"2026-03-11", nonCommLong:312800, nonCommShort:42100,  commLong:48200,  commShort:320700, retailLong:18400, retailShort:16600, nonCommNet:270700, commNet:-272500,retailNet:1800, history:[{date:"2026-03-11",nonCommNet:270700,commNet:-272500}] },
+  { market:"US DOLLAR INDEX",  currency:"USD", date:"2026-03-11", nonCommLong:28100,  nonCommShort:48200,  commLong:51400,  commShort:31200,  retailLong:6400,  retailShort:6500,  nonCommNet:-20100, commNet:20200,  retailNet:-100, history:[{date:"2026-03-11",nonCommNet:-20100,commNet:20200}] },
 ];
-
-let cotCache: { data: ReturnType<typeof parseCotCsv>; fetchedAt: number; fallback?: boolean } | null = null;
 
 const CFTC_URLS = [
   "https://www.cftc.gov/dea/newcot/FinFutWkly.txt",
   "https://www.cftc.gov/files/dea/newcot/FinFutWkly.txt",
 ];
 
-router.get("/tools/cot", async (req, res) => {
+// Smart cache — porta la data del prossimo venerdì CFTC come scadenza
+function nextCftcPublishMs(): number {
+  const now = new Date();
+  const day = now.getUTCDay(); // 0=dom, 5=ven
+  const hour = now.getUTCHours() * 60 + now.getUTCMinutes();
+  // CFTC pubblica ogni venerdì alle 15:30 EST = 20:30 UTC = 1230 minuti
+  const daysToFriday = (5 - day + 7) % 7;
+  const todayIsFridayAfterPublish = day === 5 && hour >= 1230;
+  const daysUntilNext = todayIsFridayAfterPublish ? 7 : daysToFriday === 0 ? 7 : daysToFriday;
+  const next = new Date(now);
+  next.setUTCDate(next.getUTCDate() + daysUntilNext);
+  next.setUTCHours(20, 35, 0, 0);
+  return next.getTime();
+}
+
+interface CotCache {
+  data: CotEntry[];
+  fetchedAt: number;
+  expiresAt: number;
+  fallback: boolean;
+}
+let cotCache: CotCache | null = null;
+
+async function fetchCotData(): Promise<void> {
   const now = Date.now();
-  if (cotCache && now - cotCache.fetchedAt < 3600_000) {
-    res.json({ reports: cotCache.data, cached: true, fallback: cotCache.fallback });
-    return;
-  }
+  console.info("[tools/cot] Fetching CFTC data...");
 
   for (const url of CFTC_URLS) {
     try {
       const response = await fetch(url, {
         headers: { "User-Agent": "Mozilla/5.0 (compatible; TraderLoading/1.0)" },
-        signal: AbortSignal.timeout(12000),
+        signal: AbortSignal.timeout(15000),
       });
-
       if (!response.ok) { console.warn(`[tools/cot] ${url} → HTTP ${response.status}`); continue; }
-
       const text = await response.text();
-      if (text.trim().startsWith("<!")) { console.warn(`[tools/cot] ${url} → HTML response (blocked)`); continue; }
-
+      if (text.trim().startsWith("<!")) { console.warn(`[tools/cot] ${url} → HTML (blocked)`); continue; }
       const reports = parseCotCsv(text);
       if (reports.length === 0) continue;
-
-      cotCache = { data: reports, fetchedAt: now, fallback: false };
-      res.json({ reports, cached: false, fallback: false });
+      cotCache = { data: reports, fetchedAt: now, expiresAt: nextCftcPublishMs(), fallback: false };
+      console.info(`[tools/cot] OK — ${reports.length} markets, expires at ${new Date(cotCache.expiresAt).toISOString()}`);
       return;
     } catch (err) {
       console.warn(`[tools/cot] ${url} →`, err instanceof Error ? err.message : err);
     }
   }
 
-  console.info("[tools/cot] All CFTC URLs failed, returning fallback data");
-  cotCache = { data: COT_FALLBACK, fetchedAt: now, fallback: true };
-  res.json({ reports: COT_FALLBACK, cached: false, fallback: true });
+  console.info("[tools/cot] All CFTC URLs failed, keeping/using fallback");
+  if (!cotCache) {
+    cotCache = { data: COT_FALLBACK, fetchedAt: now, expiresAt: nextCftcPublishMs(), fallback: true };
+  }
+}
+
+// Cron: ogni venerdì alle 21:00 UTC (30 min dopo pubblicazione CFTC)
+cron.schedule("0 21 * * 5", () => {
+  console.info("[tools/cot] Cron triggered — fetching new COT data");
+  fetchCotData().catch(console.error);
+}, { timezone: "UTC" });
+
+// Fetch iniziale al boot del server
+fetchCotData().catch(console.error);
+
+router.get("/tools/cot", async (req, res) => {
+  const now = Date.now();
+  const isStale = cotCache ? now >= cotCache.expiresAt : true;
+
+  if (!cotCache || isStale) {
+    await fetchCotData();
+  }
+
+  const cache = cotCache!;
+  const nextUpdate = new Date(cache.expiresAt).toLocaleDateString("it-IT", {
+    weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit",
+  });
+
+  res.json({
+    reports: cache.data,
+    cached: !isStale,
+    fallback: cache.fallback,
+    fetchedAt: new Date(cache.fetchedAt).toISOString(),
+    nextUpdate,
+  });
 });
 
 // ─── 5. MACRO NEWS AI ─────────────────────────────────────────────────────────

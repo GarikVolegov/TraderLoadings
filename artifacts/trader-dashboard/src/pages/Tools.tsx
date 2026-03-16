@@ -89,6 +89,7 @@ interface CotReport {
   nonCommNet: number;
   commNet: number;
   retailNet: number;
+  history: { date: string; nonCommNet: number; commNet: number }[];
 }
 
 interface MacroArticle {
@@ -661,133 +662,208 @@ function VolatilityTool() {
   );
 }
 
-// ─── 4. COT REPORT ────────────────────────────────────────────────────────────
+// ─── 4. COT REPORT (dati reali CFTC, aggiornato ogni venerdì) ────────────────
 function CotTool() {
-  const { data, isLoading, isError, error, refetch } = useQuery({
+  const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ["tools", "cot"],
-    queryFn: () => apiFetch<{ reports: CotReport[]; cached?: boolean; stale?: boolean }>(`${API}/tools/cot`),
-    staleTime: 30 * 60_000,
+    queryFn: () => apiFetch<{
+      reports: CotReport[];
+      cached?: boolean;
+      fallback?: boolean;
+      fetchedAt?: string;
+      nextUpdate?: string;
+    }>(`${API}/tools/cot`),
+    staleTime: 60 * 60_000,
+    refetchInterval: 60 * 60_000,
   });
 
   const [selected, setSelected] = useState<CotReport | null>(null);
 
-  const maxNet = data?.reports
-    ? Math.max(...data.reports.flatMap((r) => [Math.abs(r.nonCommNet), Math.abs(r.commNet), Math.abs(r.retailNet)]))
-    : 1;
-
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-sm font-semibold">COT Report — Futures Finanziari</h3>
-          <p className="text-xs text-muted-foreground">Fonte: CFTC • Aggiornato settimanalmente</p>
+          <p className="text-xs text-muted-foreground">
+            Fonte: CFTC.gov • {data?.fetchedAt ? `Aggiornato: ${new Date(data.fetchedAt).toLocaleDateString("it-IT")}` : "Aggiornato ogni venerdì"}
+          </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => refetch()} className="gap-2">
-          <RefreshCw className="w-3.5 h-3.5" /> Aggiorna
+        <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching} className="gap-1.5">
+          <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? "animate-spin" : ""}`} />
         </Button>
       </div>
 
-      {(data?.stale || data?.fallback) && (
-        <div className="flex items-center gap-2 text-xs text-amber-400 bg-amber-400/10 border border-amber-400/20 px-3 py-2 rounded-lg">
+      {/* Prossimo aggiornamento */}
+      {data?.nextUpdate && (
+        <div className={`flex items-center gap-2 text-xs px-3 py-2 rounded-lg border ${
+          data.fallback
+            ? "text-amber-400 bg-amber-400/10 border-amber-400/20"
+            : "text-primary/80 bg-primary/5 border-primary/15"
+        }`}>
           <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
-          {data?.fallback
-            ? "Dati dimostrativi basati su report del 11 Mar 2026 — CFTC non raggiungibile in questo ambiente"
-            : "Dati in cache — aggiornamento automatico"}
+          {data.fallback
+            ? "CFTC non raggiungibile — dati di esempio · "
+            : "Dati CFTC ufficiali · "}
+          Prossimo aggiornamento: <span className="font-medium">{data.nextUpdate}</span>
         </div>
       )}
 
       {isLoading && <LoadingCard />}
-      {isError && (
-        <div className="space-y-2">
-          <ErrorCard message={(error as Error).message} />
-          <p className="text-xs text-muted-foreground">Il report CFTC potrebbe non essere disponibile. Riprova più tardi.</p>
-        </div>
-      )}
+      {isError && <ErrorCard message={(error as Error).message} />}
 
       {data?.reports && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
-            {data.reports.map((r) => (
-              <button
-                key={r.currency}
-                onClick={() => setSelected(selected?.currency === r.currency ? null : r)}
-                className={`p-2.5 rounded-xl border text-center transition-all ${
-                  selected?.currency === r.currency
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-border bg-secondary/30 hover:border-primary/30"
-                }`}
-              >
-                <p className="text-sm font-bold font-mono">{r.currency}</p>
-                <p className={`text-[10px] font-semibold mt-0.5 ${r.nonCommNet >= 0 ? "text-primary" : "text-destructive"}`}>
-                  {r.nonCommNet >= 0 ? "+" : ""}{(r.nonCommNet / 1000).toFixed(0)}k
-                </p>
-              </button>
-            ))}
+          {/* Currency grid */}
+          <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+            {data.reports.map((r) => {
+              const trend = r.history.length >= 2
+                ? r.nonCommNet - r.history[r.history.length - 2]?.nonCommNet
+                : 0;
+              return (
+                <button
+                  key={r.currency}
+                  onClick={() => setSelected(selected?.currency === r.currency ? null : r)}
+                  className={`p-2.5 rounded-xl border text-center transition-all ${
+                    selected?.currency === r.currency
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border bg-secondary/30 hover:border-primary/30"
+                  }`}
+                >
+                  <p className="text-sm font-bold font-mono">{r.currency}</p>
+                  <p className={`text-[10px] font-semibold mt-0.5 ${r.nonCommNet >= 0 ? "text-primary" : "text-destructive"}`}>
+                    {r.nonCommNet >= 0 ? "+" : ""}{(r.nonCommNet / 1000).toFixed(0)}k
+                  </p>
+                  {trend !== 0 && (
+                    <p className={`text-[9px] flex items-center justify-center gap-0.5 mt-0.5 ${trend > 0 ? "text-primary/70" : "text-destructive/70"}`}>
+                      {trend > 0 ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />}
+                      {Math.abs(trend / 1000).toFixed(0)}k
+                    </p>
+                  )}
+                </button>
+              );
+            })}
           </div>
 
+          {/* Detail panel */}
           {selected && (
             <motion.div
+              key={selected.currency}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               className="p-4 rounded-2xl border border-border bg-secondary/20 space-y-4"
             >
               <div className="flex items-center justify-between">
                 <h4 className="font-bold font-mono text-lg">{selected.currency}</h4>
-                <span className="text-xs text-muted-foreground">{selected.date}</span>
+                <span className="text-xs text-muted-foreground">Report: {selected.date}</span>
               </div>
 
-              <div className="h-44">
+              {/* Storico 12 settimane — Net Non-Commerciali */}
+              {selected.history.length > 1 && (
+                <div>
+                  <p className="text-[10px] text-muted-foreground font-medium mb-1.5">
+                    Posizioni nette Non-Commerciali — ultime {selected.history.length} settimane
+                  </p>
+                  <div className="h-36">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={selected.history} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id={`cotGradPos-${selected.currency}`} x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
+                            <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+                          </linearGradient>
+                          <linearGradient id={`cotGradNeg-${selected.currency}`} x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#ef4444" stopOpacity={0} />
+                            <stop offset="95%" stopColor="#ef4444" stopOpacity={0.3} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+                        <XAxis
+                          dataKey="date"
+                          tick={{ fontSize: 8, fill: "#666" }}
+                          tickFormatter={(d) => d.slice(5)}
+                          interval="preserveStartEnd"
+                        />
+                        <YAxis tick={{ fontSize: 8, fill: "#666" }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                        <Tooltip
+                          contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "11px" }}
+                          formatter={(v: number) => [`${(v / 1000).toFixed(1)}k contratti`, "Net Non-Comm."]}
+                          labelFormatter={(l) => `Settimana: ${l}`}
+                        />
+                        <ReferenceLine y={0} stroke="#555" strokeDasharray="3 2" />
+                        <Area
+                          type="monotone"
+                          dataKey="nonCommNet"
+                          stroke={selected.nonCommNet >= 0 ? "#22c55e" : "#ef4444"}
+                          strokeWidth={1.5}
+                          fill={selected.nonCommNet >= 0 ? `url(#cotGradPos-${selected.currency})` : `url(#cotGradNeg-${selected.currency})`}
+                          dot={false}
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
+
+              {/* Bar confronto 3 categorie */}
+              <div className="h-40">
+                <p className="text-[10px] text-muted-foreground font-medium mb-1.5">Posizioni nette — settimana corrente</p>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={[
-                      { name: "Non-Comm.", net: selected.nonCommNet, long: selected.nonCommLong, short: selected.nonCommShort },
-                      { name: "Commercial", net: selected.commNet, long: selected.commLong, short: selected.commShort },
-                      { name: "Retail", net: selected.retailNet, long: selected.retailLong, short: selected.retailShort },
+                      { name: "Non-Comm.", net: selected.nonCommNet },
+                      { name: "Commercial", net: selected.commNet },
+                      { name: "Retail",     net: selected.retailNet },
                     ]}
-                    margin={{ top: 5, right: 5, bottom: 5, left: 10 }}
+                    margin={{ top: 4, right: 5, bottom: 5, left: 10 }}
+                    barSize={36}
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
                     <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#888" }} />
                     <YAxis tick={{ fontSize: 10, fill: "#888" }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
                     <Tooltip
                       contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "11px" }}
-                      formatter={(v) => [Number(v).toLocaleString("it-IT"), "Posizioni nette"]}
+                      formatter={(v: number) => [`${(v / 1000).toFixed(1)}k contratti`, "Posizioni nette"]}
                     />
-                    <ReferenceLine y={0} stroke="#666" />
+                    <ReferenceLine y={0} stroke="#555" />
                     <Bar dataKey="net" radius={[4, 4, 0, 0]}>
                       {[selected.nonCommNet, selected.commNet, selected.retailNet].map((net, i) => (
-                        <Cell key={i} fill={net >= 0 ? "#22c55e" : "#ef4444"} opacity={0.85} />
+                        <Cell key={i} fill={net >= 0 ? "#22c55e" : "#ef4444"} fillOpacity={0.85} />
                       ))}
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </div>
 
+              {/* Stats grid */}
               <div className="grid grid-cols-3 gap-2 text-center">
                 {[
-                  { label: "Non-Commerciali", net: selected.nonCommNet, long: selected.nonCommLong, short: selected.nonCommShort, desc: "Grandi speculatori (hedge fund)" },
-                  { label: "Commerciali", net: selected.commNet, long: selected.commLong, short: selected.commShort, desc: "Hedger (banche, aziende)" },
-                  { label: "Non-Report. (Retail)", net: selected.retailNet, long: selected.retailLong, short: selected.retailShort, desc: "Piccoli trader" },
+                  { label: "Non-Comm.", net: selected.nonCommNet, long: selected.nonCommLong, short: selected.nonCommShort, desc: "Hedge fund / Speculatori" },
+                  { label: "Commerciali", net: selected.commNet, long: selected.commLong, short: selected.commShort, desc: "Banche / Hedger" },
+                  { label: "Non-Report.", net: selected.retailNet, long: selected.retailLong, short: selected.retailShort, desc: "Piccoli trader" },
                 ].map((g) => (
                   <div key={g.label} className="p-2 rounded-xl bg-secondary/40 border border-border">
-                    <p className="text-[10px] text-muted-foreground font-medium leading-tight">{g.label}</p>
+                    <p className="text-[10px] text-muted-foreground font-medium">{g.label}</p>
                     <p className={`text-sm font-bold font-mono ${g.net >= 0 ? "text-primary" : "text-destructive"}`}>
                       {g.net >= 0 ? "+" : ""}{(g.net / 1000).toFixed(1)}k
                     </p>
-                    <p className="text-[9px] text-muted-foreground mt-0.5">L:{(g.long / 1000).toFixed(0)}k S:{(g.short / 1000).toFixed(0)}k</p>
-                    <p className="text-[9px] text-muted-foreground/70 mt-1 leading-tight">{g.desc}</p>
+                    <p className="text-[9px] text-muted-foreground mt-0.5">
+                      L:{(g.long / 1000).toFixed(0)}k · S:{(g.short / 1000).toFixed(0)}k
+                    </p>
+                    <p className="text-[9px] text-muted-foreground/60 mt-0.5">{g.desc}</p>
                   </div>
                 ))}
               </div>
 
+              {/* Interpretazione */}
               <div className="p-3 rounded-xl bg-secondary/30 border border-border">
                 <p className="text-xs text-muted-foreground">
                   <span className="font-semibold text-foreground">Interpretazione: </span>
                   {selected.nonCommNet > 0
-                    ? `I grandi speculatori sono NET LONG su ${selected.currency} (+${(selected.nonCommNet / 1000).toFixed(0)}k). Segnale potenzialmente rialzista.`
-                    : `I grandi speculatori sono NET SHORT su ${selected.currency} (${(selected.nonCommNet / 1000).toFixed(0)}k). Segnale potenzialmente ribassista.`}
+                    ? `Gli hedge fund sono NET LONG su ${selected.currency} (+${(selected.nonCommNet / 1000).toFixed(0)}k contratti). Segnale potenzialmente rialzista.`
+                    : `Gli hedge fund sono NET SHORT su ${selected.currency} (${(selected.nonCommNet / 1000).toFixed(0)}k contratti). Segnale potenzialmente ribassista.`}
                   {Math.abs(selected.commNet) > Math.abs(selected.nonCommNet) * 0.8
-                    ? ` I commerciali contraddiscono la direzione — possibile extremo di mercato.`
+                    ? ` I commerciali si posizionano in direzione opposta — possibile extremo di mercato.`
                     : ""}
                 </p>
               </div>
