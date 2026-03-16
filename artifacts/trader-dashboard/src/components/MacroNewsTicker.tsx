@@ -347,6 +347,11 @@ export function MacroNewsTicker() {
                         >
                           {article.direction}
                         </span>
+                        {article.timestamp && (
+                          <span className="text-[10px] text-muted-foreground/50 ml-auto">
+                            {new Date(article.timestamp).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                        )}
                       </div>
                     </motion.div>
                   ))}
