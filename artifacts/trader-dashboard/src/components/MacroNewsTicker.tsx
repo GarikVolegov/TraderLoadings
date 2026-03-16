@@ -40,6 +40,7 @@ interface MacroNewsData {
 }
 
 const ALL_CURRENCIES = ["EUR", "USD", "GBP", "JPY", "CHF", "CAD", "AUD", "NZD", "XAU"];
+const MAX_VISIBLE_CHIPS = 5;
 
 const STORAGE_KEY = "macro-news-currencies";
 
@@ -97,6 +98,11 @@ function saveCurrencies(currencies: string[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(currencies));
 }
 
+function searchSourceUrl(source: string, title: string): string {
+  const q = encodeURIComponent(`${source} ${title}`);
+  return `https://www.google.com/search?q=${q}`;
+}
+
 async function fetchMacroNews(currencies: string[], force = false): Promise<MacroNewsData> {
   const params = new URLSearchParams();
   if (currencies.length > 0 && currencies.length < ALL_CURRENCIES.length) {
@@ -112,7 +118,6 @@ async function fetchMacroNews(currencies: string[], force = false): Promise<Macr
 export function MacroNewsTicker() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selectedCurrencies, setSelectedCurrencies] = useState<string[]>(loadCurrencies);
-  const [showFilter, setShowFilter] = useState(false);
   const forceNextRef = useRef(false);
 
   useEffect(() => {
@@ -169,6 +174,10 @@ export function MacroNewsTicker() {
     });
   }, [data?.fetchedAt]);
 
+  const visibleChips = ALL_CURRENCIES.slice(0, MAX_VISIBLE_CHIPS);
+  const overflowChips = ALL_CURRENCIES.slice(MAX_VISIBLE_CHIPS);
+  const overflowActiveCount = overflowChips.filter((c) => selectedCurrencies.includes(c)).length;
+
   return (
     <>
       <div className="flex-1 min-w-0 flex flex-col gap-0.5">
@@ -209,49 +218,38 @@ export function MacroNewsTicker() {
           )}
         </div>
 
-        <AnimatePresence>
-          {showFilter && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.15 }}
-              className="overflow-hidden"
+        <div className="flex gap-0.5 items-center">
+          {visibleChips.map((cur) => {
+            const active = selectedCurrencies.includes(cur);
+            return (
+              <button
+                key={cur}
+                onClick={() => toggleCurrency(cur)}
+                className={`px-1 py-px rounded text-[8px] font-mono font-bold border transition-all leading-tight ${
+                  active
+                    ? "border-primary/40 bg-primary/15 text-primary"
+                    : "border-transparent bg-secondary/20 text-muted-foreground/40 hover:text-muted-foreground"
+                }`}
+              >
+                {CURRENCY_FLAGS[cur]}{cur}
+              </button>
+            );
+          })}
+          {overflowChips.length > 0 && (
+            <button
+              onClick={() => setSheetOpen(true)}
+              className={`px-1 py-px rounded text-[8px] font-mono font-bold border transition-all leading-tight ${
+                overflowActiveCount > 0
+                  ? "border-primary/40 bg-primary/15 text-primary"
+                  : "border-transparent bg-secondary/20 text-muted-foreground/40 hover:text-muted-foreground"
+              }`}
+              title={overflowChips.map((c) => `${CURRENCY_FLAGS[c]}${c}`).join(" ")}
             >
-              <div className="flex gap-1 flex-wrap">
-                {ALL_CURRENCIES.map((cur) => {
-                  const active = selectedCurrencies.includes(cur);
-                  return (
-                    <button
-                      key={cur}
-                      onClick={() => toggleCurrency(cur)}
-                      className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-bold border transition-all ${
-                        active
-                          ? "border-primary/40 bg-primary/15 text-primary"
-                          : "border-transparent bg-secondary/30 text-muted-foreground/50 hover:text-muted-foreground"
-                      }`}
-                    >
-                      {CURRENCY_FLAGS[cur]} {cur}
-                    </button>
-                  );
-                })}
-              </div>
-            </motion.div>
+              +{overflowChips.length}
+            </button>
           )}
-        </AnimatePresence>
+        </div>
       </div>
-
-      <button
-        onClick={() => setShowFilter((v) => !v)}
-        className={`flex items-center justify-center w-8 h-8 rounded-lg transition-all shrink-0 text-[10px] font-bold ${
-          showFilter
-            ? "bg-primary/20 text-primary border border-primary/40"
-            : "bg-card/50 text-muted-foreground border border-border hover:border-primary/30 hover:text-primary"
-        }`}
-        title="Filtro valute"
-      >
-        {selectedCurrencies.length === ALL_CURRENCIES.length ? "ALL" : selectedCurrencies.length}
-      </button>
 
       <button
         onClick={() => setSheetOpen((v) => !v)}
@@ -408,10 +406,15 @@ export function MacroNewsTicker() {
                           {article.direction}
                         </span>
                         {article.source && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-medium border border-blue-500/20 bg-blue-500/5 text-blue-400">
+                          <a
+                            href={searchSourceUrl(article.source, article.title)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-medium border border-blue-500/20 bg-blue-500/5 text-blue-400 hover:bg-blue-500/15 hover:border-blue-500/40 transition-all cursor-pointer"
+                          >
                             <ExternalLink className="w-2.5 h-2.5" />
                             {article.source}
-                          </span>
+                          </a>
                         )}
                         {article.timestamp && (
                           <span className="text-[10px] text-muted-foreground/50 ml-auto">
