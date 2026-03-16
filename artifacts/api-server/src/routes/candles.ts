@@ -3,42 +3,146 @@ import { Router, type IRouter } from "express";
 const router: IRouter = Router();
 
 const YAHOO_SYMBOLS: Record<string, string> = {
-  "EURUSD": "EURUSD=X", "GBPUSD": "GBPUSD=X", "USDJPY": "USDJPY=X",
-  "USDCHF": "USDCHF=X", "AUDUSD": "AUDUSD=X", "NZDUSD": "NZDUSD=X",
-  "USDCAD": "USDCAD=X", "EURGBP": "EURGBP=X", "EURJPY": "EURJPY=X",
-  "GBPJPY": "GBPJPY=X", "AUDJPY": "AUDJPY=X", "XAUUSD": "GC=F",
-  "US30": "YM=F", "NAS100": "NQ=F", "SPX500": "ES=F",
-  "BTCUSD": "BTC-USD", "ETHUSD": "ETH-USD",
+  EURUSD: "EURUSD=X", GBPUSD: "GBPUSD=X", USDJPY: "USDJPY=X",
+  USDCHF: "USDCHF=X", AUDUSD: "AUDUSD=X", NZDUSD: "NZDUSD=X",
+  USDCAD: "USDCAD=X", EURGBP: "EURGBP=X", EURJPY: "EURJPY=X",
+  GBPJPY: "GBPJPY=X", AUDJPY: "AUDJPY=X", XAUUSD: "GC=F",
+  US30: "YM=F", NAS100: "NQ=F", SPX500: "ES=F",
+  BTCUSD: "BTC-USD", ETHUSD: "ETH-USD",
 };
 
-const INTERVAL_MAP: Record<string, string> = {
-  "M15": "15m", "M30": "30m", "H1": "1h", "H4": "4h", "D1": "1d", "W1": "1wk",
+const TWELVE_SYMBOLS: Record<string, string> = {
+  EURUSD: "EUR/USD", GBPUSD: "GBP/USD", USDJPY: "USD/JPY",
+  USDCHF: "USD/CHF", AUDUSD: "AUD/USD", NZDUSD: "NZD/USD",
+  USDCAD: "USD/CAD", EURGBP: "EUR/GBP", EURJPY: "EUR/JPY",
+  GBPJPY: "GBP/JPY", AUDJPY: "AUD/JPY", XAUUSD: "XAU/USD",
 };
 
-const RANGE_MAP: Record<string, string> = {
-  "M15": "60d", "M30": "60d", "H1": "2y", "H4": "2y", "D1": "10y", "W1": "10y",
+const YAHOO_INTERVAL: Record<string, string> = {
+  M15: "15m", M30: "30m", H1: "1h", H4: "4h", D1: "1d", W1: "1wk",
 };
 
-interface CachedData {
-  data: unknown;
-  timestamp: number;
-}
+const YAHOO_RANGE: Record<string, string> = {
+  M15: "60d", M30: "60d", H1: "2y", H4: "2y", D1: "10y", W1: "10y",
+};
 
+const TWELVE_INTERVAL: Record<string, string> = {
+  M15: "15min", M30: "30min", H1: "1h", H4: "4h", D1: "1day", W1: "1week",
+};
+
+const TWELVE_OUTPUTSIZE: Record<string, number> = {
+  M15: 5000, M30: 5000, H1: 5000, H4: 5000, D1: 5000, W1: 5000,
+};
+
+interface CachedData { data: unknown; timestamp: number; }
 const cache = new Map<string, CachedData>();
 const CACHE_TTL = 60 * 60 * 1000;
+
+type Candle = { time: number; open: number; high: number; low: number; close: number };
+
+async function fetchYahoo(symbol: string, interval: string): Promise<Candle[]> {
+  const yahooSym = YAHOO_SYMBOLS[symbol];
+  if (!yahooSym) throw new Error(`Yahoo: symbol ${symbol} unsupported`);
+
+  const yahooInterval = YAHOO_INTERVAL[interval] || "1h";
+  const range = YAHOO_RANGE[interval] || "2y";
+
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSym)}?interval=${yahooInterval}&range=${range}`;
+  const response = await fetch(url, {
+    headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
+    signal: AbortSignal.timeout(15000),
+  });
+
+  if (!response.ok) throw new Error(`Yahoo HTTP ${response.status}`);
+
+  const json = await response.json() as {
+    chart?: {
+      result?: Array<{
+        timestamp?: number[];
+        indicators?: {
+          quote?: Array<{
+            open?: (number | null)[]; high?: (number | null)[];
+            low?: (number | null)[]; close?: (number | null)[];
+          }>;
+        };
+      }>;
+    };
+  };
+
+  const result = json?.chart?.result?.[0];
+  if (!result?.timestamp || !result?.indicators?.quote?.[0]) {
+    throw new Error("Yahoo: invalid data structure");
+  }
+
+  const ts = result.timestamp;
+  const q = result.indicators.quote[0];
+  const candles: Candle[] = [];
+
+  for (let i = 0; i < ts.length; i++) {
+    const o = q.open?.[i], h = q.high?.[i], l = q.low?.[i], c = q.close?.[i];
+    if (o != null && h != null && l != null && c != null) {
+      candles.push({
+        time: ts[i],
+        open: parseFloat(o.toFixed(5)),
+        high: parseFloat(h.toFixed(5)),
+        low: parseFloat(l.toFixed(5)),
+        close: parseFloat(c.toFixed(5)),
+      });
+    }
+  }
+
+  if (candles.length === 0) throw new Error("Yahoo: no valid candles");
+  return candles;
+}
+
+async function fetchTwelveData(symbol: string, interval: string): Promise<Candle[]> {
+  const twelveSym = TWELVE_SYMBOLS[symbol];
+  if (!twelveSym) throw new Error(`TwelveData: symbol ${symbol} unsupported`);
+
+  const twInterval = TWELVE_INTERVAL[interval] || "1h";
+  const outputsize = TWELVE_OUTPUTSIZE[interval] || 5000;
+
+  const url = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(twelveSym)}&interval=${twInterval}&outputsize=${outputsize}&apikey=demo&format=JSON`;
+  const response = await fetch(url, { signal: AbortSignal.timeout(15000) });
+
+  if (!response.ok) throw new Error(`TwelveData HTTP ${response.status}`);
+
+  const json = await response.json() as {
+    status?: string;
+    values?: Array<{
+      datetime: string; open: string; high: string; low: string; close: string;
+    }>;
+    message?: string;
+  };
+
+  if (json.status === "error") throw new Error(`TwelveData: ${json.message}`);
+  if (!json.values?.length) throw new Error("TwelveData: no values");
+
+  const candles: Candle[] = json.values
+    .map((v) => ({
+      time: Math.floor(new Date(v.datetime).getTime() / 1000),
+      open: parseFloat(parseFloat(v.open).toFixed(5)),
+      high: parseFloat(parseFloat(v.high).toFixed(5)),
+      low: parseFloat(parseFloat(v.low).toFixed(5)),
+      close: parseFloat(parseFloat(v.close).toFixed(5)),
+    }))
+    .filter((c) => !isNaN(c.time) && !isNaN(c.open))
+    .sort((a, b) => a.time - b.time);
+
+  if (candles.length === 0) throw new Error("TwelveData: no valid candles");
+  return candles;
+}
 
 router.get("/backtest/candles", async (req, res) => {
   const symbol = (req.query.symbol as string || "EURUSD").toUpperCase().replace("/", "");
   const interval = (req.query.interval as string) || "H1";
 
-  const yahooSymbol = YAHOO_SYMBOLS[symbol];
-  if (!yahooSymbol) {
-    res.status(400).json({ error: `Symbol ${symbol} not supported. Available: ${Object.keys(YAHOO_SYMBOLS).join(", ")}` });
+  if (!YAHOO_SYMBOLS[symbol]) {
+    res.status(400).json({
+      error: `Symbol ${symbol} not supported. Available: ${Object.keys(YAHOO_SYMBOLS).join(", ")}`,
+    });
     return;
   }
-
-  const yahooInterval = INTERVAL_MAP[interval] || "1h";
-  const range = RANGE_MAP[interval] || "2y";
 
   const cacheKey = `${symbol}-${interval}`;
   const cached = cache.get(cacheKey);
@@ -47,73 +151,44 @@ router.get("/backtest/candles", async (req, res) => {
     return;
   }
 
+  const errors: string[] = [];
+
   try {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?interval=${yahooInterval}&range=${range}`;
-    const response = await fetch(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Yahoo Finance returned ${response.status}`);
-    }
-
-    const json = await response.json() as {
-      chart?: {
-        result?: Array<{
-          timestamp?: number[];
-          indicators?: {
-            quote?: Array<{
-              open?: (number | null)[];
-              high?: (number | null)[];
-              low?: (number | null)[];
-              close?: (number | null)[];
-              volume?: (number | null)[];
-            }>;
-          };
-        }>;
-      };
-    };
-
-    const result = json?.chart?.result?.[0];
-    if (!result?.timestamp || !result?.indicators?.quote?.[0]) {
-      throw new Error("Invalid data from Yahoo Finance");
-    }
-
-    const timestamps = result.timestamp;
-    const quote = result.indicators.quote[0];
-    const candles: Array<{ time: number; open: number; high: number; low: number; close: number }> = [];
-
-    for (let i = 0; i < timestamps.length; i++) {
-      const o = quote.open?.[i];
-      const h = quote.high?.[i];
-      const l = quote.low?.[i];
-      const c = quote.close?.[i];
-      if (o != null && h != null && l != null && c != null) {
-        candles.push({
-          time: timestamps[i],
-          open: parseFloat(o.toFixed(5)),
-          high: parseFloat(h.toFixed(5)),
-          low: parseFloat(l.toFixed(5)),
-          close: parseFloat(c.toFixed(5)),
-        });
-      }
-    }
-
-    const responseData = { symbol, interval, candles };
+    const candles = await fetchYahoo(symbol, interval);
+    console.log(`[candles] Yahoo OK: ${symbol} ${interval} → ${candles.length} candles`);
+    const responseData = { symbol, interval, source: "yahoo", candles };
     cache.set(cacheKey, { data: responseData, timestamp: Date.now() });
     res.json(responseData);
+    return;
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    console.error(`Candle fetch error for ${symbol}:`, message);
-    const stale = cache.get(cacheKey);
-    if (stale) {
-      res.json(stale.data);
-      return;
-    }
-    res.status(502).json({ error: `Failed to fetch candle data: ${message}` });
+    const msg = err instanceof Error ? err.message : String(err);
+    errors.push(`Yahoo: ${msg}`);
+    console.warn(`[candles] Yahoo failed for ${symbol} ${interval}: ${msg}`);
   }
+
+  if (TWELVE_SYMBOLS[symbol]) {
+    try {
+      const candles = await fetchTwelveData(symbol, interval);
+      console.log(`[candles] TwelveData OK: ${symbol} ${interval} → ${candles.length} candles`);
+      const responseData = { symbol, interval, source: "twelvedata", candles };
+      cache.set(cacheKey, { data: responseData, timestamp: Date.now() });
+      res.json(responseData);
+      return;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      errors.push(`TwelveData: ${msg}`);
+      console.warn(`[candles] TwelveData failed for ${symbol} ${interval}: ${msg}`);
+    }
+  }
+
+  const stale = cache.get(cacheKey);
+  if (stale) {
+    console.log(`[candles] Serving stale cache for ${symbol} ${interval}`);
+    res.json(stale.data);
+    return;
+  }
+
+  res.status(502).json({ error: `All data sources failed for ${symbol} ${interval}`, details: errors });
 });
 
 export default router;
