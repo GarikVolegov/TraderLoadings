@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { PageLayout } from "@/components/PageLayout";
+import { PageHeader } from "@/components/PageHeader";
 import { ProfileWidget } from "@/components/ProfileWidget";
 import { AudioPlayer } from "@/components/AudioPlayer";
 import { BackgroundPresetsManager } from "@/components/BackgroundPresetsManager";
@@ -1119,8 +1120,8 @@ export default function Settings() {
 
   return (
     <PageLayout>
+      <PageHeader title="Impostazioni" subtitle="Configura il tuo ambiente di trading" />
       <div className="space-y-6 max-w-4xl mx-auto">
-        {/* Profilo - Always Open */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

@@ -331,7 +331,7 @@ function MeditationTimer() {
 
   const remaining = minutes * 60 + seconds;
   const progress = totalSeconds > 0 ? ((totalSeconds - remaining) / totalSeconds) * 100 : 0;
-  const circumference = 2 * Math.PI * 46;
+  const circumference = 2 * Math.PI * 45;
   const dashOffset = circumference * (1 - progress / 100);
 
   return (
@@ -344,9 +344,9 @@ function MeditationTimer() {
 
         <div className="relative w-36 h-36 sm:w-48 sm:h-48">
           <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
-            <circle cx="50" cy="50" r="46" fill="none" strokeWidth="3" className="stroke-muted-foreground/15" />
+            <circle cx="50" cy="50" r="45" fill="none" strokeWidth="3" className="stroke-muted-foreground/15" />
             <circle
-              cx="50" cy="50" r="46"
+              cx="50" cy="50" r="45"
               fill="none"
               strokeWidth="3.5"
               strokeLinecap="round"

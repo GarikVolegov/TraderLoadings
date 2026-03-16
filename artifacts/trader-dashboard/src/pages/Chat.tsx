@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { PageLayout } from "@/components/PageLayout";
+import { PageHeader } from "@/components/PageHeader";
 import { useE2EEKeys } from "@/hooks/useE2EEKeys";
 import { useAuth } from "@workspace/replit-auth-web";
 import { getSharedKey, encryptMessage, decryptMessage } from "@/lib/e2ee";
@@ -892,7 +893,7 @@ export default function Chat() {
       <div className="flex items-center justify-center h-[60vh]">
         <div className="text-center space-y-4">
           <Globe className="w-16 h-16 mx-auto text-primary opacity-40" />
-          <h2 className="text-xl font-bold">Community Trader</h2>
+          <h2 className="text-xl font-bold font-mono tracking-tight">Community Trader</h2>
           <p className="text-muted-foreground">Accedi per entrare nella community, pubblicare post e chattare con gli altri trader</p>
           <button onClick={() => login()} className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-colors">
             <LogIn className="w-4 h-4" /> Accedi
@@ -910,10 +911,11 @@ export default function Chat() {
 
   return (
     <PageLayout>
+      <PageHeader title="Community Trader" subtitle="Social, messaggi crittografati e classifica" />
       <motion.div
         initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
         className="bg-card/30 backdrop-blur-md border border-border rounded-2xl overflow-hidden flex flex-col"
-        style={{ height: "calc(100vh - 140px)" }}
+        style={{ height: "calc(100vh - 180px)" }}
       >
         <div className="flex border-b border-border shrink-0">
           {tabs.map(tab => (
