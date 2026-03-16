@@ -65,10 +65,15 @@ interface VolatilityResult {
   m3: number;
   m6: number;
   y1: number;
+  w1Pct: number | null;
+  m1Pct: number | null;
+  m3Pct: number | null;
+  m6Pct: number | null;
+  y1Pct: number | null;
   label: string;
   peakDay: string;
   pipUnit: string;
-  last30: Array<{ day: number; date: string; pips: number }>;
+  last30: Array<{ day: number; date: string; weekday: string; pips: number }>;
   dataPoints: Array<{ day: number; value: number }>;
   daily5: number;
   daily21: number;
@@ -522,11 +527,11 @@ function VolatilityTool() {
   });
 
   const periods = data ? [
-    { label: "1 settimana", short: "1W", value: data.w1, vs: data.y1 },
-    { label: "1 mese",      short: "1M", value: data.m1, vs: data.y1 },
-    { label: "3 mesi",      short: "3M", value: data.m3, vs: data.y1 },
-    { label: "6 mesi",      short: "6M", value: data.m6, vs: data.y1 },
-    { label: "1 anno",      short: "1Y", value: data.y1, vs: data.y1 },
+    { short: "1W", value: data.w1, vs: data.y1, pct: data.w1Pct },
+    { short: "1M", value: data.m1, vs: data.y1, pct: data.m1Pct },
+    { short: "3M", value: data.m3, vs: data.y1, pct: data.m3Pct },
+    { short: "6M", value: data.m6, vs: data.y1, pct: data.m6Pct },
+    { short: "1Y", value: data.y1, vs: data.y1, pct: data.y1Pct },
   ] : [];
 
   return (
@@ -597,26 +602,50 @@ function VolatilityTool() {
             </div>
           </div>
 
-          {/* Periods table — stile Mataf */}
+          {/* Periods table — stile Mataf + variazione % prezzo */}
           <div className="rounded-xl border border-border overflow-hidden">
+            {/* Header */}
             <div className="grid grid-cols-5 bg-secondary/60 border-b border-border">
               {periods.map((p) => (
-                <div key={p.short} className="py-2 text-center text-[10px] font-bold text-muted-foreground uppercase">{p.short}</div>
+                <div key={p.short} className="py-2 text-center text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{p.short}</div>
               ))}
             </div>
-            <div className="grid grid-cols-5">
+            {/* Pip row */}
+            <div className="grid grid-cols-5 border-b border-border/50">
               {periods.map((p) => {
                 const ratio = p.vs > 0 ? p.value / p.vs : 1;
-                const color = ratio > 1.25 ? "text-destructive" : ratio < 0.75 ? "text-blue-400" : "text-primary";
+                const pipColor = ratio > 1.25 ? "text-destructive" : ratio < 0.75 ? "text-blue-400" : "text-primary";
+                const volPct = p.short !== "1Y" ? Math.abs((ratio - 1) * 100) : null;
+                const volUp = ratio > 1;
                 return (
-                  <div key={p.short} className="py-3 flex flex-col items-center border-r border-border last:border-r-0">
-                    <span className={`text-base font-bold font-mono ${color}`}>{p.value}</span>
-                    <span className="text-[9px] text-muted-foreground mt-0.5">{data.pipUnit}</span>
-                    {p.short !== "1Y" && (
-                      <span className={`text-[9px] mt-1 flex items-center gap-0.5 ${ratio > 1 ? "text-destructive/70" : "text-blue-400/70"}`}>
-                        {ratio > 1 ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />}
-                        {Math.abs((ratio - 1) * 100).toFixed(0)}%
+                  <div key={p.short} className="py-2.5 flex flex-col items-center border-r border-border last:border-r-0">
+                    <span className={`text-sm font-bold font-mono ${pipColor}`}>{p.value}</span>
+                    <span className="text-[9px] text-muted-foreground">{data.pipUnit}</span>
+                    {volPct != null && (
+                      <span className={`text-[9px] mt-0.5 flex items-center gap-0.5 ${volUp ? "text-destructive/60" : "text-blue-400/60"}`}>
+                        {volUp ? <ArrowUp className="w-2 h-2" /> : <ArrowDown className="w-2 h-2" />}
+                        {volPct.toFixed(0)}% vol
                       </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            {/* Price % row */}
+            <div className="grid grid-cols-5 bg-secondary/20">
+              {periods.map((p) => {
+                const pct = p.pct;
+                const isPos = pct != null && pct >= 0;
+                return (
+                  <div key={`pct-${p.short}`} className="py-2 flex flex-col items-center border-r border-border last:border-r-0">
+                    <span className="text-[9px] text-muted-foreground/60 mb-0.5">variazione</span>
+                    {pct != null ? (
+                      <span className={`text-[10px] font-semibold font-mono flex items-center gap-0.5 ${isPos ? "text-primary" : "text-destructive"}`}>
+                        {isPos ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />}
+                        {Math.abs(pct).toFixed(2)}%
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-muted-foreground/40">—</span>
                     )}
                   </div>
                 );
@@ -627,24 +656,34 @@ function VolatilityTool() {
           {/* Bar chart ultimi 30 giorni */}
           <div>
             <p className="text-xs text-muted-foreground font-medium mb-2">Range giornaliero — ultimi 30 giorni</p>
-            <div className="h-44">
+            <div className="h-48">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={data.last30} barSize={6} margin={{ top: 4, right: 0, left: -20, bottom: 0 }}>
+                <BarChart data={data.last30} barSize={7} margin={{ top: 4, right: 0, left: -20, bottom: 18 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
-                  <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#666" }} interval={4} />
+                  <XAxis
+                    dataKey="weekday"
+                    tick={{ fontSize: 9, fill: "#777" }}
+                    interval={0}
+                    angle={-45}
+                    textAnchor="end"
+                    height={32}
+                  />
                   <YAxis tick={{ fontSize: 9, fill: "#666" }} />
                   <Tooltip
                     contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "11px" }}
-                    formatter={(v: number) => [`${v} ${data.pipUnit}`, "Range"]}
-                    labelFormatter={(l) => `Data: ${l}`}
+                    formatter={(v: number, _name: string, props: { payload?: { pips: number; date: string; weekday: string } }) => [
+                      `${v} ${data.pipUnit}`,
+                      `${props.payload?.weekday} ${props.payload?.date}`,
+                    ]}
+                    labelFormatter={() => ""}
                   />
-                  <ReferenceLine y={data.y1} stroke="#888" strokeDasharray="4 2" />
+                  <ReferenceLine y={data.y1} stroke="#888" strokeDasharray="4 2" label={{ value: `media ${data.y1}`, position: "insideTopRight", fontSize: 9, fill: "#666" }} />
                   <Bar dataKey="pips" radius={[3, 3, 0, 0]}>
                     {data.last30.map((entry, i) => (
                       <Cell
                         key={i}
                         fill={entry.pips > data.y1 * 1.25 ? "#ef4444" : entry.pips < data.y1 * 0.75 ? "#60a5fa" : "#22c55e"}
-                        fillOpacity={0.8}
+                        fillOpacity={0.85}
                       />
                     ))}
                   </Bar>

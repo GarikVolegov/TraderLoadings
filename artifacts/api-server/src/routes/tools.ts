@@ -260,12 +260,32 @@ router.get("/tools/volatility", async (req, res) => {
     const ratio = w1 / (y1 || 1);
     const label = ratio > 1.3 ? "Alta volatilità" : ratio < 0.7 ? "Bassa volatilità" : "Nella norma";
 
-    // Last 30 days for chart
-    const last30 = ranges.slice(-30).map((r, i) => ({
-      day: i + 1,
-      date: new Date(r.ts * 1000).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" }),
-      pips: r.pips,
-    }));
+    // Price return % for each period (close-to-close)
+    const closePrices = ranges.map((r) => r.close);
+    const latestClose = closePrices[closePrices.length - 1];
+    const pricePct = (n: number): number | null => {
+      if (closePrices.length <= n) return null;
+      const past = closePrices[closePrices.length - 1 - n];
+      return past > 0 ? parseFloat(((latestClose / past - 1) * 100).toFixed(2)) : null;
+    };
+    const w1Pct = pricePct(5);
+    const m1Pct = pricePct(22);
+    const m3Pct = pricePct(66);
+    const m6Pct = pricePct(132);
+    const y1Pct = pricePct(closePrices.length - 1);
+
+    const dayNames = ["Dom", "Lun", "Mar", "Mer", "Gio", "Ven", "Sab"];
+
+    // Last 30 trading days for chart — include weekday name
+    const last30 = ranges.slice(-30).map((r, i) => {
+      const d = new Date(r.ts * 1000);
+      return {
+        day: i + 1,
+        date: d.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" }),
+        weekday: dayNames[d.getDay()],
+        pips: r.pips,
+      };
+    });
 
     // Peak weekday (which day of the week is most volatile on average)
     const byDay: Record<number, number[]> = { 1: [], 2: [], 3: [], 4: [], 5: [] };
@@ -273,7 +293,6 @@ router.get("/tools/volatility", async (req, res) => {
       const d = new Date(r.ts * 1000).getDay();
       if (byDay[d]) byDay[d].push(r.pips);
     });
-    const dayNames = ["Dom", "Lun", "Mar", "Mer", "Gio", "Ven", "Sab"];
     const peakDay = Object.entries(byDay)
       .map(([d, vals]) => ({ day: dayNames[+d], avg: vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0 }))
       .sort((a, b) => b.avg - a.avg)[0]?.day ?? "Mer";
@@ -283,6 +302,7 @@ router.get("/tools/volatility", async (req, res) => {
       currentPrice,
       todayPips,
       w1, m1, m3, m6, y1,
+      w1Pct, m1Pct, m3Pct, m6Pct, y1Pct,
       label,
       peakDay,
       pipUnit: pip === 100 ? "pip (JPY)" : pip === 10 ? "pip (XAU)" : "pip",
