@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, chatMessagesTable, userPublicKeysTable, friendshipsTable, globalChatMessagesTable, profileTable } from "@workspace/db";
+import { db, chatMessagesTable, userPublicKeysTable, friendshipsTable, globalChatMessagesTable, profileTable, followsTable } from "@workspace/db";
 import { eq, or, and, desc, sql, lt, asc } from "drizzle-orm";
 
 const router: IRouter = Router();
@@ -13,8 +13,15 @@ function requireAuth(req: any, res: any): string | null {
   return userId;
 }
 
-async function areFriends(userId: string, friendId: string): Promise<boolean> {
-  const result = await db
+async function areMutualFollowers(userId: string, friendId: string): Promise<boolean> {
+  const [aFollowsB, bFollowsA] = await Promise.all([
+    db.select({ id: followsTable.id }).from(followsTable)
+      .where(and(eq(followsTable.followerId, userId), eq(followsTable.followingId, friendId))).limit(1),
+    db.select({ id: followsTable.id }).from(followsTable)
+      .where(and(eq(followsTable.followerId, friendId), eq(followsTable.followingId, userId))).limit(1),
+  ]);
+  if (aFollowsB.length > 0 && bFollowsA.length > 0) return true;
+  const legacy = await db
     .select({ id: friendshipsTable.id })
     .from(friendshipsTable)
     .where(
@@ -27,7 +34,7 @@ async function areFriends(userId: string, friendId: string): Promise<boolean> {
       )
     )
     .limit(1);
-  return result.length > 0;
+  return legacy.length > 0;
 }
 
 router.post("/chat/keys", async (req, res) => {
@@ -74,7 +81,7 @@ router.get("/chat/keys/:userId", async (req, res) => {
   try {
     const targetUserId = req.params.userId;
 
-    const friends = await areFriends(currentUserId, targetUserId);
+    const friends = await areMutualFollowers(currentUserId, targetUserId);
     if (!friends) {
       res.status(403).json({ error: "Non sei amico di questo utente" });
       return;
@@ -109,7 +116,7 @@ router.post("/chat/messages", async (req, res) => {
       return;
     }
 
-    const friends = await areFriends(userId, receiverId);
+    const friends = await areMutualFollowers(userId, receiverId);
     if (!friends) {
       res.status(403).json({ error: "Non sei amico di questo utente" });
       return;

@@ -17,6 +17,7 @@ import backtestRouter from "./backtest.js";
 import candlesRouter from "./candles.js";
 import checkinsRouter from "./checkins.js";
 import toolsRouter from "./tools.js";
+import socialRouter from "./social.js";
 
 const router: IRouter = Router();
 
@@ -38,5 +39,6 @@ router.use(backtestRouter);
 router.use(candlesRouter);
 router.use(checkinsRouter);
 router.use(toolsRouter);
+router.use(socialRouter);
 
 export default router;
