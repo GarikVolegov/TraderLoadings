@@ -704,6 +704,14 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
               <p className="text-xs text-muted-foreground">Verifica che il simbolo sia supportato.</p>
             </div>
           )}
+          {!loading && !error && allCandles.length === 0 && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center z-10">
+              <p className="text-muted-foreground text-sm mb-1">Nessuna candela disponibile</p>
+              <p className="text-xs text-muted-foreground/60">
+                Prova un timeframe diverso o un altro simbolo.
+              </p>
+            </div>
+          )}
           <div
             ref={chartContainerRef}
             className={`w-full h-full ${settingSL || settingTP ? "cursor-crosshair" : ""}`}

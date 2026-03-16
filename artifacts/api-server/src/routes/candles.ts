@@ -18,6 +18,11 @@ const TWELVE_SYMBOLS: Record<string, string> = {
   GBPJPY: "GBP/JPY", AUDJPY: "AUD/JPY", XAUUSD: "XAU/USD",
 };
 
+const COINGECKO_IDS: Record<string, string> = {
+  BTCUSD: "bitcoin",
+  ETHUSD: "ethereum",
+};
+
 const YAHOO_INTERVAL: Record<string, string> = {
   M15: "15m", M30: "30m", H1: "1h", H4: "4h", D1: "1d", W1: "1wk",
 };
@@ -31,7 +36,7 @@ const TWELVE_INTERVAL: Record<string, string> = {
 };
 
 const TWELVE_OUTPUTSIZE: Record<string, number> = {
-  M15: 5000, M30: 5000, H1: 5000, H4: 5000, D1: 5000, W1: 5000,
+  M15: 8640, M30: 5000, H1: 5000, H4: 5000, D1: 5000, W1: 5000,
 };
 
 interface CachedData { data: unknown; timestamp: number; }
@@ -133,6 +138,52 @@ async function fetchTwelveData(symbol: string, interval: string): Promise<Candle
   return candles;
 }
 
+async function fetchCoinGecko(symbol: string, interval: string): Promise<Candle[]> {
+  const coinId = COINGECKO_IDS[symbol];
+  if (!coinId) throw new Error(`CoinGecko: symbol ${symbol} unsupported`);
+
+  const daysMap: Record<string, number> = {
+    M15: 90, M30: 90, H1: 365, H4: 365, D1: 1825, W1: 1825,
+  };
+  const days = daysMap[interval] || 365;
+
+  const url = `https://api.coingecko.com/api/v3/coins/${coinId}/ohlc?vs_currency=usd&days=${days}`;
+  const response = await fetch(url, { signal: AbortSignal.timeout(15000) });
+
+  if (!response.ok) throw new Error(`CoinGecko HTTP ${response.status}`);
+
+  const json = await response.json() as number[][];
+  if (!Array.isArray(json) || json.length === 0) throw new Error("CoinGecko: no data");
+
+  const candles: Candle[] = json
+    .map((row) => ({
+      time: Math.floor(row[0] / 1000),
+      open: row[1],
+      high: row[2],
+      low: row[3],
+      close: row[4],
+    }))
+    .filter((c) => !isNaN(c.open) && !isNaN(c.close))
+    .sort((a, b) => a.time - b.time);
+
+  if (candles.length === 0) throw new Error("CoinGecko: no valid candles");
+  return candles;
+}
+
+type FetchFn = (symbol: string, interval: string) => Promise<Candle[]>;
+
+function getFallbackChain(symbol: string): Array<{ name: string; fn: FetchFn }> {
+  const chain: Array<{ name: string; fn: FetchFn }> = [];
+  chain.push({ name: "Yahoo", fn: fetchYahoo });
+  if (TWELVE_SYMBOLS[symbol]) {
+    chain.push({ name: "TwelveData", fn: fetchTwelveData });
+  }
+  if (COINGECKO_IDS[symbol]) {
+    chain.push({ name: "CoinGecko", fn: fetchCoinGecko });
+  }
+  return chain;
+}
+
 router.get("/backtest/candles", async (req, res) => {
   const symbol = (req.query.symbol as string || "EURUSD").toUpperCase().replace("/", "");
   const interval = (req.query.interval as string) || "H1";
@@ -152,32 +203,20 @@ router.get("/backtest/candles", async (req, res) => {
   }
 
   const errors: string[] = [];
+  const chain = getFallbackChain(symbol);
 
-  try {
-    const candles = await fetchYahoo(symbol, interval);
-    console.log(`[candles] Yahoo OK: ${symbol} ${interval} → ${candles.length} candles`);
-    const responseData = { symbol, interval, source: "yahoo", candles };
-    cache.set(cacheKey, { data: responseData, timestamp: Date.now() });
-    res.json(responseData);
-    return;
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    errors.push(`Yahoo: ${msg}`);
-    console.warn(`[candles] Yahoo failed for ${symbol} ${interval}: ${msg}`);
-  }
-
-  if (TWELVE_SYMBOLS[symbol]) {
+  for (const { name, fn } of chain) {
     try {
-      const candles = await fetchTwelveData(symbol, interval);
-      console.log(`[candles] TwelveData OK: ${symbol} ${interval} → ${candles.length} candles`);
-      const responseData = { symbol, interval, source: "twelvedata", candles };
+      const candles = await fn(symbol, interval);
+      console.log(`[candles] ${name} OK: ${symbol} ${interval} → ${candles.length} candles`);
+      const responseData = { symbol, interval, source: name.toLowerCase(), candles };
       cache.set(cacheKey, { data: responseData, timestamp: Date.now() });
       res.json(responseData);
       return;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      errors.push(`TwelveData: ${msg}`);
-      console.warn(`[candles] TwelveData failed for ${symbol} ${interval}: ${msg}`);
+      errors.push(`${name}: ${msg}`);
+      console.warn(`[candles] ${name} failed for ${symbol} ${interval}: ${msg}`);
     }
   }
 
