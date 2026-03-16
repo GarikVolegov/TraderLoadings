@@ -138,7 +138,7 @@ export function PairSelectionModal({ open, onConfirm, initialPairs = [], dismiss
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-5 py-3 space-y-2 min-h-0 pb-20">
+          <div className="flex-1 overflow-y-auto px-5 py-3 space-y-2 min-h-0 pb-24">
             {Array.from(grouped.entries()).map(([category, pairs]) => {
               const isExpanded = search.trim() !== "" || expandedCategories[category];
               return (
