@@ -18,6 +18,7 @@ import candlesRouter from "./candles.js";
 import checkinsRouter from "./checkins.js";
 import toolsRouter from "./tools.js";
 import socialRouter from "./social.js";
+import pushRouter from "./push.js";
 
 const router: IRouter = Router();
 
@@ -40,5 +41,6 @@ router.use(candlesRouter);
 router.use(checkinsRouter);
 router.use(toolsRouter);
 router.use(socialRouter);
+router.use(pushRouter);
 
 export default router;

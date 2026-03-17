@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db, chatMessagesTable, userPublicKeysTable, friendshipsTable, globalChatMessagesTable, profileTable, followsTable } from "@workspace/db";
 import { eq, or, and, desc, sql, lt, asc } from "drizzle-orm";
+import { sendPushToUser } from "./push.js";
 
 const router: IRouter = Router();
 
@@ -128,6 +129,21 @@ router.post("/chat/messages", async (req, res) => {
       .returning();
 
     res.status(201).json(message);
+
+    const [senderProfile] = await db.select({ name: profileTable.name })
+      .from(profileTable).where(eq(profileTable.userId, userId)).limit(1);
+    const senderName = senderProfile?.name ?? "Qualcuno";
+
+    sendPushToUser(
+      receiverId,
+      {
+        title: `💬 ${senderName}`,
+        body: "Ti ha inviato un messaggio",
+        tag: `chat-${userId}`,
+        data: { url: `${process.env.REPLIT_DEV_DOMAIN || ""}/chat` },
+      },
+      "messages"
+    ).catch(() => {});
   } catch (err) {
     console.error("chat/messages POST error:", err);
     res.status(500).json({ error: "Errore interno" });

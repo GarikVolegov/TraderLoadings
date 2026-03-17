@@ -1,4 +1,4 @@
-import { boolean, integer, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { boolean, integer, pgTable, serial, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const ideasTable = pgTable("ideas", {
   id: serial("id").primaryKey(),
@@ -38,7 +38,17 @@ export const userSettingsTable = pgTable("user_settings", {
   preMacroMinutes: integer("pre_macro_minutes").notNull().default(15),
   maxDailyLoss: integer("max_daily_loss"),
   selectedPairs: text("selected_pairs"),
+  notificationPrefs: text("notification_prefs"),
 });
+
+export const pushSubscriptionsTable = pgTable("push_subscriptions", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id"),
+  endpoint: text("endpoint").notNull(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => [uniqueIndex("push_sub_endpoint_idx").on(t.endpoint)]);
 
 export const quotesTable = pgTable("quotes", {
   id: serial("id").primaryKey(),

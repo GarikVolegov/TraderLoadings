@@ -19,6 +19,7 @@ import { usePinLock } from "@/contexts/PinLockContext";
 import { useLanguage, LANGUAGES, type Language } from "@/contexts/LanguageContext";
 import { getPairLabel } from "@workspace/pair-catalog";
 import { PairSelectionModal } from "@/components/PairSelectionModal";
+import { usePushNotifications, NOTIF_PREF_LABELS, type NotificationPrefs } from "@/hooks/usePushNotifications";
 
 const FONT_OPTIONS = [
   { value: "inter", label: "Inter", sample: "font-['Inter']" },
@@ -690,6 +691,7 @@ function NotificationSettings() {
   const updateMutation = useUpdateUserSettings();
   const qc = useQueryClient();
   const { toast } = useToast();
+  const push = usePushNotifications();
 
   const [reminderTime, setReminderTime] = useState("");
   const [preMacro, setPreMacro] = useState("15");
@@ -718,86 +720,136 @@ function NotificationSettings() {
     }
   };
 
-  const requestPermission = () => {
-    if (!("Notification" in window)) {
-      toast({ description: "Le notifiche non sono supportate da questo browser.", variant: "destructive" });
-      return;
+  const handleTogglePush = async () => {
+    if (push.isSubscribed) {
+      await push.unsubscribe();
+      toast({ description: "Notifiche push disattivate." });
+    } else {
+      const ok = await push.subscribe();
+      if (ok) toast({ description: "Notifiche push attivate! Riceverai aggiornamenti anche ad app chiusa." });
+      else if (push.permission === "denied") toast({ description: "Permesso notifiche negato. Abilita dalle impostazioni del browser.", variant: "destructive" });
     }
-    Notification.requestPermission().then((p) => {
-      if (p === "granted") toast({ description: "Notifiche attivate." });
-      else toast({ description: "Permesso notifiche negato.", variant: "destructive" });
-    });
   };
 
   if (isLoading) return null;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Bell className="w-5 h-5 text-primary" />
-          Notifiche e Promemoria
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-5">
-        <div className="space-y-1.5">
-          <p className="text-sm font-medium">Orario promemoria giornaliero</p>
-          <p className="text-xs text-muted-foreground">Ricevi ogni giorno una notifica con il riepilogo delle missioni.</p>
-          <Input
-            type="time"
-            value={reminderTime}
-            onChange={(e) => setReminderTime(e.target.value)}
-            className="w-40"
-          />
-        </div>
+    <div className="space-y-4">
+      {/* Push notifications master toggle */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2">
+            <Bell className="w-5 h-5 text-orange-400" />
+            Notifiche Push
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {!push.isSupported && (
+            <p className="text-sm text-muted-foreground bg-muted/40 rounded-lg px-3 py-2">
+              Le notifiche push non sono supportate da questo browser.
+            </p>
+          )}
 
-        <div className="space-y-1.5">
-          <p className="text-sm font-medium">Anticipo alert eventi macro (minuti)</p>
-          <p className="text-xs text-muted-foreground">Quanto prima ricevere la notifica per eventi ad alto impatto.</p>
-          <div className="flex gap-2">
-            {["5", "10", "15", "30"].map((v) => (
-              <button
-                key={v}
-                onClick={() => setPreMacro(v)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${
-                  preMacro === v
-                    ? "bg-primary/15 border-primary/40 text-primary"
-                    : "border-border text-muted-foreground hover:border-primary/30"
-                }`}
-              >
-                {v} min
-              </button>
-            ))}
+          {push.isSupported && (
+            <>
+              {push.permission === "denied" && (
+                <p className="text-xs text-destructive bg-destructive/10 rounded-lg px-3 py-2">
+                  Il permesso è stato negato. Abilita le notifiche dalle impostazioni del browser e ricarica la pagina.
+                </p>
+              )}
+
+              <div className="flex items-center justify-between py-1">
+                <div>
+                  <p className="text-sm font-medium">Notifiche in background</p>
+                  <p className="text-xs text-muted-foreground">Ricevi notifiche anche ad app chiusa</p>
+                </div>
+                <Switch
+                  checked={push.isSubscribed}
+                  onCheckedChange={handleTogglePush}
+                  disabled={push.loading || push.permission === "denied"}
+                />
+              </div>
+
+              {push.isSubscribed && push.prefs && (
+                <div className="space-y-1 pt-1 border-t border-border">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pt-2 pb-1">Scegli cosa ricevere</p>
+                  {(Object.keys(NOTIF_PREF_LABELS) as (keyof NotificationPrefs)[]).map((key) => (
+                    <div key={key} className="flex items-center justify-between py-2 px-1 rounded-lg hover:bg-muted/30 transition-colors">
+                      <span className="text-sm">{NOTIF_PREF_LABELS[key]}</span>
+                      <Switch
+                        checked={push.prefs![key]}
+                        onCheckedChange={(v) => push.updatePref(key, v)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Reminder & alert settings */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            Promemoria e Alert
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="space-y-1.5">
+            <p className="text-sm font-medium">Orario promemoria giornaliero</p>
+            <p className="text-xs text-muted-foreground">Ricevi ogni giorno una notifica con il riepilogo delle missioni.</p>
+            <Input
+              type="time"
+              value={reminderTime}
+              onChange={(e) => setReminderTime(e.target.value)}
+              className="w-40"
+            />
           </div>
-        </div>
 
-        <div className="space-y-1.5">
-          <p className="text-sm font-medium flex items-center gap-1.5">
-            <ShieldAlert className="w-4 h-4 text-destructive" />
-            Max loss giornaliero (€)
-          </p>
-          <p className="text-xs text-muted-foreground">Ricevi un avviso alla sessione se hai impostato un limite.</p>
-          <Input
-            type="number"
-            min="0"
-            placeholder="es. 200"
-            value={maxLoss}
-            onChange={(e) => setMaxLoss(e.target.value)}
-            className="w-40"
-          />
-        </div>
+          <div className="space-y-1.5">
+            <p className="text-sm font-medium">Anticipo alert eventi macro (minuti)</p>
+            <p className="text-xs text-muted-foreground">Quanto prima ricevere la notifica per eventi ad alto impatto.</p>
+            <div className="flex gap-2">
+              {["5", "10", "15", "30"].map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setPreMacro(v)}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${
+                    preMacro === v
+                      ? "bg-primary/15 border-primary/40 text-primary"
+                      : "border-border text-muted-foreground hover:border-primary/30"
+                  }`}
+                >
+                  {v} min
+                </button>
+              ))}
+            </div>
+          </div>
 
-        <div className="flex gap-2 pt-1">
+          <div className="space-y-1.5">
+            <p className="text-sm font-medium flex items-center gap-1.5">
+              <ShieldAlert className="w-4 h-4 text-destructive" />
+              Max loss giornaliero (€)
+            </p>
+            <p className="text-xs text-muted-foreground">Ricevi un avviso alla sessione se hai impostato un limite.</p>
+            <Input
+              type="number"
+              min="0"
+              placeholder="es. 200"
+              value={maxLoss}
+              onChange={(e) => setMaxLoss(e.target.value)}
+              className="w-40"
+            />
+          </div>
+
           <Button size="sm" onClick={save} disabled={updateMutation.isPending}>
             Salva
           </Button>
-          <Button size="sm" variant="outline" onClick={requestPermission}>
-            <Bell className="w-4 h-4 mr-1.5" />
-            Attiva notifiche browser
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
