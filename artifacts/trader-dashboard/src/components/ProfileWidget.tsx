@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Edit2, Hexagon, Star, Upload, Sparkles, Check, X, Loader2, Flame } from "lucide-react";
+import { Edit2, Hexagon, Star, Upload, Sparkles, Check, X, Loader2, Flame, Trophy, TrendingUp, BookOpen } from "lucide-react";
 import { getLevelName, getLevelBadge } from "@/utils/levelNames";
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,6 +23,28 @@ function useDebounce<T>(value: T, delay: number): T {
     return () => clearTimeout(timer);
   }, [value, delay]);
   return debounced;
+}
+
+function WinRateBadge({ winRate, totalTrades }: { winRate: number | null | undefined; totalTrades: number | null | undefined }) {
+  if (winRate == null || !totalTrades) {
+    return (
+      <div className="flex flex-col items-center gap-0.5 text-center">
+        <span className="text-xs text-muted-foreground/50 font-mono">—%</span>
+        <span className="text-[10px] text-muted-foreground/40">Win Rate</span>
+      </div>
+    );
+  }
+  const color =
+    winRate >= 60 ? "text-emerald-400" :
+    winRate >= 45 ? "text-yellow-400" :
+    "text-red-400";
+  return (
+    <div className="flex flex-col items-center gap-0.5 text-center">
+      <span className={`text-sm font-bold font-mono ${color}`}>{winRate}%</span>
+      <span className="text-[10px] text-muted-foreground/60">Win Rate</span>
+      <span className="text-[9px] text-muted-foreground/40">{totalTrades} trade</span>
+    </div>
+  );
 }
 
 export function ProfileWidget() {
@@ -64,6 +86,7 @@ export function ProfileWidget() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editName, setEditName] = useState("");
   const [editAvatarUrl, setEditAvatarUrl] = useState("");
+  const [editYearsExp, setEditYearsExp] = useState<string>("");
   const [nameError, setNameError] = useState("");
   const [nameAvailable, setNameAvailable] = useState<boolean | null>(null);
   const [checkingName, setCheckingName] = useState(false);
@@ -101,6 +124,7 @@ export function ProfileWidget() {
     if (profile) {
       setEditName(profile.name);
       setEditAvatarUrl(profile.avatarUrl || "");
+      setEditYearsExp(profile.yearsExperience != null ? String(profile.yearsExperience) : "");
       setNameError("");
       setNameAvailable(null);
       setIsEditModalOpen(true);
@@ -110,10 +134,12 @@ export function ProfileWidget() {
   const handleSaveEdit = (e: React.FormEvent) => {
     e.preventDefault();
     if (nameAvailable === false) return;
+    const yearsNum = editYearsExp.trim() ? parseInt(editYearsExp.trim()) : null;
     updateProfileMutation.mutate({
       data: {
         name: editName.trim(),
         avatarUrl: editAvatarUrl || null,
+        yearsExperience: yearsNum != null && !isNaN(yearsNum) ? yearsNum : null,
       },
     });
   };
@@ -151,8 +177,8 @@ export function ProfileWidget() {
   const levelBadge = getLevelBadge(profile.level);
   const levelName = profile.levelName || getLevelName(profile.level);
   const streak = profile.streak ?? 0;
-
   const currentAvatar = editAvatarUrl || profile.avatarUrl;
+  const yearsExp = profile.yearsExperience ?? null;
 
   return (
     <>
@@ -187,6 +213,12 @@ export function ProfileWidget() {
                   <span>{levelBadge.emoji}</span>
                   <span>{levelName}</span>
                 </div>
+                {yearsExp != null && (
+                  <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground/60">
+                    <BookOpen className="w-3 h-3" />
+                    <span>{yearsExp} {yearsExp === 1 ? "anno" : "anni"} di esperienza</span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -200,10 +232,25 @@ export function ProfileWidget() {
             </div>
           </div>
 
-          <div className="mt-4 sm:mt-8 space-y-2 sm:space-y-3">
+          <div className="mt-4 sm:mt-6 grid grid-cols-2 gap-3 border border-border/20 rounded-xl p-3 bg-secondary/10">
+            <div className="flex flex-col items-center gap-0.5 text-center border-r border-border/20">
+              <TrendingUp className="w-4 h-4 text-muted-foreground/50 mb-0.5" />
+              <WinRateBadge winRate={profile.winRate} totalTrades={profile.totalTrades} />
+            </div>
+            <div className="flex flex-col items-center gap-0.5 text-center">
+              <Trophy className="w-4 h-4 text-muted-foreground/50 mb-0.5" />
+              <div className="flex flex-col items-center gap-0.5">
+                <span className="text-sm font-bold font-mono text-primary">{profile.xp.toLocaleString()}</span>
+                <span className="text-[10px] text-muted-foreground/60">XP Totali</span>
+                <span className="text-[9px] text-muted-foreground/40">Livello {profile.level}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-3 sm:mt-4 space-y-2 sm:space-y-3">
             <div className="flex justify-between items-end text-sm">
               <span className="font-medium text-muted-foreground flex items-center gap-1">
-                <Hexagon className="w-4 h-4" /> Esperienza (XP)
+                <Hexagon className="w-4 h-4" /> Progressione XP
               </span>
               <span className="font-mono font-bold">
                 <span className="text-primary">{xpIntoLevel}</span>
@@ -228,7 +275,7 @@ export function ProfileWidget() {
               {streak > 0 && (
                 <p className="text-xs text-orange-400/70 flex items-center gap-1">
                   <Flame className="w-3 h-3" />
-                  Streak: {streak} {streak === 1 ? "giorno" : "giorni"} • +{Math.min(50, (streak - 1) * 5)} XP bonus
+                  {streak} {streak === 1 ? "giorno" : "giorni"} • +{Math.min(50, (streak - 1) * 5)} XP bonus
                 </p>
               )}
             </div>
@@ -317,6 +364,35 @@ export function ProfileWidget() {
             {nameAvailable === true && (
               <p className="text-xs text-primary">Nome disponibile</p>
             )}
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium flex items-center gap-1.5">
+              <BookOpen className="w-4 h-4 text-muted-foreground" />
+              Anni di esperienza nel trading
+            </label>
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                min="0"
+                max="60"
+                value={editYearsExp}
+                onChange={(e) => setEditYearsExp(e.target.value)}
+                placeholder="es. 3"
+                className="w-28"
+              />
+              <span className="text-sm text-muted-foreground">anni</span>
+            </div>
+            <p className="text-xs text-muted-foreground/50">
+              Lascia vuoto se preferisci non indicarlo
+            </p>
+          </div>
+
+          <div className="rounded-xl bg-secondary/20 border border-border/20 p-3">
+            <p className="text-xs text-muted-foreground/60 flex items-center gap-1.5">
+              <TrendingUp className="w-3.5 h-3.5" />
+              <span>Il <strong>Win Rate</strong> viene calcolato automaticamente dai tuoi trade nel Diario.</span>
+            </p>
           </div>
 
           <div className="pt-2 flex justify-end gap-3">

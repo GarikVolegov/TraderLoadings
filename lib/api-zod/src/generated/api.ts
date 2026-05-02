@@ -105,6 +105,9 @@ export const GetProfileResponse = zod.object({
   xpToNextLevel: zod.number(),
   streak: zod.number(),
   levelName: zod.string(),
+  yearsExperience: zod.number().int().nullish(),
+  winRate: zod.number().nullish(),
+  totalTrades: zod.number().int().nullish(),
 });
 
 /**
@@ -113,6 +116,7 @@ export const GetProfileResponse = zod.object({
 export const UpdateProfileBody = zod.object({
   name: zod.string(),
   avatarUrl: zod.string().nullish(),
+  yearsExperience: zod.number().int().nullish(),
 });
 
 export const UpdateProfileResponse = zod.object({
@@ -124,6 +128,9 @@ export const UpdateProfileResponse = zod.object({
   xpToNextLevel: zod.number(),
   streak: zod.number(),
   levelName: zod.string(),
+  yearsExperience: zod.number().int().nullish(),
+  winRate: zod.number().nullish(),
+  totalTrades: zod.number().int().nullish(),
 });
 
 /**

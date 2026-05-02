@@ -1345,6 +1345,16 @@ components:
           type: integer
         levelName:
           type: string
+        yearsExperience:
+          type: integer
+          nullable: true
+        winRate:
+          type: number
+          nullable: true
+          description: "Win rate percentage computed from journal entries (0-100)"
+        totalTrades:
+          type: integer
+          nullable: true
       required:
         - id
         - name
@@ -1361,6 +1371,9 @@ components:
           type: string
         avatarUrl:
           type: string
+          nullable: true
+        yearsExperience:
+          type: integer
           nullable: true
       required:
         - name

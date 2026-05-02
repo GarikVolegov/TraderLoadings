@@ -12,6 +12,7 @@ export const profileTable = pgTable("profile", {
   streak: integer("streak").notNull().default(0),
   lastActiveDate: text("last_active_date"),
   userId: text("user_id"),
+  yearsExperience: integer("years_experience"),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   uniqueIndex("profile_name_unique_authenticated")

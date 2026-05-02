@@ -4,7 +4,7 @@ import path from "path";
 import fs from "fs";
 import crypto from "crypto";
 import { db } from "@workspace/db";
-import { profileTable } from "@workspace/db";
+import { profileTable, journalEntriesTable } from "@workspace/db";
 import { UpdateProfileBody, UpdateProfileResponse, GetProfileResponse, GetLeaderboardResponse } from "@workspace/api-zod";
 import { eq, isNull, and, ne, sql, isNotNull, desc } from "drizzle-orm";
 
@@ -124,6 +124,22 @@ async function generateUniqueName(base: string): Promise<string> {
   return `${base}${suffix}`;
 }
 
+async function computeWinRate(userId: string | null): Promise<{ winRate: number | null; totalTrades: number }> {
+  const filter = userId ? eq(journalEntriesTable.userId, userId) : isNull(journalEntriesTable.userId);
+  const entries = await db
+    .select({ result: journalEntriesTable.result })
+    .from(journalEntriesTable)
+    .where(filter);
+
+  const withResult = entries.filter(e => e.result && e.result !== "none");
+  const totalTrades = withResult.length;
+  if (totalTrades === 0) return { winRate: null, totalTrades: 0 };
+
+  const wins = withResult.filter(e => e.result === "win").length;
+  const winRate = Math.round((wins / totalTrades) * 100);
+  return { winRate, totalTrades };
+}
+
 async function getOrCreateProfile(userId: string | null) {
   const where = userId ? eq(profileTable.userId, userId) : isNull(profileTable.userId);
   const profiles = await db.select().from(profileTable).where(where).limit(1);
@@ -165,6 +181,7 @@ router.get("/profile", async (req, res) => {
   const xp = fresh?.xp ?? freshXp;
   const streak = fresh?.streak ?? newStreak;
   const { level, xpToNextLevel } = computeLevel(xp);
+  const { winRate, totalTrades } = await computeWinRate(userId);
 
   const data = GetProfileResponse.parse({
     id: profile.id,
@@ -175,6 +192,9 @@ router.get("/profile", async (req, res) => {
     xpToNextLevel,
     streak,
     levelName: getLevelName(level),
+    yearsExperience: profile.yearsExperience ?? null,
+    winRate,
+    totalTrades,
   });
   res.json(data);
 });
@@ -195,11 +215,16 @@ router.put("/profile", async (req, res) => {
 
   try {
     const [updated] = await db.update(profileTable)
-      .set({ name: body.name, avatarUrl: body.avatarUrl ?? null })
+      .set({
+        name: body.name,
+        avatarUrl: body.avatarUrl ?? null,
+        yearsExperience: body.yearsExperience ?? null,
+      })
       .where(eq(profileTable.id, profile.id))
       .returning();
 
     const { level, xpToNextLevel } = computeLevel(updated.xp);
+    const { winRate, totalTrades } = await computeWinRate(userId);
     const data = UpdateProfileResponse.parse({
       id: updated.id,
       name: updated.name,
@@ -209,6 +234,9 @@ router.put("/profile", async (req, res) => {
       xpToNextLevel,
       streak: updated.streak,
       levelName: getLevelName(level),
+      yearsExperience: updated.yearsExperience ?? null,
+      winRate,
+      totalTrades,
     });
     res.json(data);
   } catch (err: unknown) {
