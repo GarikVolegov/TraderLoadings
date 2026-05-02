@@ -468,6 +468,177 @@ router.get("/community/voice/:channelId/signals", async (req, res) => {
   }
 });
 
+// ─── Upload file to channel ───────────────────────────────────────────────────
+router.post("/community/channels/:channelId/files", (req: any, res: any, next: any) => {
+  const userId = req.user?.id;
+  if (!userId) { res.status(401).json({ error: "Autenticazione richiesta" }); return; }
+  communityFileUpload.single("file")(req, res, async (err: any) => {
+    if (err) { res.status(400).json({ error: err.message ?? "Upload fallito" }); return; }
+    if (!req.file) { res.status(400).json({ error: "Nessun file caricato" }); return; }
+    try {
+      const channelId = parseInt(req.params.channelId);
+      const [channel] = await db.select().from(communityChannelsTable).where(eq(communityChannelsTable.id, channelId)).limit(1);
+      if (!channel || channel.type !== "text") { res.status(400).json({ error: "Canale non valido" }); return; }
+
+      const [membership] = await db
+        .select()
+        .from(communityMembersTable)
+        .where(and(eq(communityMembersTable.communityId, channel.communityId), eq(communityMembersTable.userId, userId)))
+        .limit(1);
+      if (!membership) { res.status(403).json({ error: "Non sei membro" }); return; }
+
+      const [community] = await db.select({ creatorId: communitiesTable.creatorId }).from(communitiesTable).where(eq(communitiesTable.id, channel.communityId)).limit(1);
+      const isOwner = community?.creatorId === userId || membership.role === "owner" || membership.role === "admin";
+      const downloadable = isOwner
+        ? (req.body.downloadable !== "false" && req.body.downloadable !== false)
+        : true;
+
+      const [profile] = await db.select({ name: profileTable.name, avatarUrl: profileTable.avatarUrl }).from(profileTable).where(eq(profileTable.userId, userId)).limit(1);
+      const fileUrl = `/api/uploads/community-files/${req.file.filename}`;
+      const [fileRow] = await db.insert(communityFilesTable).values({
+        channelId,
+        communityId: channel.communityId,
+        userId,
+        userName: profile?.name ?? "Trader",
+        avatarUrl: profile?.avatarUrl ?? null,
+        fileName: req.file.originalname,
+        fileSize: req.file.size,
+        mimeType: req.file.mimetype,
+        fileUrl,
+        downloadable,
+      }).returning();
+      res.status(201).json(fileRow);
+    } catch (e) {
+      console.error("POST /community/channels/:channelId/files error:", e);
+      res.status(500).json({ error: "Errore interno" });
+    }
+  });
+});
+
+// ─── List files in channel ────────────────────────────────────────────────────
+router.get("/community/channels/:channelId/files", async (req, res) => {
+  const userId = requireAuth(req, res);
+  if (!userId) return;
+  try {
+    const channelId = parseInt(req.params.channelId);
+    const [channel] = await db.select().from(communityChannelsTable).where(eq(communityChannelsTable.id, channelId)).limit(1);
+    if (!channel) { res.status(404).json({ error: "Canale non trovato" }); return; }
+
+    const [membership] = await db
+      .select()
+      .from(communityMembersTable)
+      .where(and(eq(communityMembersTable.communityId, channel.communityId), eq(communityMembersTable.userId, userId)))
+      .limit(1);
+    if (!membership) { res.status(403).json({ error: "Non sei membro" }); return; }
+
+    const files = await db
+      .select()
+      .from(communityFilesTable)
+      .where(eq(communityFilesTable.channelId, channelId))
+      .orderBy(desc(communityFilesTable.createdAt))
+      .limit(50);
+    res.json(files);
+  } catch (err) {
+    res.status(500).json({ error: "Errore interno" });
+  }
+});
+
+// ─── Toggle downloadable (owner/admin only) ───────────────────────────────────
+router.patch("/community/files/:fileId/downloadable", async (req, res) => {
+  const userId = requireAuth(req, res);
+  if (!userId) return;
+  try {
+    const fileId = parseInt(req.params.fileId);
+    const [file] = await db.select().from(communityFilesTable).where(eq(communityFilesTable.id, fileId)).limit(1);
+    if (!file) { res.status(404).json({ error: "File non trovato" }); return; }
+
+    const [membership] = await db
+      .select()
+      .from(communityMembersTable)
+      .where(and(eq(communityMembersTable.communityId, file.communityId), eq(communityMembersTable.userId, userId)))
+      .limit(1);
+    if (!membership || (membership.role !== "owner" && membership.role !== "admin")) {
+      res.status(403).json({ error: "Solo owner/admin possono modificare questa impostazione" }); return;
+    }
+
+    const { downloadable } = req.body;
+    const [updated] = await db
+      .update(communityFilesTable)
+      .set({ downloadable: !!downloadable })
+      .where(eq(communityFilesTable.id, fileId))
+      .returning();
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: "Errore interno" });
+  }
+});
+
+// ─── Delete file ──────────────────────────────────────────────────────────────
+router.delete("/community/files/:fileId", async (req, res) => {
+  const userId = requireAuth(req, res);
+  if (!userId) return;
+  try {
+    const fileId = parseInt(req.params.fileId);
+    const [file] = await db.select().from(communityFilesTable).where(eq(communityFilesTable.id, fileId)).limit(1);
+    if (!file) { res.status(404).json({ error: "File non trovato" }); return; }
+
+    const [membership] = await db
+      .select()
+      .from(communityMembersTable)
+      .where(and(eq(communityMembersTable.communityId, file.communityId), eq(communityMembersTable.userId, userId)))
+      .limit(1);
+    const isOwnerOrAdmin = membership?.role === "owner" || membership?.role === "admin";
+    if (file.userId !== userId && !isOwnerOrAdmin) {
+      res.status(403).json({ error: "Non autorizzato" }); return;
+    }
+
+    const filePath = path.join(COMMUNITY_FILES_DIR, path.basename(file.fileUrl));
+    fs.unlink(filePath, () => {});
+    await db.delete(communityFilesTable).where(eq(communityFilesTable.id, fileId));
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: "Errore interno" });
+  }
+});
+
+// ─── Serve community files (with downloadable check) ─────────────────────────
+router.get("/uploads/community-files/:filename", async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) { res.status(401).json({ error: "Non autorizzato" }); return; }
+  try {
+    const filename = req.params.filename;
+    const [file] = await db
+      .select()
+      .from(communityFilesTable)
+      .where(eq(communityFilesTable.fileUrl, `/api/uploads/community-files/${filename}`))
+      .limit(1);
+
+    if (!file) { res.status(404).json({ error: "File non trovato" }); return; }
+
+    const [membership] = await db
+      .select()
+      .from(communityMembersTable)
+      .where(and(eq(communityMembersTable.communityId, file.communityId), eq(communityMembersTable.userId, userId)))
+      .limit(1);
+    if (!membership) { res.status(403).json({ error: "Non sei membro della community" }); return; }
+
+    const filePath = path.join(COMMUNITY_FILES_DIR, filename);
+    if (!fs.existsSync(filePath)) { res.status(404).json({ error: "File non trovato sul server" }); return; }
+
+    const isOwnerOrAdmin = membership.role === "owner" || membership.role === "admin";
+    const canDownload = file.downloadable || isOwnerOrAdmin;
+    if (canDownload) {
+      res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(file.fileName)}"`);
+    } else {
+      res.setHeader("Content-Disposition", `inline; filename="${encodeURIComponent(file.fileName)}"`);
+    }
+    res.setHeader("Content-Type", file.mimeType);
+    res.sendFile(filePath);
+  } catch (err) {
+    res.status(500).json({ error: "Errore interno" });
+  }
+});
+
 // ─── Delete community (owner only) ────────────────────────────────────────────
 router.delete("/community/:id", async (req, res) => {
   const userId = requireAuth(req, res);
