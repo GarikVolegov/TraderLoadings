@@ -185,21 +185,54 @@ async function fetchRSSNews(pairCurrencies: string[]): Promise<NewsArticle[]> {
   return deduped.slice(0, 10);
 }
 
-function buildNewsImageUrl(keywords: string[] | undefined, sentiment: string | null): string {
+function buildNewsImageUrl(keywords: string[] | undefined, sentiment: string | null, index = 0): string {
+  const lock = (index * 37 + 1) % 1000 || 1;
   const kws = (keywords ?? []).filter(Boolean).slice(0, 3);
   if (kws.length > 0) {
-    return `https://loremflickr.com/800/400/${kws.join(",")}`;
+    return `https://loremflickr.com/800/400/${kws.join(",")}?lock=${lock}`;
   }
   const sentMap: Record<string, string> = {
     bullish: "growth,economy,finance", bearish: "recession,economy,finance", neutral: "economy,finance,market",
   };
-  return `https://loremflickr.com/800/400/${sentMap[sentiment ?? ""] ?? "economy,finance,market"}`;
+  return `https://loremflickr.com/800/400/${sentMap[sentiment ?? ""] ?? "economy,finance,market"}?lock=${lock}`;
 }
 
-async function tryPerplexity(apiKey: string, pairCurrencies: string[]): Promise<NewsArticle[] | null> {
+const VALID_NEWS_LANGS = new Set(["it", "en", "es", "fr", "de"]);
+function sanitizeNewsLang(raw: string | undefined): string {
+  const l = (raw ?? "it").toLowerCase().slice(0, 2);
+  return VALID_NEWS_LANGS.has(l) ? l : "it";
+}
+
+async function translateNewsArticle(
+  title: string, summary: string, lang: string
+): Promise<{ title: string; summary: string }> {
+  if (lang === "en") return { title, summary };
+  try {
+    const combined = `${title.slice(0, 200)} ||| ${summary.slice(0, 280)}`;
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(combined)}&langpair=en|${lang}`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
+    if (!res.ok) return { title, summary };
+    const data = await res.json() as { responseData?: { translatedText?: string } };
+    const translated = data.responseData?.translatedText ?? "";
+    if (!translated) return { title, summary };
+    const sep = translated.indexOf(" ||| ");
+    if (sep === -1) return { title: translated, summary };
+    return { title: translated.slice(0, sep).trim(), summary: translated.slice(sep + 5).trim() };
+  } catch {
+    return { title, summary };
+  }
+}
+
+const NEWS_LANG_NAMES: Record<string, string> = {
+  it: "Italian", en: "English", es: "Spanish", fr: "French", de: "German",
+};
+
+async function tryPerplexity(apiKey: string, pairCurrencies: string[], lang = "it"): Promise<NewsArticle[] | null> {
   const currencyFocus = pairCurrencies.length > 0
     ? pairCurrencies.join(", ")
     : "gold (XAU/USD) or the US dollar";
+
+  const langName = NEWS_LANG_NAMES[lang] ?? "Italian";
 
   try {
     const response = await fetch("https://api.perplexity.ai/chat/completions", {
@@ -213,12 +246,13 @@ async function tryPerplexity(apiKey: string, pairCurrencies: string[]): Promise<
         messages: [
           {
             role: "system",
-            content: "You are a financial news analyst. Respond only with valid JSON and no extra text or markdown.",
+            content: `You are a financial news analyst. Respond only with valid JSON and no extra text or markdown. Write all title and summary fields in ${langName}.`,
           },
           {
             role: "user",
             content: `Give me the 5 most recent macro-economic news (last 24h) affecting ${currencyFocus}.
 Return ONLY this JSON (no markdown): {"articles":[{"title":"...","summary":"2-3 sentences","source":"...","publishedAt":"ISO date","sentiment":"bullish|bearish|neutral","url":null,"imageKeywords":["keyword1","keyword2"]}]}
+IMPORTANT: title and summary must be written in ${langName}.
 imageKeywords: 2-3 short English words for a representative image (e.g. ["inflation","federal reserve"], ["gold","bullion"])`,
           },
         ],
@@ -235,9 +269,9 @@ imageKeywords: 2-3 short English words for a representative image (e.g. ["inflat
     const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
     const parsed = JSON.parse(cleaned) as { articles: Array<NewsArticle & { imageKeywords?: string[] }> };
     if (!Array.isArray(parsed.articles) || parsed.articles.length === 0) return null;
-    return parsed.articles.map((a) => ({
+    return parsed.articles.map((a, i) => ({
       ...a,
-      imageUrl: a.imageUrl ?? buildNewsImageUrl(a.imageKeywords, a.sentiment),
+      imageUrl: a.imageUrl ?? buildNewsImageUrl(a.imageKeywords, a.sentiment, i),
     }));
   } catch {
     return null;
@@ -247,8 +281,10 @@ imageKeywords: 2-3 short English words for a representative image (e.g. ["inflat
 router.get("/news", async (req, res) => {
   const noCache = req.query.nocache === "1";
   const pairsStr = (req.query.pairs as string) || "";
+  const lang = sanitizeNewsLang(req.query.lang as string | undefined);
   const pairCurrencies = pairsToCurrencies(pairsStr);
-  const cacheKey = pairCurrencies.length > 0 ? pairCurrencies.sort().join(",") : "all";
+  const baseCacheKey = pairCurrencies.length > 0 ? pairCurrencies.sort().join(",") : "all";
+  const cacheKey = `${baseCacheKey}:${lang}`;
 
   if (!noCache && cache && cache.key === cacheKey && Date.now() - cache.ts < CACHE_TTL) {
     res.json(cache.data);
@@ -260,7 +296,7 @@ router.get("/news", async (req, res) => {
   let source: "ai" | "rss" = "rss";
 
   if (apiKey) {
-    const aiArticles = await tryPerplexity(apiKey, pairCurrencies);
+    const aiArticles = await tryPerplexity(apiKey, pairCurrencies, lang);
     if (aiArticles && aiArticles.length > 0) {
       articles = aiArticles;
       source = "ai";
@@ -270,10 +306,19 @@ router.get("/news", async (req, res) => {
   if (source !== "ai") {
     try {
       const rssArticles = await fetchRSSNews(pairCurrencies.length > 0 ? pairCurrencies : ["USD", "XAU"]);
-      articles = rssArticles.map((a) => ({
+      const withImages = rssArticles.map((a, i) => ({
         ...a,
-        imageUrl: a.imageUrl ?? buildNewsImageUrl(undefined, a.sentiment),
+        imageUrl: a.imageUrl ?? buildNewsImageUrl(undefined, a.sentiment, i),
       }));
+      // Translate RSS articles to user language (parallel, with timeout fallback)
+      articles = lang !== "en"
+        ? await Promise.all(
+            withImages.map(async (a) => {
+              const { title, summary } = await translateNewsArticle(a.title, a.summary, lang);
+              return { ...a, title, summary };
+            })
+          )
+        : withImages;
     } catch {
       articles = [];
     }

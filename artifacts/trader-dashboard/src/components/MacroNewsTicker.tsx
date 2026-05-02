@@ -124,12 +124,17 @@ function timeAgo(isoDate: string): string {
   return new Date(isoDate).toLocaleDateString("it-IT", { day: "numeric", month: "short" });
 }
 
+function getStoredLang(): string {
+  try { return localStorage.getItem("tl_language") ?? "it"; } catch { return "it"; }
+}
+
 async function fetchMacroNews(currencies: string[], force = false): Promise<MacroNewsData> {
   const params = new URLSearchParams();
   if (currencies.length > 0 && currencies.length < ALL_CURRENCIES.length) {
     params.set("currencies", currencies.join(","));
   }
   if (force) params.set("force", "1");
+  params.set("lang", getStoredLang());
   const qs = params.toString() ? `?${params.toString()}` : "";
   const res = await fetch(`${API}/tools/macro-news${qs}`);
   if (!res.ok) throw new Error(`Errore ${res.status}`);

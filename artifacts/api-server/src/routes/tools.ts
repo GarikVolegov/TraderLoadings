@@ -633,10 +633,11 @@ function normalizeCurrencies(raw: string): { key: string; label: string } {
   return { key: unique.join(",").toLowerCase(), label: unique.join(", ") };
 }
 
-function buildMacroImageUrl(keywords: string[] | undefined, currency: string): string {
+function buildMacroImageUrl(keywords: string[] | undefined, currency: string, index = 0): string {
+  const lock = (index * 37 + 1) % 1000 || 1;
   const kws = (keywords ?? []).filter(Boolean).slice(0, 3);
   if (kws.length > 0) {
-    return `https://loremflickr.com/800/400/${kws.join(",")}`;
+    return `https://loremflickr.com/800/400/${kws.join(",")}?lock=${lock}`;
   }
   const fallbacks: Record<string, string> = {
     EUR: "europe,economy", USD: "dollar,wallstreet", GBP: "london,finance",
@@ -644,10 +645,34 @@ function buildMacroImageUrl(keywords: string[] | undefined, currency: string): s
     AUD: "australia,economy", NZD: "newzealand,economy", XAU: "gold,bullion",
     GLOBALE: "global,economy,finance",
   };
-  return `https://loremflickr.com/800/400/${fallbacks[currency] ?? "finance,trading"}`;
+  return `https://loremflickr.com/800/400/${fallbacks[currency] ?? "finance,trading"}?lock=${lock}`;
 }
 
-async function fetchMacroNewsPerplexity(currencyLabel: string): Promise<MacroNewsResult> {
+async function translateMacroArticle(
+  title: string, summary: string, lang: string
+): Promise<{ title: string; summary: string }> {
+  if (lang === "en") return { title, summary };
+  try {
+    const combined = `${title.slice(0, 200)} ||| ${summary.slice(0, 280)}`;
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(combined)}&langpair=en|${lang}`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
+    if (!res.ok) return { title, summary };
+    const data = await res.json() as { responseData?: { translatedText?: string } };
+    const translated = data.responseData?.translatedText ?? "";
+    if (!translated) return { title, summary };
+    const sep = translated.indexOf(" ||| ");
+    if (sep === -1) return { title: translated, summary };
+    return { title: translated.slice(0, sep).trim(), summary: translated.slice(sep + 5).trim() };
+  } catch {
+    return { title, summary };
+  }
+}
+
+const LANG_NAMES: Record<string, string> = {
+  it: "italiano", en: "inglese", es: "spagnolo", fr: "francese", de: "tedesco",
+};
+
+async function fetchMacroNewsPerplexity(currencyLabel: string, lang = "it"): Promise<MacroNewsResult> {
   const apiKey = process.env.PERPLEXITY_API_KEY;
   if (!apiKey) throw new Error("PERPLEXITY_API_KEY not set");
 
@@ -655,16 +680,19 @@ async function fetchMacroNewsPerplexity(currencyLabel: string): Promise<MacroNew
     weekday: "long", day: "numeric", month: "long", year: "numeric",
   });
 
+  const langName = LANG_NAMES[lang] ?? "italiano";
+
   const systemPrompt = `Sei un analista macro forex e commodities esperto. Oggi è ${today}.
 Fornisci un briefing macro VERIFICATO: ogni notizia deve essere confermata da almeno 2 fonti.
 Fonti: BCE, Federal Reserve, BoE, BoJ, SNB, BLS, Eurostat, FMI, WGC, LBMA, CFTC, Bloomberg, Reuters, FT, WSJ.
 Per XAU includi SEMPRE: acquisti banche centrali, flussi ETF, dati CFTC.
+IMPORTANTE: scrivi title e summary in ${langName}.
 Rispondi SOLO con JSON valido, nessun testo extra:
 {
   "articles": [
     {
-      "title": "Titolo breve",
-      "summary": "2-3 frasi: notizia, contesto e implicazioni trading",
+      "title": "Titolo breve in ${langName}",
+      "summary": "2-3 frasi in ${langName}: notizia, contesto e implicazioni trading",
       "impact": "alto|medio|basso",
       "currency": "EUR|USD|GBP|JPY|CHF|CAD|AUD|NZD|XAU|GLOBALE",
       "direction": "bullish|bearish|neutrale",
@@ -676,9 +704,9 @@ Rispondi SOLO con JSON valido, nessun testo extra:
     }
   ],
   "sentiment": "risk-on|risk-off|neutrale",
-  "summary": "Sintesi quadro macro"
+  "summary": "Sintesi quadro macro in ${langName}"
 }
-imageKeywords: 2-3 parole inglesi per immagine rappresentativa (es: ["gold","bullion"], ["inflation","rate"], ["dollar","federal-reserve"]).
+imageKeywords: 2-3 English words for representative image (e.g. ["gold","bullion"], ["inflation","rate"]).
 Genera 6-8 articoli.`;
 
   const response = await fetch("https://api.perplexity.ai/chat/completions", {
@@ -693,7 +721,7 @@ Genera 6-8 articoli.`;
         { role: "system", content: systemPrompt },
         {
           role: "user",
-          content: `Genera briefing macro per oggi con focus su ${currencyLabel}. Includi imageKeywords per ogni articolo. Rispondi SOLO con JSON.`,
+          content: `Genera briefing macro per oggi con focus su ${currencyLabel}. Includi imageKeywords in inglese. Rispondi SOLO con JSON, tutto il testo in ${langName}.`,
         },
       ],
       temperature: 0.2,
@@ -712,12 +740,12 @@ Genera 6-8 articoli.`;
   const jsonMatch = raw.match(/\{[\s\S]*\}/);
   const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : raw) as Partial<MacroNewsResult>;
 
-  const articles = (parsed.articles ?? []).map((a) => ({
+  const articles = (parsed.articles ?? []).map((a, i) => ({
     ...a,
     source: a.source || "",
     sources: Array.isArray(a.sources) && a.sources.length > 0 ? a.sources : (a.source ? [a.source] : []),
     verified: a.verified ?? (Array.isArray(a.sources) && a.sources.length >= 2),
-    imageUrl: buildMacroImageUrl(a.imageKeywords, a.currency ?? "GLOBALE"),
+    imageUrl: buildMacroImageUrl(a.imageKeywords, a.currency ?? "GLOBALE", i),
   }));
 
   return {
@@ -782,7 +810,7 @@ function extractRSSImageMacro(block: string, descRaw: string): string | null {
     || null;
 }
 
-async function fetchMacroRSSFallback(currenciesInput: string): Promise<MacroNewsResult> {
+async function fetchMacroRSSFallback(currenciesInput: string, lang = "it"): Promise<MacroNewsResult> {
   const results = await Promise.allSettled(
     RSS_MACRO_FEEDS.map(async (f) => {
       const res = await fetch(f.url, {
@@ -854,11 +882,21 @@ async function fetchMacroRSSFallback(currenciesInput: string): Promise<MacroNews
     return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
   });
 
-  // Add fallback image for articles without one
-  const articles = deduped.map((a) => ({
+  // Add fallback image for articles without one, with unique index
+  const withImages = deduped.map((a, i) => ({
     ...a,
-    imageUrl: a.imageUrl ?? buildMacroImageUrl(undefined, a.currency),
+    imageUrl: a.imageUrl ?? buildMacroImageUrl(undefined, a.currency, i),
   }));
+
+  // Translate title+summary if needed
+  const articles = lang !== "en"
+    ? await Promise.all(
+        withImages.map(async (a) => {
+          const { title, summary } = await translateMacroArticle(a.title, a.summary, lang);
+          return { ...a, title, summary };
+        })
+      )
+    : withImages;
 
   const bullCount = articles.filter((a) => a.direction === "bullish").length;
   const bearCount = articles.filter((a) => a.direction === "bearish").length;
@@ -872,24 +910,32 @@ async function fetchMacroRSSFallback(currenciesInput: string): Promise<MacroNews
   };
 }
 
-async function fetchMacroNews(currencyLabel: string, currenciesRaw = ""): Promise<MacroNewsResult> {
+async function fetchMacroNews(currencyLabel: string, currenciesRaw = "", lang = "it"): Promise<MacroNewsResult> {
   try {
-    return await fetchMacroNewsPerplexity(currencyLabel);
+    return await fetchMacroNewsPerplexity(currencyLabel, lang);
   } catch (err) {
     console.warn("[tools/macro-news] AI failed, falling back to RSS:", err instanceof Error ? err.message : String(err));
-    return fetchMacroRSSFallback(currenciesRaw);
+    return fetchMacroRSSFallback(currenciesRaw, lang);
   }
+}
+
+const VALID_LANGS = new Set(["it", "en", "es", "fr", "de"]);
+function sanitizeLang(raw: string | undefined): string {
+  const l = (raw ?? "it").toLowerCase().slice(0, 2);
+  return VALID_LANGS.has(l) ? l : "it";
 }
 
 router.get("/tools/macro-news", async (req, res) => {
   let currenciesInput = (req.query.currencies as string) || "";
   const pairsInput = (req.query.pairs as string) || "";
+  const lang = sanitizeLang(req.query.lang as string | undefined);
   if (!currenciesInput && pairsInput) {
     const symbols = pairsInput.split(",").map((s) => s.trim()).filter(Boolean);
     const derived = getCurrenciesFromPairs(symbols);
     currenciesInput = derived.join(",");
   }
-  const { key, label } = normalizeCurrencies(currenciesInput);
+  const { key: baseKey, label } = normalizeCurrencies(currenciesInput);
+  const key = `${baseKey}:${lang}`;
   const forceRefresh = req.query.force === "1";
 
   const cached = macroNewsCache.get(key);
@@ -898,7 +944,7 @@ router.get("/tools/macro-news", async (req, res) => {
   }
 
   try {
-    const result = await fetchMacroNews(label, currenciesInput);
+    const result = await fetchMacroNews(label, currenciesInput, lang);
     macroNewsCache.set(key, { data: result, expiresAt: Date.now() + MACRO_NEWS_TTL });
     res.json(result);
   } catch (err) {
@@ -909,7 +955,8 @@ router.get("/tools/macro-news", async (req, res) => {
 });
 
 router.post("/tools/macro-news", async (req, res) => {
-  const { currency = "", pairs = "" } = req.body as { currency?: string; pairs?: string };
+  const { currency = "", pairs = "", lang: langRaw = "" } = req.body as { currency?: string; pairs?: string; lang?: string };
+  const lang = sanitizeLang(langRaw);
   let currencyInput = currency;
   const isGeneric = !currencyInput || currencyInput.toLowerCase().includes("tutte");
   if (isGeneric && pairs) {
@@ -919,7 +966,8 @@ router.post("/tools/macro-news", async (req, res) => {
       currencyInput = derived.join(",");
     }
   }
-  const { key, label } = normalizeCurrencies(currencyInput);
+  const { key: baseKey, label } = normalizeCurrencies(currencyInput);
+  const key = `${baseKey}:${lang}`;
 
   const cached = macroNewsCache.get(key);
   if (cached && Date.now() < cached.expiresAt) {
@@ -927,7 +975,7 @@ router.post("/tools/macro-news", async (req, res) => {
   }
 
   try {
-    const result = await fetchMacroNews(label, currencyInput);
+    const result = await fetchMacroNews(label, currencyInput, lang);
     macroNewsCache.set(key, { data: result, expiresAt: Date.now() + MACRO_NEWS_TTL });
     res.json(result);
   } catch (err) {

@@ -59,14 +59,14 @@ function TimeAgo({ iso }: { iso?: string | null }) {
 }
 
 export default function News() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const qc = useQueryClient();
   const { selectedPairs } = useBackground();
   const pairsParam = selectedPairs.length > 0 ? `&pairs=${selectedPairs.join(",")}` : "";
   const { data, isLoading, isFetching } = useQuery<NewsData>({
-    queryKey: ["macro-news", selectedPairs],
+    queryKey: ["macro-news", selectedPairs, language],
     queryFn: async () => {
-      const res = await fetch(`api/news?_=1${pairsParam}`, { credentials: "include" });
+      const res = await fetch(`api/news?_=1${pairsParam}&lang=${language}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch news");
       return res.json();
     },
@@ -75,10 +75,10 @@ export default function News() {
   const newsData = data;
 
   const handleRefresh = async () => {
-    const res = await fetch(`api/news?nocache=1${pairsParam}`, { credentials: "include" });
+    const res = await fetch(`api/news?nocache=1${pairsParam}&lang=${language}`, { credentials: "include" });
     if (res.ok) {
       const freshData = await res.json();
-      qc.setQueryData(["macro-news", selectedPairs], freshData);
+      qc.setQueryData(["macro-news", selectedPairs, language], freshData);
     }
   };
 
