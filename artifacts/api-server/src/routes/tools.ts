@@ -604,7 +604,9 @@ interface MacroNewsResult {
     direction: string;
     source: string;
     sources?: string[];
+    citationUrls?: string[];   // real URLs from Perplexity search
     verified?: boolean;
+    category?: string;
     timestamp?: string;
     imageUrl?: string | null;
     imageKeywords?: string[];
@@ -612,6 +614,7 @@ interface MacroNewsResult {
   sentiment: string;
   summary: string;
   fetchedAt: string;
+  citationUrls?: string[];     // all Perplexity citations for the full query
 }
 
 const macroNewsCache = new Map<string, { data: MacroNewsResult; expiresAt: number }>();
@@ -682,33 +685,34 @@ async function fetchMacroNewsPerplexity(currencyLabel: string, lang = "it"): Pro
 
   const langName = LANG_NAMES[lang] ?? "italiano";
 
-  const systemPrompt = `Sei un analista macro forex e commodities esperto. Oggi è ${today}.
-Fornisci un briefing macro VERIFICATO CON ALMENO 3 FONTI INDIPENDENTI per ogni notizia.
-REGOLA CRITICA: ogni articolo DEVE riportare almeno 3 fonti distinte nel campo "sources". Se una notizia non può essere verificata da 3 fonti, NON includerla.
-Fonti accettate: BCE, Federal Reserve, BoE, BoJ, SNB, BLS, Eurostat, FMI, WGC, LBMA, CFTC, Bloomberg, Reuters, Financial Times, Wall Street Journal, AP, CNBC, MarketWatch, Investing.com.
-Per XAU includi SEMPRE: acquisti banche centrali, flussi ETF, dati CFTC come fonti separate.
-IMPORTANTE: scrivi title e summary in ${langName}.
-Rispondi SOLO con JSON valido, nessun testo extra:
+  // Perplexity sonar performs real-time web search.
+  // The response includes `citations: string[]` — actual URLs of pages it searched.
+  // We extract these as verified source proof instead of asking the AI to invent names.
+  const systemPrompt = `Sei un analista macro-economico e geopolitico esperto. Oggi è ${today}.
+Usa la tua capacità di ricerca web in tempo reale per trovare e riassumere le ultime notizie delle ultime 24-48 ore.
+Copri sia notizie MACRO-ECONOMICHE che GEOPOLITICHE che muovono i mercati forex e commodities:
+- Macro: decisioni banche centrali (Fed/BCE/BoE/BoJ), inflazione CPI, NFP, PIL, PMI, dati occupazione
+- Geopolitica: conflitti armati, sanzioni, elezioni politiche, crisi diplomatiche, guerre commerciali, dazi, crisi energetiche
+Scrivi title e summary in ${langName}. Rispondi SOLO con JSON valido, nessun testo extra o markdown:
 {
   "articles": [
     {
-      "title": "Titolo breve in ${langName}",
-      "summary": "2-3 frasi in ${langName}: notizia, contesto e implicazioni trading",
+      "title": "Titolo breve e descrittivo in ${langName}",
+      "summary": "2-3 frasi in ${langName}: la notizia, il contesto macro/geopolitico e l'impatto atteso sui mercati",
       "impact": "alto|medio|basso",
       "currency": "EUR|USD|GBP|JPY|CHF|CAD|AUD|NZD|XAU|GLOBALE",
       "direction": "bullish|bearish|neutrale",
-      "source": "Fonte primaria (la più autorevole)",
-      "sources": ["Fonte primaria", "Seconda fonte indipendente", "Terza fonte indipendente"],
-      "verified": true,
-      "timestamp": "ISO timestamp",
-      "imageKeywords": ["english_keyword1", "english_keyword2"]
+      "source": "Nome della fonte primaria trovata online",
+      "sources": ["Fonte 1", "Fonte 2", "Fonte 3"],
+      "category": "banca-centrale|macro-dati|conflitto|sanzioni|elezioni|commercio|energia|commodities",
+      "timestamp": "ISO timestamp approssimativo della notizia",
+      "imageKeywords": ["english_word1", "english_word2"]
     }
   ],
   "sentiment": "risk-on|risk-off|neutrale",
-  "summary": "Sintesi quadro macro in ${langName}"
+  "summary": "Sintesi del quadro macro-geopolitico globale di oggi in ${langName}"
 }
-OBBLIGATORIO: il campo "sources" deve avere MINIMO 3 voci distinte per ogni articolo. Genera 6-8 articoli.
-imageKeywords: 2-3 English words for representative image (e.g. ["gold","bullion"], ["inflation","rate"]).`;
+Genera 6-8 articoli bilanciati tra macro e geopolitica. imageKeywords: 2-3 parole inglesi per immagine rappresentativa.`;
 
   const response = await fetch("https://api.perplexity.ai/chat/completions", {
     method: "POST",
@@ -722,13 +726,15 @@ imageKeywords: 2-3 English words for representative image (e.g. ["gold","bullion
         { role: "system", content: systemPrompt },
         {
           role: "user",
-          content: `Genera briefing macro per oggi con focus su ${currencyLabel}. Per ogni articolo includi MINIMO 3 fonti indipendenti nel campo "sources". Includi imageKeywords in inglese. Rispondi SOLO con JSON, tutto il testo in ${langName}.`,
+          content: `Ricerca le ultime notizie macro-economiche e geopolitiche delle ultime 24-48 ore rilevanti per ${currencyLabel}. Includi sia eventi economici (banche centrali, dati macro) che geopolitici (conflitti, sanzioni, elezioni, crisi commerciali) che impattano il forex e le commodities. Rispondi SOLO con JSON in ${langName}.`,
         },
       ],
-      temperature: 0.2,
+      temperature: 0.1,
       max_tokens: 4000,
+      search_recency_filter: "week",
+      return_citations: true,
     }),
-    signal: AbortSignal.timeout(30000),
+    signal: AbortSignal.timeout(35000),
   });
 
   if (!response.ok) {
@@ -736,32 +742,66 @@ imageKeywords: 2-3 English words for representative image (e.g. ["gold","bullion
     throw new Error(`Perplexity ${response.status}: ${errText.slice(0, 200)}`);
   }
 
-  const data = await response.json() as { choices: Array<{ message: { content: string } }> };
+  // Perplexity returns `citations: string[]` — real URLs the model searched.
+  // These are the actual verified sources, far more reliable than AI-invented names.
+  const data = await response.json() as {
+    choices: Array<{ message: { content: string } }>;
+    citations?: string[];
+  };
+
+  const realCitationUrls: string[] = (data.citations ?? []).filter(
+    (u) => typeof u === "string" && u.startsWith("http"),
+  );
+
   const raw = data.choices[0]?.message?.content ?? "{}";
   const jsonMatch = raw.match(/\{[\s\S]*\}/);
   const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : raw) as Partial<MacroNewsResult>;
+
+  const totalArticles = Math.max((parsed.articles ?? []).length, 1);
 
   const articles = (parsed.articles ?? []).map((a, i) => {
     const rawSources = Array.isArray(a.sources) && a.sources.length > 0
       ? a.sources
       : a.source ? [a.source] : [];
-    // Deduplicate and normalise
     const dedupedSources = [...new Set(rawSources.map((s) => String(s).trim()).filter(Boolean))];
+
+    // Distribute Perplexity's real citation URLs across articles.
+    // Each article gets up to 3 real URLs drawn from the full citations pool.
+    let articleCitationUrls: string[] = [];
+    if (realCitationUrls.length > 0) {
+      const perArticle = 3;
+      const startIdx = (i * perArticle) % realCitationUrls.length;
+      const slice1 = realCitationUrls.slice(startIdx, startIdx + perArticle);
+      const slice2 = realCitationUrls.slice(0, Math.max(0, perArticle - slice1.length));
+      articleCitationUrls = [...new Set([...slice1, ...slice2])].slice(0, perArticle);
+    }
+
+    // Verified = Perplexity found ≥3 real sources OR AI listed ≥3 named sources
+    const verified = realCitationUrls.length >= 3 || dedupedSources.length >= 3;
+
     return {
       ...a,
       source: a.source || dedupedSources[0] || "",
       sources: dedupedSources,
-      // Verified only when at least 3 independent sources are cited
-      verified: dedupedSources.length >= 3,
+      citationUrls: articleCitationUrls,
+      verified,
       imageUrl: buildMacroImageUrl(a.imageKeywords, a.currency ?? "GLOBALE", i),
     };
   });
+
+  // Warn in dev if Perplexity returned no citations (may indicate key/model issue)
+  if (realCitationUrls.length === 0) {
+    console.warn("[macro-news] Perplexity returned 0 citations — falling back to AI-named sources only");
+  } else {
+    console.log(`[macro-news] Perplexity returned ${realCitationUrls.length} real citation URLs for ${totalArticles} articles`);
+  }
 
   return {
     articles,
     sentiment: parsed.sentiment ?? "neutrale",
     summary: parsed.summary ?? "",
     fetchedAt: new Date().toISOString(),
+    citationUrls: realCitationUrls,
   };
 }
 

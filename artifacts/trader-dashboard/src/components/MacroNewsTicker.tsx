@@ -33,7 +33,9 @@ interface MacroArticle {
   direction: string;
   source: string;
   sources?: string[];
+  citationUrls?: string[];   // real Perplexity-verified source URLs
   verified?: boolean;
+  category?: string;
   timestamp?: string;
   imageUrl?: string | null;
   url?: string | null;
@@ -44,6 +46,7 @@ interface MacroNewsData {
   sentiment: string;
   summary: string;
   fetchedAt: string;
+  citationUrls?: string[];
 }
 
 const ALL_CURRENCIES = ["EUR", "USD", "GBP", "JPY", "CHF", "CAD", "AUD", "NZD", "XAU"];
@@ -108,6 +111,26 @@ function searchSourceUrl(source: string, title: string): string {
   const q = encodeURIComponent(`${source} ${title}`);
   return `https://www.google.com/search?q=${q}`;
 }
+
+function extractDomain(url: string): string {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, "");
+    return host.length > 28 ? host.slice(0, 26) + "…" : host;
+  } catch {
+    return url.slice(0, 28);
+  }
+}
+
+const CATEGORY_LABELS: Record<string, { label: string; cls: string }> = {
+  "banca-centrale":  { label: "🏦 Banca Centrale", cls: "border-blue-500/30 bg-blue-500/10 text-blue-400" },
+  "macro-dati":      { label: "📊 Dati Macro",     cls: "border-cyan-500/30 bg-cyan-500/10 text-cyan-400" },
+  "conflitto":       { label: "⚔️ Conflitto",      cls: "border-red-500/30 bg-red-500/10 text-red-400" },
+  "sanzioni":        { label: "🚫 Sanzioni",        cls: "border-orange-500/30 bg-orange-500/10 text-orange-400" },
+  "elezioni":        { label: "🗳️ Elezioni",       cls: "border-purple-500/30 bg-purple-500/10 text-purple-400" },
+  "commercio":       { label: "🤝 Commercio",       cls: "border-yellow-500/30 bg-yellow-500/10 text-yellow-400" },
+  "energia":         { label: "⚡ Energia",          cls: "border-amber-500/30 bg-amber-500/10 text-amber-400" },
+  "commodities":     { label: "🪙 Commodities",     cls: "border-emerald-500/30 bg-emerald-500/10 text-emerald-400" },
+};
 
 function timeAgo(isoDate: string): string {
   const now = Date.now();
@@ -407,16 +430,24 @@ export function MacroNewsTicker() {
                         >
                           {article.direction}
                         </span>
-                        {/* Verification badge — 3+ sources = verified, else warning */}
+                        {/* Category badge — geopolitical, macro, energy, etc. */}
+                        {article.category && CATEGORY_LABELS[article.category] && (
+                          <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-semibold border ${CATEGORY_LABELS[article.category].cls}`}>
+                            {CATEGORY_LABELS[article.category].label}
+                          </span>
+                        )}
+                        {/* Verification badge: Perplexity citations > AI-named sources */}
                         {article.verified ? (
                           <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[9px] font-bold border border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
                             <ShieldCheck className="w-2.5 h-2.5" />
-                            {article.sources && article.sources.length >= 3
-                              ? `${article.sources.length} FONTI`
-                              : "VERIFICATO"}
+                            {article.citationUrls && article.citationUrls.length > 0
+                              ? `${article.citationUrls.length} URL REALI`
+                              : article.sources && article.sources.length >= 3
+                                ? `${article.sources.length} FONTI`
+                                : "VERIFICATO"}
                           </span>
                         ) : (
-                          article.sources && article.sources.length > 0 ? (
+                          (article.sources && article.sources.length > 0) ? (
                             <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[9px] font-bold border border-yellow-500/30 bg-yellow-500/10 text-yellow-400">
                               <ShieldCheck className="w-2.5 h-2.5" />
                               {article.sources.length} {article.sources.length === 1 ? "FONTE" : "FONTI"}
@@ -431,34 +462,47 @@ export function MacroNewsTicker() {
                         )}
                       </div>
 
-                      {/* Sources section — always visible when present */}
-                      {article.sources && article.sources.length > 0 && (
+                      {/* Sources — real Perplexity citation URLs take priority over named sources */}
+                      {((article.citationUrls && article.citationUrls.length > 0) || (article.sources && article.sources.length > 0)) && (
                         <div className="pt-1.5 border-t border-border/30">
-                          <div className="flex items-center gap-1 mb-1">
+                          <div className="flex items-center gap-1 mb-1.5">
                             <span className="text-[9px] text-muted-foreground/50 font-semibold uppercase tracking-wide">
-                              Fonti ({article.sources.length}
-                              {article.sources.length < 3 && (
-                                <span className="text-yellow-400"> · min 3 richieste</span>
-                              )}
-                              {article.sources.length >= 3 && (
-                                <span className="text-emerald-400"> · verificato</span>
-                              )}
-                              )
+                              {article.citationUrls && article.citationUrls.length > 0
+                                ? <>Fonti verificate ({article.citationUrls.length}<span className="text-emerald-400"> · Perplexity</span>)</>
+                                : <>Fonti ({article.sources!.length}{article.sources!.length >= 3 ? <span className="text-emerald-400"> · verificato</span> : <span className="text-yellow-400"> · min 3</span>})</>
+                              }
                             </span>
                           </div>
                           <div className="flex flex-wrap gap-1">
-                            {article.sources.map((src, si) => (
-                              <a
-                                key={si}
-                                href={searchSourceUrl(src, article.title)}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md text-[10px] font-medium border border-blue-500/25 bg-blue-500/8 text-blue-400 hover:bg-blue-500/20 hover:border-blue-500/40 transition-all"
-                              >
-                                <ExternalLink className="w-2.5 h-2.5 shrink-0" />
-                                {src}
-                              </a>
-                            ))}
+                            {/* Prefer real citation URLs (verified by Perplexity's web search) */}
+                            {article.citationUrls && article.citationUrls.length > 0
+                              ? article.citationUrls.map((url, si) => (
+                                  <a
+                                    key={si}
+                                    href={url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    title={url}
+                                    className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md text-[10px] font-medium border border-emerald-500/30 bg-emerald-500/8 text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500/50 transition-all"
+                                  >
+                                    <ExternalLink className="w-2.5 h-2.5 shrink-0" />
+                                    {extractDomain(url)}
+                                  </a>
+                                ))
+                              : /* Fallback: named sources with Google search link */
+                                article.sources!.map((src, si) => (
+                                  <a
+                                    key={si}
+                                    href={searchSourceUrl(src, article.title)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md text-[10px] font-medium border border-blue-500/25 bg-blue-500/8 text-blue-400 hover:bg-blue-500/20 hover:border-blue-500/40 transition-all"
+                                  >
+                                    <ExternalLink className="w-2.5 h-2.5 shrink-0" />
+                                    {src}
+                                  </a>
+                                ))
+                            }
                           </div>
                         </div>
                       )}

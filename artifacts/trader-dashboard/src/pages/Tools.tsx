@@ -122,6 +122,10 @@ interface MacroArticle {
   currency: string;
   direction: "bullish" | "bearish" | "neutrale";
   source?: string;
+  sources?: string[];
+  citationUrls?: string[];
+  verified?: boolean;
+  category?: string;
   timestamp?: string;
   imageUrl?: string | null;
 }
@@ -130,6 +134,7 @@ interface MacroNewsResult {
   articles: MacroArticle[];
   sentiment: string;
   summary: string;
+  citationUrls?: string[];
 }
 
 // ─── Error Card ────────────────────────────────────────────────────────────────

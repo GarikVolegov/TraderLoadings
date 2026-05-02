@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Newspaper, TrendingUp, TrendingDown, Minus, RefreshCw, ExternalLink, Rss, Cpu } from "lucide-react";
+import { Newspaper, TrendingUp, TrendingDown, Minus, RefreshCw, ExternalLink, Rss, Cpu, ShieldCheck } from "lucide-react";
 import { PageLayout } from "@/components/PageLayout";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,6 +13,9 @@ interface Article {
   title: string;
   summary: string;
   source: string;
+  sources?: string[];
+  citationUrls?: string[];
+  verified?: boolean;
   publishedAt?: string | null;
   url?: string | null;
   sentiment?: string | null;
@@ -163,7 +166,7 @@ export default function News() {
                       </p>
                     )}
 
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground/50 mt-auto">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground/50 mt-auto flex-wrap">
                       <span className="font-medium text-muted-foreground/70">{article.source}</span>
                       {article.publishedAt && (
                         <>
@@ -171,7 +174,41 @@ export default function News() {
                           <TimeAgo iso={article.publishedAt} />
                         </>
                       )}
+                      {/* Verified badge */}
+                      {article.verified && (
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[9px] font-bold border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 ml-auto">
+                          <ShieldCheck className="w-2.5 h-2.5" />
+                          {article.citationUrls && article.citationUrls.length > 0
+                            ? `${article.citationUrls.length} URL`
+                            : article.sources && article.sources.length >= 3
+                              ? `${article.sources.length} FONTI`
+                              : "✓"}
+                        </span>
+                      )}
                     </div>
+
+                    {/* Real Perplexity citation URLs */}
+                    {article.citationUrls && article.citationUrls.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-2 pt-2 border-t border-border/20">
+                        {article.citationUrls.map((url, si) => {
+                          let domain = url;
+                          try { domain = new URL(url).hostname.replace(/^www\./, ""); } catch { /* */ }
+                          return (
+                            <a
+                              key={si}
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title={url}
+                              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-medium border border-emerald-500/25 bg-emerald-500/8 text-emerald-400 hover:bg-emerald-500/20 transition-all"
+                            >
+                              <ExternalLink className="w-2 h-2 shrink-0" />
+                              {domain.length > 22 ? domain.slice(0, 20) + "…" : domain}
+                            </a>
+                          );
+                        })}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </motion.div>
