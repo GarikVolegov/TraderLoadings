@@ -20,6 +20,7 @@ import toolsRouter from "./tools.js";
 import socialRouter from "./social.js";
 import pushRouter from "./push.js";
 import loginAccessRouter from "./login-access.js";
+import communityRouter from "./community.js";
 
 const router: IRouter = Router();
 
@@ -44,5 +45,6 @@ router.use(toolsRouter);
 router.use(socialRouter);
 router.use(pushRouter);
 router.use(loginAccessRouter);
+router.use(communityRouter);
 
 export default router;
