@@ -11,7 +11,13 @@ const NAV_ITEMS = [
   { href: "/chat",    icon: MessageCircle,    labelKey: "nav.chat",    isChat: true  },
 ] as const;
 
-function NavItem({ href, icon: Icon, label, badge, vertical }: {
+function NavItem({
+  href,
+  icon: Icon,
+  label,
+  badge,
+  vertical,
+}: {
   href: string;
   icon: typeof LayoutDashboard;
   label: string;
@@ -49,11 +55,11 @@ function NavItem({ href, icon: Icon, label, badge, vertical }: {
   return (
     <Link
       href={href}
-      className="flex flex-col items-center justify-center gap-1 flex-1 py-3 relative"
+      className="flex flex-col items-center justify-center gap-1 flex-1 py-2.5 sm:py-3 relative"
     >
       <div className="relative">
         <Icon
-          className={`w-6 h-6 transition-colors ${
+          className={`w-5 h-5 sm:w-6 sm:h-6 transition-colors ${
             isActive ? "text-primary" : "text-muted-foreground"
           }`}
         />
@@ -64,14 +70,14 @@ function NavItem({ href, icon: Icon, label, badge, vertical }: {
         )}
       </div>
       <span
-        className={`text-[11px] font-medium transition-colors ${
+        className={`text-[10px] sm:text-[11px] font-medium transition-colors ${
           isActive ? "text-primary" : "text-muted-foreground"
         }`}
       >
         {label}
       </span>
       {isActive && (
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-10 h-0.5 bg-primary rounded-full" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 sm:w-10 h-0.5 bg-primary rounded-full" />
       )}
     </Link>
   );
@@ -84,8 +90,9 @@ export function BottomNav() {
 
   return (
     <>
+      {/* Mobile / tablet bottom tab bar */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card/90 backdrop-blur-xl border-t border-border/50 lg:hidden">
-        <div className="max-w-7xl mx-auto flex items-center">
+        <div className="flex items-center max-w-lg mx-auto px-1">
           {NAV_ITEMS.map((item) => (
             <NavItem
               key={item.href}
@@ -96,11 +103,13 @@ export function BottomNav() {
             />
           ))}
         </div>
+        {/* iOS safe area */}
         <div className="h-[env(safe-area-inset-bottom,0px)]" />
       </nav>
 
+      {/* Desktop sidebar */}
       <nav className="hidden lg:flex fixed left-0 top-0 bottom-0 z-50 w-48 bg-card/90 backdrop-blur-xl border-r border-border/50 flex-col">
-        <div className="px-4 py-5 border-b border-border/30">
+        <div className="px-5 py-5 border-b border-border/30">
           <h1 className="text-sm font-bold font-mono tracking-widest bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">
             TRADER<span className="text-primary">LOADING</span>
           </h1>
