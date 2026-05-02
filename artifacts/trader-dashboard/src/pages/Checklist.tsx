@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckSquare, Plus, Trash2, Check, GripVertical } from "lucide-react";
+import { CheckSquare, Plus, Trash2, CheckCircle2 } from "lucide-react";
 import { PageLayout } from "@/components/PageLayout";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -11,7 +11,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetChecklist,
   useCreateChecklistItem,
-  useUpdateChecklistItem,
   useDeleteChecklistItem,
   getGetChecklistQueryKey,
 } from "@workspace/api-client-react";
@@ -24,7 +23,6 @@ export default function Checklist() {
   const [newText, setNewText] = useState("");
   const { data: items, isLoading } = useGetChecklist();
   const createMutation = useCreateChecklistItem();
-  const updateMutation = useUpdateChecklistItem();
   const deleteMutation = useDeleteChecklistItem();
 
   const invalidate = () => qc.invalidateQueries({ queryKey: getGetChecklistQueryKey() });
@@ -40,61 +38,19 @@ export default function Checklist() {
     }
   };
 
-  const handleToggle = async (id: number, text: string, completed: boolean) => {
-    await updateMutation.mutateAsync({ id, data: { text, completed: !completed } });
-    invalidate();
-  };
-
   const handleDelete = async (id: number) => {
     await deleteMutation.mutateAsync({ id });
     invalidate();
   };
 
-  const handleResetAll = async () => {
-    if (!items) return;
-    await Promise.all(
-      items.filter(i => i.completed).map(i =>
-        updateMutation.mutateAsync({ id: i.id, data: { text: i.text, completed: false } })
-      )
-    );
-    invalidate();
-    toast({ description: t("checklist.reset_done") });
-  };
-
-  const completed = items?.filter(i => i.completed).length ?? 0;
   const total = items?.length ?? 0;
-  const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
 
   return (
     <PageLayout>
       <PageHeader
         title={t("checklist.title")}
-        subtitle={t("checklist.subtitle")}
-        action={total > 0 ? (
-          <Button variant="outline" size="sm" onClick={handleResetAll}>
-            {t("checklist.reset")}
-          </Button>
-        ) : undefined}
+        subtitle="Elementi fissi della tua routine pre-trade"
       />
-
-      {total > 0 && (
-        <Card className="p-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-muted-foreground">
-              {t("checklist.completed_count", { done: completed, total })}
-            </span>
-            <span className="text-sm font-bold text-primary">{progress}%</span>
-          </div>
-          <div className="w-full bg-secondary rounded-full h-2">
-            <motion.div
-              className="bg-primary h-2 rounded-full"
-              initial={{ width: 0 }}
-              animate={{ width: `${progress}%` }}
-              transition={{ duration: 0.5 }}
-            />
-          </div>
-        </Card>
-      )}
 
       <Card>
         <CardHeader>
@@ -142,22 +98,11 @@ export default function Checklist() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, x: -20 }}
                     transition={{ delay: idx * 0.04 }}
-                    className={`flex items-center gap-4 p-4 group hover:bg-secondary/20 transition-colors ${item.completed ? "opacity-60" : ""}`}
+                    className="flex items-center gap-4 p-4 group hover:bg-secondary/20 transition-colors"
                   >
-                    <GripVertical className="w-4 h-4 text-muted-foreground/30 shrink-0" />
+                    <CheckCircle2 className="w-5 h-5 text-primary shrink-0" />
 
-                    <button
-                      onClick={() => handleToggle(item.id, item.text, item.completed)}
-                      className={`w-6 h-6 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${
-                        item.completed
-                          ? "bg-primary border-primary"
-                          : "border-border hover:border-primary/50"
-                      }`}
-                    >
-                      {item.completed && <Check className="w-3.5 h-3.5 text-primary-foreground" />}
-                    </button>
-
-                    <span className={`flex-1 text-sm font-medium ${item.completed ? "line-through text-muted-foreground" : ""}`}>
+                    <span className="flex-1 text-sm font-medium text-foreground">
                       {item.text}
                     </span>
 
@@ -176,6 +121,12 @@ export default function Checklist() {
           )}
         </CardContent>
       </Card>
+
+      {total > 0 && (
+        <p className="text-xs text-muted-foreground text-center">
+          {total} {total === 1 ? "elemento" : "elementi"} nella checklist — puoi selezionarli come tag nel Journal
+        </p>
+      )}
     </PageLayout>
   );
 }

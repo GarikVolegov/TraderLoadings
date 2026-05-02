@@ -5,9 +5,12 @@ import { getCurrenciesFromPairs } from "@workspace/pair-catalog";
 const router = Router();
 
 // ─── 1. MONTE CARLO ───────────────────────────────────────────────────────────
+// Scenario-based Monte Carlo: ogni simulazione ha la propria sequenza di regimi
+// di mercato (bull / neutral / bear) che cambiano stocasticamente. Questo rende
+// ogni curva genuinamente unica, con drawdown, recuperi e fasi di trend diversi.
 router.post("/tools/montecarlo", (req, res) => {
   const {
-    winrate = 0.55,
+    winrate: rawWinrate = 55,
     avgR = 1.5,
     lossR = 1,
     numTrades = 100,
@@ -24,18 +27,95 @@ router.post("/tools/montecarlo", (req, res) => {
     simCount?: number;
   };
 
+  // Normalize winrate: accept 0-100 or 0-1
+  const winrate = rawWinrate > 1 ? rawWinrate / 100 : rawWinrate;
+
+  // Regime definitions: multipliers applied to base parameters
+  type Regime = "bull" | "neutral" | "bear";
+  const regimeParams: Record<Regime, { wr: number; rr: number; lr: number }> = {
+    bull:    { wr: 1.20, rr: 1.15, lr: 0.85 },
+    neutral: { wr: 1.00, rr: 1.00, lr: 1.00 },
+    bear:    { wr: 0.72, rr: 0.80, lr: 1.25 },
+  };
+
+  // Markov transition matrix: P[from][to]
+  // Regimes tend to persist; transitions are gradual
+  const transition: Record<Regime, Record<Regime, number>> = {
+    bull:    { bull: 0.75, neutral: 0.20, bear: 0.05 },
+    neutral: { bull: 0.20, neutral: 0.55, bear: 0.25 },
+    bear:    { bull: 0.05, neutral: 0.30, bear: 0.65 },
+  };
+
+  function nextRegime(current: Regime): Regime {
+    const r = Math.random();
+    const t = transition[current];
+    if (r < t.bull) return "bull";
+    if (r < t.bull + t.neutral) return "neutral";
+    return "bear";
+  }
+
+  // Each regime lasts between 5-20 trades before potentially switching
+  function initialRegime(): Regime {
+    const r = Math.random();
+    if (r < 0.33) return "bull";
+    if (r < 0.66) return "neutral";
+    return "bear";
+  }
+
   const simulations: number[][] = [];
   const finalValues: number[] = [];
+  const N = Math.min(simCount, 200);
 
-  for (let s = 0; s < Math.min(simCount, 200); s++) {
+  for (let s = 0; s < N; s++) {
     const curve: number[] = [initialBalance];
     let balance = initialBalance;
+    let regime: Regime = initialRegime();
+    let regimeDuration = Math.floor(Math.random() * 12) + 5;   // trades left in current regime
+    let consecutiveLosses = 0;
 
     for (let t = 0; t < numTrades; t++) {
-      const win = Math.random() < winrate;
+      // Possibly switch regime
+      if (regimeDuration <= 0) {
+        regime = nextRegime(regime);
+        regimeDuration = Math.floor(Math.random() * 15) + 5;
+      }
+      regimeDuration--;
+
+      const rp = regimeParams[regime];
+
+      // Effective parameters for this trade
+      let effWr = Math.min(0.95, Math.max(0.05, winrate * rp.wr));
+      // Tilt effect: 3+ consecutive losses slightly reduce next-trade win probability
+      if (consecutiveLosses >= 3) effWr *= (1 - 0.04 * Math.min(consecutiveLosses - 2, 4));
+
+      const win = Math.random() < effWr;
+
+      // Black swan event: rare large unexpected loss (~3% in bear, ~1% otherwise)
+      const blackSwanChance = regime === "bear" ? 0.035 : 0.010;
+      const isBlackSwan = !win && Math.random() < blackSwanChance;
+
       const riskAmount = balance * (riskPercent / 100);
-      balance += win ? riskAmount * avgR : -riskAmount * lossR;
+      let tradeResult: number;
+      if (win) {
+        // Slight randomness on the actual R achieved (±20%)
+        const achievedR = avgR * rp.rr * (0.80 + Math.random() * 0.40);
+        tradeResult = riskAmount * achievedR;
+        consecutiveLosses = 0;
+      } else if (isBlackSwan) {
+        // Black swan: 2.5-4x normal loss
+        const bsMult = 2.5 + Math.random() * 1.5;
+        tradeResult = -riskAmount * lossR * rp.lr * bsMult;
+        consecutiveLosses++;
+      } else {
+        // Slight randomness on loss R (±15%)
+        const achievedLR = lossR * rp.lr * (0.85 + Math.random() * 0.30);
+        tradeResult = -riskAmount * achievedLR;
+        consecutiveLosses++;
+      }
+
+      balance += tradeResult;
       curve.push(Math.max(0, balance));
+
       if (balance <= 0) {
         while (curve.length <= numTrades) curve.push(0);
         break;
@@ -51,7 +131,8 @@ router.post("/tools/montecarlo", (req, res) => {
   const median = finalValues[Math.floor(finalValues.length / 2)];
   const p10 = finalValues[Math.floor(finalValues.length * 0.1)];
   const p90 = finalValues[Math.floor(finalValues.length * 0.9)];
-  const avgReturn = ((finalValues.reduce((a, b) => a + b, 0) / finalValues.length - initialBalance) / initialBalance) * 100;
+  const avgReturn =
+    ((finalValues.reduce((a, b) => a + b, 0) / finalValues.length - initialBalance) / initialBalance) * 100;
 
   res.json({
     simulations,
@@ -59,7 +140,7 @@ router.post("/tools/montecarlo", (req, res) => {
       median: Math.round(median),
       percentile10: Math.round(p10),
       percentile90: Math.round(p90),
-      ruinProbability: ((ruinCount / simCount) * 100).toFixed(1),
+      ruinProbability: ((ruinCount / N) * 100).toFixed(1),
       avgReturnPercent: avgReturn.toFixed(1),
       initialBalance,
     },

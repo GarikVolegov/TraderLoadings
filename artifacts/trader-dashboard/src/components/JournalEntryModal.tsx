@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { format } from "date-fns";
 import { useDropzone } from "react-dropzone";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, UploadCloud, Loader2, Image as ImageIcon, Tag, Plus, Star, Hash } from "lucide-react";
+import { X, UploadCloud, Loader2, Image as ImageIcon, Tag, Plus, Star, Hash, ClipboardCheck } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle
 } from "@/components/ui/dialog";
@@ -18,6 +18,7 @@ import {
   useUploadJournalImage,
   useDeleteJournalImage,
   getGetJournalEntriesQueryKey,
+  useGetChecklist,
   type JournalEntry
 } from "@workspace/api-client-react";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -214,6 +215,49 @@ function SmartTagInput({ value, onChange, savedTags }: SmartTagInputProps) {
   );
 }
 
+// ─── ChecklistTagPanel ────────────────────────────────────────────────────────
+
+interface ChecklistTagPanelProps {
+  activeTags: string[];
+  onAdd: (tag: string) => void;
+}
+
+function ChecklistTagPanel({ activeTags, onAdd }: ChecklistTagPanelProps) {
+  const { data: items } = useGetChecklist();
+  if (!items || items.length === 0) return null;
+
+  return (
+    <div className="space-y-1.5 pt-2 border-t border-border/30">
+      <p className="text-[10px] text-muted-foreground/60 font-semibold uppercase tracking-wider flex items-center gap-1.5">
+        <ClipboardCheck className="w-3 h-3 text-primary" />
+        Importa dalla Checklist Pre-Trade
+      </p>
+      <div className="flex flex-wrap gap-1.5">
+        {items.map(item => {
+          const isActive = activeTags.includes(item.text);
+          return (
+            <button
+              key={item.id}
+              type="button"
+              disabled={isActive}
+              onClick={() => onAdd(item.text)}
+              className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium border transition-all ${
+                isActive
+                  ? "bg-primary/15 border-primary/40 text-primary cursor-default opacity-70"
+                  : "bg-secondary/30 border-border/50 text-muted-foreground hover:border-primary/40 hover:text-primary hover:bg-primary/5"
+              }`}
+            >
+              <ClipboardCheck className="w-2.5 h-2.5 opacity-60" />
+              {item.text}
+              {isActive && <span className="text-[9px] ml-0.5 opacity-60">✓</span>}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Modal ───────────────────────────────────────────────────────────────
 
 export function JournalEntryModal({ isOpen, onClose, entry }: JournalEntryModalProps) {
@@ -399,6 +443,10 @@ export function JournalEntryModal({ isOpen, onClose, entry }: JournalEntryModalP
               value={tagList}
               onChange={setTagList}
               savedTags={savedTagsData}
+            />
+            <ChecklistTagPanel
+              activeTags={tagList}
+              onAdd={(tag) => { if (!tagList.includes(tag)) setTagList(prev => [...prev, tag]); }}
             />
           </div>
 

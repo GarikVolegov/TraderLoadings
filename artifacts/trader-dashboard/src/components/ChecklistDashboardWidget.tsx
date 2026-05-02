@@ -1,4 +1,4 @@
-import { ClipboardCheck, ArrowRight, Circle, CheckCircle2 } from "lucide-react";
+import { ClipboardCheck, ArrowRight, CheckCircle2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { Link } from "wouter";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -6,10 +6,7 @@ import { useGetChecklist } from "@workspace/api-client-react";
 
 export function ChecklistDashboardWidget() {
   const { data: items, isLoading } = useGetChecklist();
-
-  const completed = items?.filter((i) => i.completed).length ?? 0;
   const total = items?.length ?? 0;
-  const progressPct = total > 0 ? (completed / total) * 100 : 0;
 
   return (
     <Card className="h-full relative overflow-hidden bg-card/60 backdrop-blur-sm border-border/30">
@@ -19,18 +16,10 @@ export function ChecklistDashboardWidget() {
           Checklist Pre-Trade
           {total > 0 && (
             <span className="ml-auto text-xs sm:text-sm font-mono text-muted-foreground">
-              {completed}/{total}
+              {total} {total === 1 ? "regola" : "regole"}
             </span>
           )}
         </CardTitle>
-        {total > 0 && (
-          <div className="w-full h-1.5 bg-secondary rounded-full overflow-hidden mt-2">
-            <div
-              className="h-full bg-primary rounded-full transition-all duration-500"
-              style={{ width: `${progressPct}%` }}
-            />
-          </div>
-        )}
       </CardHeader>
 
       <CardContent className="p-3 sm:p-4">
@@ -58,16 +47,10 @@ export function ChecklistDashboardWidget() {
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: idx * 0.04 }}
-                className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-secondary/30 transition-colors"
+                className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg"
               >
-                {item.completed ? (
-                  <CheckCircle2 className="w-4.5 h-4.5 text-primary shrink-0" />
-                ) : (
-                  <Circle className="w-4.5 h-4.5 text-muted-foreground/40 shrink-0" />
-                )}
-                <span className={`text-sm ${item.completed ? "text-muted-foreground line-through" : "text-foreground"}`}>
-                  {item.text}
-                </span>
+                <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />
+                <span className="text-sm text-foreground">{item.text}</span>
               </motion.div>
             ))}
           </div>
