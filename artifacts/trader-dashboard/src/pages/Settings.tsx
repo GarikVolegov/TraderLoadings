@@ -1344,42 +1344,66 @@ function PairPreferencesSettings() {
 
   return (
     <>
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <BarChart2 className="w-5 h-5 text-indigo-400" />
-            Pair Preferiti
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            I pair selezionati vengono usati per personalizzare tutti gli strumenti della dashboard.
+      <Card className="overflow-hidden">
+        {/* Card header with count badge */}
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <div className="p-1.5 rounded-lg bg-indigo-500/15 shrink-0">
+                <BarChart2 className="w-4 h-4 text-indigo-400" />
+              </div>
+              Pair Preferiti
+            </CardTitle>
+            {selectedPairs.length > 0 && (
+              <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-400 border border-indigo-500/20">
+                {selectedPairs.length} attivi
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Usati in tutta la dashboard: news, journal, calcolatori e analisi.
           </p>
+        </CardHeader>
 
+        <CardContent className="space-y-3 pt-0">
+          {/* Pair chips grid */}
           {selectedPairs.length > 0 ? (
             <div className="flex flex-wrap gap-2">
               {selectedPairs.map((sym) => (
                 <span
                   key={sym}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold bg-primary/15 text-primary border border-primary/30"
+                  className="inline-flex items-center gap-2 pl-3 pr-1 py-1.5 rounded-xl text-xs font-mono font-bold bg-primary/10 text-primary border border-primary/25 min-h-[36px]"
                 >
                   {getPairLabel(sym)}
-                  <button onClick={() => removePair(sym)} className="hover:text-foreground">
-                    <X className="w-3 h-3" />
+                  <button
+                    onClick={() => removePair(sym)}
+                    aria-label={`Rimuovi ${sym}`}
+                    className="w-6 h-6 rounded-lg flex items-center justify-center hover:bg-destructive/15 hover:text-destructive transition-colors ml-0.5"
+                  >
+                    <X className="w-3.5 h-3.5" />
                   </button>
                 </span>
               ))}
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground/60">Nessun pair selezionato</p>
+            <div className="flex flex-col items-center justify-center py-6 rounded-xl border border-dashed border-border/50 bg-secondary/20 text-center gap-2">
+              <BarChart2 className="w-8 h-8 text-muted-foreground/30" />
+              <p className="text-sm text-muted-foreground/60">Nessun pair selezionato</p>
+              <p className="text-xs text-muted-foreground/40">Aggiungine almeno uno per personalizzare la dashboard</p>
+            </div>
           )}
 
-          <Button variant="outline" onClick={() => setShowModal(true)} className="w-full">
-            <Plus className="w-4 h-4 mr-2" />
-            Modifica Pair
-          </Button>
+          {/* CTA button */}
+          <button
+            onClick={() => setShowModal(true)}
+            className="w-full flex items-center justify-center gap-2 h-11 rounded-xl border border-dashed border-primary/30 text-sm font-medium text-primary hover:bg-primary/8 hover:border-primary/50 active:scale-[0.98] transition-all"
+          >
+            <Plus className="w-4 h-4" />
+            {selectedPairs.length > 0 ? "Modifica pair selezionati" : "Scegli i tuoi pair"}
+          </button>
         </CardContent>
       </Card>
+
       <PairSelectionModal
         open={showModal}
         onConfirm={handleConfirm}
