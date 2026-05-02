@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Switch, Route, useLocation, Router as WouterRouter } from "wouter";
+import { AnimatePresence, motion } from "framer-motion";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { ClerkProvider, SignIn, SignUp, Show, useClerk, useAuth } from "@clerk/react";
 import { dark } from "@clerk/themes";
@@ -105,27 +106,39 @@ const clerkAppearance = {
 
 function SignInPage() {
   return (
-    <div className="flex min-h-[100dvh] items-center justify-center bg-[hsl(224,71%,4%)] px-4">
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8 }}
+      transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+      className="flex min-h-[100dvh] items-center justify-center bg-[hsl(224,71%,4%)] px-4"
+    >
       <SignIn
         routing="path"
         path={`${basePath}/sign-in`}
         signUpUrl={`${basePath}/sign-up`}
         fallbackRedirectUrl={`${basePath}/`}
       />
-    </div>
+    </motion.div>
   );
 }
 
 function SignUpPage() {
   return (
-    <div className="flex min-h-[100dvh] items-center justify-center bg-[hsl(224,71%,4%)] px-4">
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8 }}
+      transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+      className="flex min-h-[100dvh] items-center justify-center bg-[hsl(224,71%,4%)] px-4"
+    >
       <SignUp
         routing="path"
         path={`${basePath}/sign-up`}
         signInUrl={`${basePath}/sign-in`}
         fallbackRedirectUrl={`${basePath}/`}
       />
-    </div>
+    </motion.div>
   );
 }
 
@@ -148,20 +161,37 @@ function ClerkQueryClientCacheInvalidator() {
   return null;
 }
 
+/* ── Page transition variants ─────────────────────────────────────────────── */
+const pageTransition = {
+  initial: { opacity: 0, y: 10 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.25, ease: [0.22, 1, 0.36, 1] } },
+  exit:    { opacity: 0, y: -8, transition: { duration: 0.15, ease: "easeIn" } },
+};
+
 function AppRouter() {
+  const [location] = useLocation();
+
   return (
-    <Switch>
-      <Route path="/" component={Dashboard} />
-      <Route path="/journal" component={Journal} />
-      <Route path="/checklist" component={Checklist} />
-      <Route path="/news" component={News} />
-      <Route path="/chat" component={Chat} />
-      <Route path="/backtest" component={Backtest} />
-      <Route path="/tools" component={Tools} />
-      <Route path="/zen" component={Zen} />
-      <Route path="/settings" component={Settings} />
-      <Route component={NotFound} />
-    </Switch>
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.div
+        key={location}
+        {...pageTransition}
+        style={{ minHeight: "100dvh" }}
+      >
+        <Switch>
+          <Route path="/" component={Dashboard} />
+          <Route path="/journal" component={Journal} />
+          <Route path="/checklist" component={Checklist} />
+          <Route path="/news" component={News} />
+          <Route path="/chat" component={Chat} />
+          <Route path="/backtest" component={Backtest} />
+          <Route path="/tools" component={Tools} />
+          <Route path="/zen" component={Zen} />
+          <Route path="/settings" component={Settings} />
+          <Route component={NotFound} />
+        </Switch>
+      </motion.div>
+    </AnimatePresence>
   );
 }
 
@@ -196,7 +226,17 @@ function AppShell() {
         <AuthenticatedShell />
       </Show>
       <Show when="signed-out">
-        <LandingPage />
+        <AnimatePresence mode="wait">
+          <motion.div
+            key="landing"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <LandingPage />
+          </motion.div>
+        </AnimatePresence>
       </Show>
     </>
   );
