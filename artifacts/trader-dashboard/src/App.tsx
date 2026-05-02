@@ -21,6 +21,8 @@ import { LevelRewardModal } from "./components/LevelRewardModal";
 import { PinLockScreen } from "./components/PinLockScreen";
 import { ChecklistSetupModal } from "./components/ChecklistSetupModal";
 import { PairOnboardingWrapper } from "./components/PairOnboardingWrapper";
+import { TopNav } from "./components/TopNav";
+import { BottomNav } from "./components/BottomNav";
 import Dashboard from "./pages/Dashboard";
 import Journal from "./pages/Journal";
 import Settings from "./pages/Settings";
@@ -161,23 +163,22 @@ function ClerkQueryClientCacheInvalidator() {
   return null;
 }
 
-/* ── Page transition variants ─────────────────────────────────────────────── */
+/* ── Page transition — entrance only, no exit to avoid crash ─────────────── */
 const pageTransition = {
-  initial: { opacity: 0, y: 10 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.25, ease: [0.22, 1, 0.36, 1] } },
-  exit:    { opacity: 0, y: -8, transition: { duration: 0.15, ease: "easeIn" } },
+  initial: { opacity: 0, y: 12 },
+  animate: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.28, ease: [0.22, 1, 0.36, 1] },
+  },
 };
 
 function AppRouter() {
   const [location] = useLocation();
 
   return (
-    <AnimatePresence mode="wait" initial={false}>
-      <motion.div
-        key={location}
-        {...pageTransition}
-        style={{ minHeight: "100dvh" }}
-      >
+    <AnimatePresence mode="sync" initial={false}>
+      <motion.div key={location} {...pageTransition}>
         <Switch>
           <Route path="/" component={Dashboard} />
           <Route path="/journal" component={Journal} />
@@ -198,6 +199,7 @@ function AppRouter() {
 function AuthenticatedShell() {
   return (
     <BackgroundProvider>
+      {/* Global overlays — never unmounted during page transitions */}
       <PinLockScreen />
       <ChecklistSetupModal />
       <LoadingScreen />
@@ -208,6 +210,12 @@ function AuthenticatedShell() {
       <PairOnboardingWrapper />
       <SessionCheckinModal />
       <LevelRewardModal />
+
+      {/* Global nav — always mounted, unaffected by page transitions */}
+      <TopNav />
+      <BottomNav />
+
+      {/* Animated page content */}
       <AppRouter />
     </BackgroundProvider>
   );
@@ -226,17 +234,7 @@ function AppShell() {
         <AuthenticatedShell />
       </Show>
       <Show when="signed-out">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key="landing"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            <LandingPage />
-          </motion.div>
-        </AnimatePresence>
+        <LandingPage />
       </Show>
     </>
   );

@@ -1,8 +1,6 @@
 import { type ReactNode } from "react";
 import { motion } from "framer-motion";
 import { useBackground } from "@/contexts/BackgroundContext";
-import { TopNav } from "./TopNav";
-import { BottomNav } from "./BottomNav";
 
 interface PageLayoutProps {
   children: ReactNode;
@@ -16,13 +14,7 @@ const pageVariants = {
     transition: {
       duration: 0.35,
       ease: [0.22, 1, 0.36, 1],
-      staggerChildren: 0.06,
     },
-  },
-  exit: {
-    opacity: 0,
-    y: -8,
-    transition: { duration: 0.18, ease: "easeIn" },
   },
 };
 
@@ -55,20 +47,15 @@ export function PageLayout({ children }: PageLayoutProps) {
         )}
       </div>
 
-      <TopNav />
-
-      {/* Main content — animated entrance */}
+      {/* Main content — animated entrance per-page */}
       <motion.div
         className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 sm:pt-16 lg:pt-14 space-y-4 sm:space-y-6"
         variants={pageVariants}
         initial="hidden"
         animate="visible"
-        exit="exit"
       >
         {children}
       </motion.div>
-
-      <BottomNav />
     </div>
   );
 }
