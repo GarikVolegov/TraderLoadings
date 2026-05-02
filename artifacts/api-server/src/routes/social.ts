@@ -391,4 +391,63 @@ router.get("/social/mutual-followers", async (req, res) => {
   }
 });
 
+// ─── Voice Upload ─────────────────────────────────────────────────────────────
+const VOICE_DIR = path.join(process.cwd(), "uploads", "voice");
+if (!fs.existsSync(VOICE_DIR)) fs.mkdirSync(VOICE_DIR, { recursive: true });
+
+const voiceStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, VOICE_DIR),
+  filename: (_req, _file, cb) => cb(null, `voice-${Date.now()}-${Math.round(Math.random() * 1e9)}.webm`),
+});
+const voiceUpload = multer({ storage: voiceStorage, limits: { fileSize: 20 * 1024 * 1024 } });
+
+router.post("/social/upload-voice", (req: any, res: any) => {
+  const userId = req.user?.id;
+  if (!userId) { res.status(401).json({ error: "Autenticazione richiesta" }); return; }
+  voiceUpload.single("audio")(req, res, (err: any) => {
+    if (err || !req.file) { res.status(400).json({ error: "Upload fallito" }); return; }
+    res.json({ audioUrl: `/api/uploads/voice/${req.file.filename}` });
+  });
+});
+
+// ─── Story Replies ────────────────────────────────────────────────────────────
+interface StoryReply { from: string; type: string; content: string; createdAt: string; }
+const storyReplies = new Map<string, StoryReply[]>();
+
+router.post("/social/story-reply/:storyId", (req: any, res: any) => {
+  const userId = req.user?.id;
+  if (!userId) { res.status(401).json({ error: "Non autorizzato" }); return; }
+  const { content, type = "text" } = req.body;
+  if (!content?.trim()) { res.status(400).json({ error: "Contenuto mancante" }); return; }
+  const arr = storyReplies.get(req.params.storyId) ?? [];
+  arr.push({ from: userId, type, content: content.trim(), createdAt: new Date().toISOString() });
+  storyReplies.set(req.params.storyId, arr);
+  res.json({ ok: true });
+});
+
+// ─── WebRTC Signaling (HTTP polling) ─────────────────────────────────────────
+interface CallSignal { callId: string; from: string; to: string; type: string; data: string; ts: number; }
+const callSignalQueues = new Map<string, CallSignal[]>();
+
+router.post("/social/calls/signal", (req: any, res: any) => {
+  const from = req.user?.id;
+  if (!from) { res.status(401).json({ error: "Non autorizzato" }); return; }
+  const { to, type, data, callId } = req.body;
+  if (!to || !type) { res.status(400).json({ error: "Parametri mancanti" }); return; }
+  const arr = callSignalQueues.get(to) ?? [];
+  const cutoff = Date.now() - 30000;
+  const filtered = arr.filter((s: CallSignal) => s.ts > cutoff);
+  filtered.push({ callId: callId ?? `call-${Date.now()}`, from, to, type, data: data ?? "", ts: Date.now() });
+  callSignalQueues.set(to, filtered);
+  res.json({ ok: true });
+});
+
+router.get("/social/calls/signals", (req: any, res: any) => {
+  const userId = req.user?.id;
+  if (!userId) { res.status(401).json({ error: "Non autorizzato" }); return; }
+  const signals = callSignalQueues.get(userId) ?? [];
+  callSignalQueues.delete(userId);
+  res.json({ signals });
+});
+
 export default router;

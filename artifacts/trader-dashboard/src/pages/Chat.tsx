@@ -17,7 +17,18 @@ import {
   Send, MessageCircle, Shield, Loader2, LogIn, Globe, Lock, Trophy, Crown, Medal,
   Award, User, Heart, Plus, X, Camera, FileText, ArrowLeft, Search, UserPlus,
   UserCheck, UserMinus, Clock, Users, ChevronRight, Trash2, Smile, ImageIcon,
+  Mic, MicOff, Phone, PhoneOff, PhoneCall, StopCircle, Reply,
 } from "lucide-react";
+
+const ICE_SERVERS = [
+  { urls: "stun:stun.l.google.com:19302" },
+  { urls: "stun:stun1.l.google.com:19302" },
+];
+
+function fmtDur(s: number) {
+  const m = Math.floor(s / 60);
+  return `${m}:${String(s % 60).padStart(2, "0")}`;
+}
 
 const ZEN_EMOJIS = [
   "🧘","🌊","🏔️","🌿","🌸","🌅","☀️","🌙","⭐","✨",
@@ -27,6 +38,14 @@ const ZEN_EMOJIS = [
 ];
 
 // ─── Types ───────────────────────────────────────────────────────────────────
+
+interface DecryptedMsg {
+  id: number;
+  senderId: string;
+  type: "text" | "image" | "voice";
+  content: string;
+  createdAt: string;
+}
 
 interface Post {
   id: number;
@@ -266,7 +285,22 @@ function StoryViewer({ groups, startIndex, onClose }: { groups: StoryGroup[]; st
   const [groupIdx, setGroupIdx] = useState(startIndex);
   const [storyIdx, setStoryIdx] = useState(0);
   const [progress, setProgress] = useState(0);
-  const intervalRef = useRef<NodeJS.Timeout>();
+  const [paused, setPaused] = useState(false);
+  const intervalRef = useRef<ReturnType<typeof setInterval>>();
+
+  // Reply state
+  const [showReply, setShowReply] = useState(false);
+  const [replyTab, setReplyTab] = useState<"text" | "emoji" | "image" | "voice">("text");
+  const [replyText, setReplyText] = useState("");
+  const [replySent, setReplySent] = useState(false);
+  const [replyImgUploading, setReplyImgUploading] = useState(false);
+  const [replyRecording, setReplyRecording] = useState(false);
+  const [replyBlob, setReplyBlob] = useState<Blob | null>(null);
+  const [replyDuration, setReplyDuration] = useState(0);
+  const replyMrRef = useRef<MediaRecorder | null>(null);
+  const replyChunksRef = useRef<Blob[]>([]);
+  const replyTimerRef = useRef<ReturnType<typeof setInterval>>();
+  const replyFileRef = useRef<HTMLInputElement>(null);
 
   const group = groups[groupIdx];
   const story = group?.stories[storyIdx];
@@ -275,40 +309,96 @@ function StoryViewer({ groups, startIndex, onClose }: { groups: StoryGroup[]; st
   useEffect(() => {
     setProgress(0);
     clearInterval(intervalRef.current);
+    if (paused || showReply) return;
     intervalRef.current = setInterval(() => {
       setProgress(p => {
-        if (p >= 100) {
-          clearInterval(intervalRef.current);
-          advance();
-          return 0;
-        }
+        if (p >= 100) { clearInterval(intervalRef.current); advance(); return 0; }
         return p + 2;
       });
     }, 100);
     return () => clearInterval(intervalRef.current);
-  }, [groupIdx, storyIdx]);
+  }, [groupIdx, storyIdx, paused, showReply]);
 
   const advance = () => {
-    if (storyIdx < totalInGroup - 1) { setStoryIdx(s => s + 1); }
+    if (storyIdx < totalInGroup - 1) setStoryIdx(s => s + 1);
     else if (groupIdx < groups.length - 1) { setGroupIdx(g => g + 1); setStoryIdx(0); }
-    else { onClose(); }
+    else onClose();
   };
 
   if (!story) return null;
-
   const timeLeft = story.expiresAt ? Math.max(0, Math.floor((new Date(story.expiresAt).getTime() - Date.now()) / 3600000)) : 0;
 
+  const sendStoryReply = async (content: string, type = "text") => {
+    try {
+      await apiFetch(`social/story-reply/${story.id}`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content, type }),
+      });
+      setReplySent(true);
+      setTimeout(() => { setReplySent(false); setShowReply(false); setReplyText(""); setReplyBlob(null); }, 1500);
+    } catch (err) { console.error("Reply error:", err); }
+  };
+
+  const handleReplyImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setReplyImgUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("image", file);
+      const res = await apiFetch("social/upload-image", { method: "POST", body: fd });
+      if (!res.ok) throw new Error("Upload fallito");
+      const { imageUrl } = await res.json();
+      await sendStoryReply(imageUrl, "image");
+    } catch (err) { console.error("Story image reply error:", err); }
+    finally { setReplyImgUploading(false); if (replyFileRef.current) replyFileRef.current.value = ""; }
+  };
+
+  const startReplyRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "audio/ogg";
+      const mr = new MediaRecorder(stream, { mimeType });
+      replyChunksRef.current = [];
+      mr.ondataavailable = e => replyChunksRef.current.push(e.data);
+      mr.onstop = () => { setReplyBlob(new Blob(replyChunksRef.current, { type: mimeType })); stream.getTracks().forEach(t => t.stop()); };
+      mr.start();
+      replyMrRef.current = mr;
+      setReplyRecording(true);
+      setReplyDuration(0);
+      replyTimerRef.current = setInterval(() => setReplyDuration(d => d + 1), 1000);
+    } catch { console.error("Mic error"); }
+  };
+
+  const stopReplyRecording = () => { replyMrRef.current?.stop(); clearInterval(replyTimerRef.current); setReplyRecording(false); };
+
+  const sendReplyVoice = async () => {
+    if (!replyBlob) return;
+    const fd = new FormData();
+    fd.append("audio", replyBlob, "reply.webm");
+    try {
+      const res = await apiFetch("social/upload-voice", { method: "POST", body: fd });
+      if (!res.ok) throw new Error();
+      const { audioUrl } = await res.json();
+      await sendStoryReply(audioUrl, "voice");
+      setReplyBlob(null); setReplyDuration(0);
+    } catch { console.error("Voice reply error"); }
+  };
+
   return (
-    <div className="fixed inset-0 z-50 bg-black flex items-center justify-center" onClick={advance}>
-      <div className="w-full max-w-sm h-full max-h-[700px] relative rounded-2xl overflow-hidden bg-gradient-to-b from-gray-900 to-gray-800">
+    <div className="fixed inset-0 z-50 bg-black flex items-center justify-center">
+      <div className="w-full max-w-sm h-full max-h-[700px] relative rounded-2xl overflow-hidden bg-gradient-to-b from-gray-900 to-gray-800 flex flex-col">
+        {/* Progress bars */}
         <div className="absolute top-0 left-0 right-0 p-3 z-10 flex gap-1">
           {group.stories.map((_, i) => (
             <div key={i} className="flex-1 h-0.5 bg-white/20 rounded-full overflow-hidden">
-              <div className={`h-full bg-white transition-none rounded-full ${i < storyIdx ? "w-full" : i === storyIdx ? "" : "w-0"}`}
+              <div className={`h-full bg-white rounded-full ${i < storyIdx ? "w-full" : i === storyIdx ? "" : "w-0"}`}
                 style={i === storyIdx ? { width: `${progress}%`, transition: "width 0.1s linear" } : {}} />
             </div>
           ))}
         </div>
+
+        {/* Header */}
         <div className="absolute top-6 left-0 right-0 p-4 z-10 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Avatar name={group.userName} avatarUrl={group.avatarUrl} size="sm" ring="ring-white/50" />
@@ -317,19 +407,117 @@ function StoryViewer({ groups, startIndex, onClose }: { groups: StoryGroup[]; st
               <p className="text-white/60 text-xs flex items-center gap-1"><Clock className="w-3 h-3" />{timeLeft}h rimaste</p>
             </div>
           </div>
-          <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="p-2 rounded-full bg-white/10">
-            <X className="w-5 h-5 text-white" />
-          </button>
+          <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="p-2 rounded-full bg-white/10"><X className="w-5 h-5 text-white" /></button>
         </div>
-        <div className="absolute inset-0 flex items-center justify-center p-6 pt-24">
+
+        {/* Story content — tap to advance, but not on reply area */}
+        <div className="absolute inset-0 flex items-center justify-center p-6 pt-24 pb-32" onClick={showReply ? undefined : advance}>
           {story.imageUrl ? (
             <img src={story.imageUrl} className="w-full h-full object-contain rounded-xl" />
           ) : (
             <p className="text-white text-lg text-center leading-relaxed font-medium">{story.content}</p>
           )}
+          {story.imageUrl && story.content && (
+            <p className="absolute bottom-36 left-0 right-0 text-white/90 text-sm text-center px-4">{story.content}</p>
+          )}
         </div>
-        <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/60">
-          {!story.imageUrl ? null : <p className="text-white/90 text-sm text-center">{story.content}</p>}
+
+        {/* Reply area */}
+        <div className="absolute bottom-0 left-0 right-0 z-10">
+          {!showReply ? (
+            <div className="p-4 flex justify-center">
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowReply(true); setPaused(true); }}
+                className="flex items-center gap-2 px-5 py-2.5 bg-white/15 backdrop-blur-sm border border-white/20 rounded-full text-white text-sm font-medium hover:bg-white/25 transition-colors"
+              >
+                <Reply className="w-4 h-4" /> Rispondi
+              </button>
+            </div>
+          ) : (
+            <div className="bg-black/80 backdrop-blur-md border-t border-white/10 p-4 space-y-3" onClick={e => e.stopPropagation()}>
+              {replySent ? (
+                <div className="text-center py-3 text-green-400 font-medium text-sm">✓ Risposta inviata!</div>
+              ) : (
+                <>
+                  {/* Tabs */}
+                  <div className="flex gap-2">
+                    {(["text", "emoji", "image", "voice"] as const).map(tab => (
+                      <button key={tab} onClick={() => setReplyTab(tab)}
+                        className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${replyTab === tab ? "bg-white/20 text-white" : "text-white/50 hover:text-white/80"}`}
+                      >
+                        {tab === "text" ? "Testo" : tab === "emoji" ? "😊" : tab === "image" ? "📷" : "🎤"}
+                      </button>
+                    ))}
+                  </div>
+
+                  {replyTab === "text" && (
+                    <div className="flex gap-2">
+                      <input
+                        value={replyText}
+                        onChange={e => setReplyText(e.target.value)}
+                        onKeyDown={e => e.key === "Enter" && replyText.trim() && sendStoryReply(replyText.trim())}
+                        placeholder="Scrivi una risposta..."
+                        className="flex-1 px-3 py-2 bg-white/10 border border-white/20 rounded-xl text-white text-sm placeholder:text-white/40 focus:outline-none focus:border-white/40"
+                        autoFocus
+                      />
+                      <button onClick={() => replyText.trim() && sendStoryReply(replyText.trim())} disabled={!replyText.trim()} className="px-3 py-2 bg-white text-black rounded-xl disabled:opacity-40">
+                        <Send className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+
+                  {replyTab === "emoji" && (
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-10 gap-1">
+                        {ZEN_EMOJIS.map(e => (
+                          <button key={e} onClick={() => sendStoryReply(e, "text")} className="text-xl hover:scale-125 transition-transform p-0.5 rounded">{e}</button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {replyTab === "image" && (
+                    <div className="flex items-center justify-center gap-3 py-2">
+                      <button
+                        onClick={() => replyFileRef.current?.click()}
+                        disabled={replyImgUploading}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-white/15 border border-white/20 rounded-xl text-white text-sm hover:bg-white/25 transition-colors disabled:opacity-50"
+                      >
+                        {replyImgUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
+                        {replyImgUploading ? "Caricamento..." : "Allega foto"}
+                      </button>
+                      <input ref={replyFileRef} type="file" accept="image/*" className="hidden" onChange={handleReplyImage} />
+                    </div>
+                  )}
+
+                  {replyTab === "voice" && (
+                    <div className="flex items-center gap-3 py-1">
+                      {!replyBlob ? (
+                        <button
+                          onClick={replyRecording ? stopReplyRecording : startReplyRecording}
+                          className={`flex items-center gap-2 flex-1 py-2.5 rounded-xl text-sm font-medium transition-colors ${replyRecording ? "bg-red-500/20 text-red-400 border border-red-500/30" : "bg-white/15 text-white border border-white/20 hover:bg-white/25"}`}
+                        >
+                          {replyRecording ? (
+                            <><div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" /><span>{fmtDur(replyDuration)}</span><span className="ml-auto text-xs opacity-70">Tocca per fermare</span></>
+                          ) : (
+                            <><Mic className="w-4 h-4" /> Tieni premuto per registrare</>
+                          )}
+                        </button>
+                      ) : (
+                        <>
+                          <audio controls src={URL.createObjectURL(replyBlob)} className="flex-1 h-8" />
+                          <button onClick={() => { setReplyBlob(null); setReplyDuration(0); }} className="p-2 text-white/60 hover:text-white"><X className="w-4 h-4" /></button>
+                          <button onClick={sendReplyVoice} className="p-2 bg-white text-black rounded-lg"><Send className="w-4 h-4" /></button>
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                  <button onClick={() => { setShowReply(false); setPaused(false); setReplyText(""); setReplyBlob(null); }} className="w-full text-center text-white/40 text-xs py-1 hover:text-white/60">Annulla</button>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -713,36 +901,53 @@ function MessaggiTab({ currentUser }: { currentUser: { id: string } }) {
   const [selectedFriend, setSelectedFriend] = useState<SocialUser | null>(null);
   const [mobileView, setMobileView] = useState<"list" | "chat">("list");
   const [messageInput, setMessageInput] = useState("");
-  const [decryptedMessages, setDecryptedMessages] = useState<Array<{ id: number; senderId: string; text: string; createdAt: string }>>([]);
+  const [decryptedMessages, setDecryptedMessages] = useState<DecryptedMsg[]>([]);
+  const [showEmojiDM, setShowEmojiDM] = useState(false);
+  const [dmImgUploading, setDmImgUploading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const msgInputRef = useRef<HTMLInputElement>(null);
+  const dmFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Voice recording
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
+  const [recordDuration, setRecordDuration] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordChunksRef = useRef<Blob[]>([]);
+  const recordTimerRef = useRef<ReturnType<typeof setInterval>>();
+
+  // Voice call (WebRTC)
+  const [callState, setCallState] = useState<"idle" | "calling" | "incoming" | "connected">("idle");
+  const [callId, setCallId] = useState<string | null>(null);
+  const [callPeer, setCallPeer] = useState<SocialUser | null>(null);
+  const [isMuted, setIsMuted] = useState(false);
+  const [pendingOffer, setPendingOffer] = useState<{ sdp: string; callId: string; from: string } | null>(null);
+  const peerConnRef = useRef<RTCPeerConnection | null>(null);
+  const localStreamRef = useRef<MediaStream | null>(null);
+  const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const { data: mutualFollowers = [], isLoading } = useMutualFollowers();
   const { data: unreadData } = useGetUnreadCount({ query: { refetchInterval: 5000 } });
-
-  const { data: friendPublicKeyData } = useGetPublicKey(
-    selectedFriend?.userId ?? "",
-    { query: { enabled: !!selectedFriend?.userId } }
-  );
-
-  const { data: messagesData, refetch: refetchMessages } = useGetChatMessages(
-    selectedFriend?.userId ?? "",
-    {},
-    { query: { enabled: !!selectedFriend?.userId, refetchInterval: 3000 } }
-  );
-
+  const { data: friendPublicKeyData } = useGetPublicKey(selectedFriend?.userId ?? "", { query: { enabled: !!selectedFriend?.userId } });
+  const { data: messagesData, refetch: refetchMessages } = useGetChatMessages(selectedFriend?.userId ?? "", {}, { query: { enabled: !!selectedFriend?.userId, refetchInterval: 3000 } });
   const sendMessageMutation = useSendChatMessage();
 
+  // Decrypt messages
   useEffect(() => {
     if (!messagesData?.messages || !keyPair || !friendPublicKeyData?.publicKeyJwk) return;
     const decrypt = async () => {
       try {
         const sharedKey = await getSharedKey(keyPair.privateKey, friendPublicKeyData.publicKeyJwk as JsonWebKey);
         const decrypted = await Promise.all(
-          messagesData.messages.map(async (msg) => ({
-            id: msg.id, senderId: msg.senderId,
-            text: await decryptMessage(msg.ciphertext, msg.iv, sharedKey),
-            createdAt: msg.createdAt,
-          }))
+          messagesData.messages.map(async (msg): Promise<DecryptedMsg> => {
+            const raw = await decryptMessage(msg.ciphertext, msg.iv, sharedKey);
+            try {
+              const obj = JSON.parse(raw);
+              return { id: msg.id, senderId: msg.senderId, type: obj.type ?? "text", content: obj.content ?? obj.url ?? raw, createdAt: msg.createdAt };
+            } catch {
+              return { id: msg.id, senderId: msg.senderId, type: "text", content: raw, createdAt: msg.createdAt };
+            }
+          })
         );
         setDecryptedMessages(decrypted);
       } catch (err) { console.error("Decrypt error:", err); }
@@ -752,18 +957,230 @@ function MessaggiTab({ currentUser }: { currentUser: { id: string } }) {
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [decryptedMessages]);
 
-  const handleSendMessage = useCallback(async () => {
-    if (!messageInput.trim() || !selectedFriend?.userId || !keyPair || !friendPublicKeyData?.publicKeyJwk) return;
+  // E2EE send helper
+  const sendE2EE = useCallback(async (payload: { type: string; content?: string; url?: string; duration?: number }) => {
+    if (!selectedFriend?.userId || !keyPair || !friendPublicKeyData?.publicKeyJwk) return;
+    const sharedKey = await getSharedKey(keyPair.privateKey, friendPublicKeyData.publicKeyJwk as JsonWebKey);
+    const { ciphertext, iv } = await encryptMessage(JSON.stringify(payload), sharedKey);
+    await sendMessageMutation.mutateAsync({ data: { receiverId: selectedFriend.userId, ciphertext, iv } });
+    refetchMessages();
+  }, [selectedFriend, keyPair, friendPublicKeyData, sendMessageMutation, refetchMessages]);
+
+  const handleSendText = useCallback(async () => {
+    if (!messageInput.trim()) return;
+    try { await sendE2EE({ type: "text", content: messageInput.trim() }); setMessageInput(""); setShowEmojiDM(false); }
+    catch (err) { console.error("Send error:", err); }
+  }, [messageInput, sendE2EE]);
+
+  // Image DM
+  const handleDmImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setDmImgUploading(true);
     try {
-      const sharedKey = await getSharedKey(keyPair.privateKey, friendPublicKeyData.publicKeyJwk as JsonWebKey);
-      const { ciphertext, iv } = await encryptMessage(messageInput.trim(), sharedKey);
-      await sendMessageMutation.mutateAsync({ data: { receiverId: selectedFriend.userId, ciphertext, iv } });
-      setMessageInput("");
-      refetchMessages();
-    } catch (err) { console.error("Send error:", err); }
-  }, [messageInput, selectedFriend, keyPair, friendPublicKeyData, sendMessageMutation, refetchMessages]);
+      const fd = new FormData();
+      fd.append("image", file);
+      const res = await apiFetch("social/upload-image", { method: "POST", body: fd });
+      if (!res.ok) throw new Error("Upload fallito");
+      const { imageUrl } = await res.json();
+      await sendE2EE({ type: "image", url: imageUrl });
+    } catch (err) { console.error("DM image error:", err); }
+    finally { setDmImgUploading(false); if (dmFileInputRef.current) dmFileInputRef.current.value = ""; }
+  };
+
+  // Voice recording
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "audio/ogg";
+      const mr = new MediaRecorder(stream, { mimeType });
+      recordChunksRef.current = [];
+      mr.ondataavailable = e => recordChunksRef.current.push(e.data);
+      mr.onstop = () => { setRecordedBlob(new Blob(recordChunksRef.current, { type: mimeType })); stream.getTracks().forEach(t => t.stop()); };
+      mr.start();
+      mediaRecorderRef.current = mr;
+      setIsRecording(true);
+      setRecordDuration(0);
+      recordTimerRef.current = setInterval(() => setRecordDuration(d => d + 1), 1000);
+    } catch (err) { console.error("Mic error:", err); }
+  };
+
+  const stopRecording = () => { mediaRecorderRef.current?.stop(); clearInterval(recordTimerRef.current); setIsRecording(false); };
+  const cancelRecording = () => { mediaRecorderRef.current?.stop(); clearInterval(recordTimerRef.current); setIsRecording(false); setRecordedBlob(null); setRecordDuration(0); };
+
+  const sendVoiceMessage = async () => {
+    if (!recordedBlob) return;
+    try {
+      const fd = new FormData();
+      fd.append("audio", recordedBlob, "voice.webm");
+      const res = await apiFetch("social/upload-voice", { method: "POST", body: fd });
+      if (!res.ok) throw new Error("Upload fallito");
+      const { audioUrl } = await res.json();
+      await sendE2EE({ type: "voice", url: audioUrl, duration: recordDuration });
+      setRecordedBlob(null); setRecordDuration(0);
+    } catch (err) { console.error("Voice send error:", err); }
+  };
+
+  // Emoji DM
+  const insertEmojiDM = (emoji: string) => {
+    const el = msgInputRef.current;
+    if (!el) { setMessageInput(m => m + emoji); return; }
+    const start = el.selectionStart ?? messageInput.length;
+    const end = el.selectionEnd ?? messageInput.length;
+    setMessageInput(messageInput.slice(0, start) + emoji + messageInput.slice(end));
+    requestAnimationFrame(() => { el.selectionStart = el.selectionEnd = start + emoji.length; el.focus(); });
+    setShowEmojiDM(false);
+  };
+
+  // ─── WebRTC Voice Call ────────────────────────────────────────────────────────
+  const newCallId = () => `call-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+  const sendSignal = useCallback(async (to: string, type: string, data: string, cid: string) => {
+    await apiFetch("social/calls/signal", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ to, type, data, callId: cid }),
+    });
+  }, []);
+
+  const cleanupCall = useCallback(() => {
+    peerConnRef.current?.close(); peerConnRef.current = null;
+    localStreamRef.current?.getTracks().forEach(t => t.stop()); localStreamRef.current = null;
+    if (remoteAudioRef.current) { remoteAudioRef.current.srcObject = null; remoteAudioRef.current = null; }
+    setCallState("idle"); setCallId(null); setCallPeer(null); setIsMuted(false); setPendingOffer(null);
+  }, []);
+
+  const startCall = async () => {
+    if (!selectedFriend?.userId) return;
+    const cid = newCallId();
+    setCallId(cid); setCallPeer(selectedFriend); setCallState("calling");
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      localStreamRef.current = stream;
+      const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+      peerConnRef.current = pc;
+      stream.getTracks().forEach(t => pc.addTrack(t, stream));
+      pc.onicecandidate = async e => { if (e.candidate) await sendSignal(selectedFriend.userId!, "ice", JSON.stringify(e.candidate), cid); };
+      pc.ontrack = e => { const a = new Audio(); remoteAudioRef.current = a; a.srcObject = e.streams[0]; a.play().catch(() => {}); };
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      await sendSignal(selectedFriend.userId!, "offer", JSON.stringify({ sdp: offer.sdp, type: offer.type }), cid);
+    } catch (err) { console.error("Call error:", err); cleanupCall(); }
+  };
+
+  const acceptCall = async () => {
+    if (!pendingOffer) return;
+    const { sdp: rawSdp, callId: cid, from } = pendingOffer;
+    const peer = (mutualFollowers as SocialUser[]).find(u => u.userId === from) ?? { userId: from, name: "Trader", avatarUrl: null } as SocialUser;
+    setCallId(cid); setCallPeer(peer); setCallState("connected");
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      localStreamRef.current = stream;
+      const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+      peerConnRef.current = pc;
+      stream.getTracks().forEach(t => pc.addTrack(t, stream));
+      pc.onicecandidate = async e => { if (e.candidate) await sendSignal(from, "ice", JSON.stringify(e.candidate), cid); };
+      pc.ontrack = e => { const a = new Audio(); remoteAudioRef.current = a; a.srcObject = e.streams[0]; a.play().catch(() => {}); };
+      const offerObj = JSON.parse(rawSdp);
+      await pc.setRemoteDescription(new RTCSessionDescription(offerObj));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      await sendSignal(from, "answer", JSON.stringify({ sdp: answer.sdp, type: answer.type }), cid);
+      setPendingOffer(null);
+    } catch (err) { console.error("Accept call error:", err); cleanupCall(); }
+  };
+
+  const hangup = async () => {
+    if (callPeer?.userId && callId) { try { await sendSignal(callPeer.userId, "hangup", "", callId); } catch {} }
+    cleanupCall();
+  };
+
+  const toggleMute = () => {
+    localStreamRef.current?.getAudioTracks().forEach(t => { t.enabled = isMuted; });
+    setIsMuted(m => !m);
+  };
+
+  // Poll for signals
+  useEffect(() => {
+    if (!e2eeReady) return;
+    const poll = async () => {
+      try {
+        const data = await apiJSON("social/calls/signals");
+        for (const sig of data.signals ?? []) {
+          const pc = peerConnRef.current;
+          if (sig.type === "offer" && callState === "idle") {
+            setPendingOffer({ sdp: sig.data, callId: sig.callId, from: sig.from });
+            setCallState("incoming");
+          } else if (sig.type === "answer" && pc && pc.signalingState === "have-local-offer") {
+            await pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(sig.data)));
+            setCallState("connected");
+          } else if (sig.type === "ice" && pc) {
+            try { await pc.addIceCandidate(new RTCIceCandidate(JSON.parse(sig.data))); } catch {}
+          } else if (sig.type === "hangup") {
+            cleanupCall();
+          }
+        }
+      } catch {}
+    };
+    const interval = setInterval(poll, callState !== "idle" ? 800 : 4000);
+    return () => clearInterval(interval);
+  }, [e2eeReady, callState, cleanupCall]);
 
   const handleSelect = (u: SocialUser) => { setSelectedFriend(u); setDecryptedMessages([]); setMobileView("chat"); };
+
+  // Render message bubble
+  const renderBubble = (msg: DecryptedMsg) => {
+    const isMine = msg.senderId !== selectedFriend?.userId;
+    const base = `max-w-[78%] rounded-2xl text-sm ${isMine ? "bg-primary text-primary-foreground rounded-br-md" : "bg-card/80 border border-border rounded-bl-md"}`;
+    const timeEl = <p className={`text-[10px] mt-1 ${isMine ? "text-primary-foreground/60" : "text-muted-foreground"}`}>{new Date(msg.createdAt).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}</p>;
+    if (msg.type === "image") return (
+      <div className={`${base} overflow-hidden p-0`}>
+        <img src={msg.content} alt="img" className="max-w-[240px] max-h-44 w-full object-cover" />
+        <div className="px-3 py-1.5">{timeEl}</div>
+      </div>
+    );
+    if (msg.type === "voice") return (
+      <div className={`${base} px-3 py-2.5`}>
+        <audio controls src={msg.content} className="h-8 max-w-[200px] w-full" style={{ accentColor: "currentColor" }} />
+        {timeEl}
+      </div>
+    );
+    return (
+      <div className={`${base} px-4 py-2.5`}>
+        <p className="break-words whitespace-pre-wrap">{msg.content}</p>
+        {timeEl}
+      </div>
+    );
+  };
+
+  // Call overlay
+  const callOverlay = callState !== "idle" && (
+    <div className="absolute inset-0 z-30 bg-black/92 backdrop-blur-sm flex items-center justify-center rounded-inherit">
+      <div className="text-center space-y-5 px-6">
+        {callPeer && <div className="mx-auto"><Avatar name={callPeer.name} avatarUrl={callPeer.avatarUrl} size="lg" ring="ring-primary ring-4" /></div>}
+        <div>
+          <p className="text-white font-semibold text-lg">{callPeer?.name ?? "Chiamata..."}</p>
+          <p className="text-white/60 text-sm mt-1">
+            {callState === "calling" ? "In chiamata..." : callState === "incoming" ? "Chiamata in arrivo" : "● Connesso"}
+          </p>
+        </div>
+        <div className="flex items-center justify-center gap-5">
+          {callState === "incoming" && (
+            <button onClick={acceptCall} className="w-14 h-14 rounded-full bg-green-500 flex items-center justify-center hover:bg-green-400 transition-colors shadow-lg shadow-green-500/30">
+              <Phone className="w-6 h-6 text-white" />
+            </button>
+          )}
+          {callState === "connected" && (
+            <button onClick={toggleMute} className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${isMuted ? "bg-red-500" : "bg-white/20 hover:bg-white/30"}`}>
+              {isMuted ? <MicOff className="w-5 h-5 text-white" /> : <Mic className="w-5 h-5 text-white" />}
+            </button>
+          )}
+          <button onClick={hangup} className="w-14 h-14 rounded-full bg-red-500 flex items-center justify-center hover:bg-red-400 transition-colors shadow-lg shadow-red-500/30">
+            <PhoneOff className="w-6 h-6 text-white" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 
   if (e2eeError) return (
     <div className="flex items-center justify-center h-full">
@@ -791,11 +1208,17 @@ function MessaggiTab({ currentUser }: { currentUser: { id: string } }) {
           <Lock className="w-4 h-4 text-primary" />
           <p className="font-semibold text-sm">Messaggi E2EE</p>
         </div>
-        {(unreadData as any)?.count > 0 && (
-          <span className="px-2 py-0.5 text-xs bg-primary text-primary-foreground rounded-full font-bold">{(unreadData as any).count}</span>
-        )}
+        <div className="flex items-center gap-2">
+          {callState === "incoming" && (
+            <button onClick={() => setCallState("incoming")} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-500/20 text-green-400 text-xs font-medium animate-pulse">
+              <PhoneCall className="w-3.5 h-3.5" /> Chiamata
+            </button>
+          )}
+          {(unreadData as any)?.count > 0 && (
+            <span className="px-2 py-0.5 text-xs bg-primary text-primary-foreground rounded-full font-bold">{(unreadData as any).count}</span>
+          )}
+        </div>
       </div>
-
       <div className="flex-1 overflow-y-auto">
         {isLoading ? (
           <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
@@ -803,20 +1226,18 @@ function MessaggiTab({ currentUser }: { currentUser: { id: string } }) {
           <div className="text-center py-12 px-4 text-muted-foreground space-y-3">
             <UserCheck className="w-12 h-12 mx-auto opacity-20" />
             <p className="font-medium text-sm">Nessun contatto disponibile</p>
-            <p className="text-xs leading-relaxed">Per chattare devi seguire un trader che ti segue a vicenda. Vai nel tab Social per trovare e seguire altri trader!</p>
+            <p className="text-xs leading-relaxed">Seguiti e seguaci possono chattare. Vai nel tab Social per trovare altri trader!</p>
           </div>
         ) : (
           <div className="p-2 space-y-1">
             {(mutualFollowers as SocialUser[]).map(u => (
-              <div
-                key={u.userId}
-                onClick={() => handleSelect(u)}
+              <div key={u.userId} onClick={() => handleSelect(u)}
                 className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all ${selectedFriend?.userId === u.userId ? "bg-primary/10 border border-primary/30" : "hover:bg-white/5 border border-transparent"}`}
               >
                 <Avatar name={u.name} avatarUrl={u.avatarUrl} size="md" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{u.name}</p>
-                  <p className="text-xs text-primary flex items-center gap-1"><UserCheck className="w-3 h-3" /> Si seguono a vicenda</p>
+                  <p className="text-xs text-primary flex items-center gap-1"><UserCheck className="w-3 h-3" /> Mutual</p>
                 </div>
                 <ChevronRight className="w-4 h-4 text-muted-foreground" />
               </div>
@@ -828,19 +1249,31 @@ function MessaggiTab({ currentUser }: { currentUser: { id: string } }) {
   );
 
   const chatArea = (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full relative">
+      {callOverlay}
       {selectedFriend ? (
         <>
-          <div className="p-4 border-b border-border flex items-center gap-3">
+          <div className="p-4 border-b border-border flex items-center gap-3 shrink-0">
             <button onClick={() => { setSelectedFriend(null); setMobileView("list"); }} className="p-2 rounded-lg hover:bg-white/5 text-muted-foreground lg:hidden">
               <ArrowLeft className="w-5 h-5" />
             </button>
             <Avatar name={selectedFriend.name} avatarUrl={selectedFriend.avatarUrl} size="md" />
-            <div>
-              <p className="font-medium text-sm">{selectedFriend.name}</p>
-              <p className="text-xs text-primary flex items-center gap-1"><Shield className="w-3 h-3" /> Crittografia end-to-end</p>
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-sm truncate">{selectedFriend.name}</p>
+              <p className="text-xs text-primary flex items-center gap-1"><Shield className="w-3 h-3" /> E2EE</p>
             </div>
+            {callState === "idle" && (
+              <button onClick={startCall} title="Chiamata vocale" className="p-2 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors">
+                <Phone className="w-5 h-5" />
+              </button>
+            )}
+            {callState === "incoming" && (
+              <button onClick={acceptCall} className="p-2 rounded-lg bg-green-500/20 text-green-400 animate-pulse">
+                <PhoneCall className="w-5 h-5" />
+              </button>
+            )}
           </div>
+
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {decryptedMessages.length === 0 ? (
               <div className="text-center text-muted-foreground text-sm py-12">
@@ -848,35 +1281,77 @@ function MessaggiTab({ currentUser }: { currentUser: { id: string } }) {
                 <p>Inizio conversazione cifrata</p>
               </div>
             ) : (
-              decryptedMessages.map(msg => {
-                const isMine = msg.senderId !== selectedFriend.userId;
-                return (
-                  <div key={msg.id} className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
-                    <div className={`max-w-[75%] px-4 py-2.5 rounded-2xl text-sm ${isMine ? "bg-primary text-primary-foreground rounded-br-md" : "bg-card/80 border border-border rounded-bl-md"}`}>
-                      <p className="break-words whitespace-pre-wrap">{msg.text}</p>
-                      <p className={`text-[10px] mt-1 ${isMine ? "text-primary-foreground/60" : "text-muted-foreground"}`}>
-                        {new Date(msg.createdAt).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })
+              decryptedMessages.map(msg => (
+                <div key={msg.id} className={`flex ${msg.senderId !== selectedFriend.userId ? "justify-end" : "justify-start"}`}>
+                  {renderBubble(msg)}
+                </div>
+              ))
             )}
             <div ref={messagesEndRef} />
           </div>
-          <div className="p-4 border-t border-border">
-            <div className="flex gap-2">
+
+          {showEmojiDM && (
+            <div className="border-t border-border bg-card/50 p-3 shrink-0">
+              <div className="grid grid-cols-10 gap-1">
+                {ZEN_EMOJIS.map(e => (
+                  <button key={e} onClick={() => insertEmojiDM(e)} className="text-lg hover:scale-125 transition-transform p-0.5 rounded">{e}</button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {(isRecording || recordedBlob) && (
+            <div className="border-t border-border bg-card/50 px-4 py-3 flex items-center gap-3 shrink-0">
+              {isRecording ? (
+                <>
+                  <div className="flex items-center gap-2 flex-1">
+                    <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                    <span className="text-sm font-mono text-red-400">{fmtDur(recordDuration)}</span>
+                    <span className="text-xs text-muted-foreground">Registrazione in corso...</span>
+                  </div>
+                  <button onClick={cancelRecording} className="p-2 text-muted-foreground hover:text-destructive"><X className="w-4 h-4" /></button>
+                  <button onClick={stopRecording} className="px-3 py-2 bg-primary text-primary-foreground rounded-lg text-xs flex items-center gap-1.5"><StopCircle className="w-3.5 h-3.5" /> Stop</button>
+                </>
+              ) : (
+                <>
+                  <audio controls src={URL.createObjectURL(recordedBlob!)} className="flex-1 h-8" />
+                  <button onClick={cancelRecording} className="p-2 text-muted-foreground hover:text-destructive"><X className="w-4 h-4" /></button>
+                  <button onClick={sendVoiceMessage} className="p-2 bg-primary text-primary-foreground rounded-lg"><Send className="w-4 h-4" /></button>
+                </>
+              )}
+            </div>
+          )}
+
+          <div className="p-3 border-t border-border shrink-0">
+            <div className="flex items-center gap-1.5">
+              <button onClick={() => setShowEmojiDM(s => !s)} title="Emoji" className={`p-2 rounded-lg transition-colors ${showEmojiDM ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-primary hover:bg-primary/10"}`}>
+                <Smile className="w-4 h-4" />
+              </button>
+              <button onClick={() => dmFileInputRef.current?.click()} disabled={dmImgUploading} title="Allega immagine" className="p-2 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors disabled:opacity-40">
+                {dmImgUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImageIcon className="w-4 h-4" />}
+              </button>
+              <button
+                onClick={isRecording ? stopRecording : startRecording}
+                disabled={!!recordedBlob}
+                title={isRecording ? "Ferma registrazione" : "Registra vocale"}
+                className={`p-2 rounded-lg transition-colors ${isRecording ? "text-red-400 bg-red-500/10" : "text-muted-foreground hover:text-primary hover:bg-primary/10"} disabled:opacity-40`}
+              >
+                <Mic className="w-4 h-4" />
+              </button>
               <input
+                ref={msgInputRef}
                 type="text" value={messageInput}
                 onChange={e => setMessageInput(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && !e.shiftKey && handleSendMessage()}
-                placeholder="Scrivi un messaggio cifrato..."
-                className="flex-1 px-4 py-2.5 bg-card/50 border border-border rounded-xl text-sm focus:outline-none focus:border-primary transition-colors"
+                onKeyDown={e => e.key === "Enter" && !e.shiftKey && handleSendText()}
+                placeholder="Messaggio cifrato..."
+                className="flex-1 px-3 py-2.5 bg-card/50 border border-border rounded-xl text-sm focus:outline-none focus:border-primary transition-colors"
+                disabled={isRecording || !!recordedBlob}
               />
-              <button onClick={handleSendMessage} disabled={!messageInput.trim() || sendMessageMutation.isPending} className="px-4 py-2.5 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 disabled:opacity-50 transition-colors">
+              <button onClick={handleSendText} disabled={!messageInput.trim() || sendMessageMutation.isPending || isRecording || !!recordedBlob} className="px-3 py-2.5 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 disabled:opacity-50 transition-colors">
                 <Send className="w-4 h-4" />
               </button>
             </div>
+            <input ref={dmFileInputRef} type="file" accept="image/*" className="hidden" onChange={handleDmImage} />
           </div>
         </>
       ) : (
@@ -895,9 +1370,9 @@ function MessaggiTab({ currentUser }: { currentUser: { id: string } }) {
     <div className="h-full">
       <div className="hidden lg:grid grid-cols-[280px_1fr] h-full">
         <div className="border-r border-border">{list}</div>
-        <div>{chatArea}</div>
+        <div className="relative">{chatArea}</div>
       </div>
-      <div className="lg:hidden h-full">
+      <div className="lg:hidden h-full relative">
         {mobileView === "list" ? list : chatArea}
       </div>
     </div>
