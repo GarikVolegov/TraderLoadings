@@ -3,11 +3,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import { CheckSquare, X } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { useCreateChecklistItem, useGetChecklist, getGetChecklistQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useLanguage } from "@/contexts/LanguageContext";
 
-const DEFAULT_CHECKLIST_ITEMS = [
+const DEFAULT_CHECKLIST_ITEMS_IT = [
   "Verifica setup grafico",
   "Analisi timeframe superiore",
   "Identifica supporti/resistenze",
@@ -18,6 +18,7 @@ const DEFAULT_CHECKLIST_ITEMS = [
 ];
 
 export function ChecklistSetupModal() {
+  const { t } = useLanguage();
   const { data: items } = useGetChecklist();
   const [show, setShow] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -33,7 +34,7 @@ export function ChecklistSetupModal() {
   const handleSetupDefault = async () => {
     setAdding(true);
     try {
-      for (const text of DEFAULT_CHECKLIST_ITEMS) {
+      for (const text of DEFAULT_CHECKLIST_ITEMS_IT) {
         await createMutation.mutateAsync({ data: { text, completed: true } });
       }
       qc.invalidateQueries({ queryKey: getGetChecklistQueryKey() });
@@ -67,7 +68,7 @@ export function ChecklistSetupModal() {
                   <div className="p-2 rounded-lg bg-primary/15">
                     <CheckSquare className="w-5 h-5 text-primary" />
                   </div>
-                  <CardTitle className="text-lg">Inizializza Checklist</CardTitle>
+                  <CardTitle className="text-lg">{t("checklist_setup.title")}</CardTitle>
                 </div>
                 <button onClick={() => setShow(false)} className="text-muted-foreground hover:text-foreground">
                   <X className="w-5 h-5" />
@@ -75,13 +76,13 @@ export function ChecklistSetupModal() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="text-sm text-muted-foreground">
-                  La tua checklist pre-trade è vuota. Vuoi caricare la checklist standard o crearne una personalizzata?
+                  {t("checklist_setup.description")}
                 </p>
 
                 <div className="space-y-2 p-3 rounded-lg bg-secondary/40 border border-border">
-                  <p className="text-xs font-semibold text-muted-foreground">Checklist standard:</p>
+                  <p className="text-xs font-semibold text-muted-foreground">{t("checklist_setup.standard_label")}</p>
                   <ul className="text-xs text-muted-foreground space-y-1">
-                    {DEFAULT_CHECKLIST_ITEMS.map((item) => (
+                    {DEFAULT_CHECKLIST_ITEMS_IT.map((item) => (
                       <li key={item} className="flex items-start gap-2">
                         <span className="text-primary mt-0.5">✓</span>
                         <span>{item}</span>
@@ -96,19 +97,19 @@ export function ChecklistSetupModal() {
                     disabled={adding}
                     className="flex-1"
                   >
-                    {adding ? "Caricamento..." : "Carica standard"}
+                    {adding ? t("checklist_setup.loading") : t("checklist_setup.load")}
                   </Button>
                   <Button
                     onClick={() => setShow(false)}
                     variant="outline"
                     className="flex-1"
                   >
-                    Dopo
+                    {t("checklist_setup.later")}
                   </Button>
                 </div>
 
                 <p className="text-[10px] text-muted-foreground text-center">
-                  Puoi modificare la checklist in Impostazioni → Missioni
+                  {t("checklist_setup.hint")}
                 </p>
               </CardContent>
             </Card>

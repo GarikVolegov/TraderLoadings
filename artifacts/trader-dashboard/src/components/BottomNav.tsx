@@ -1,16 +1,23 @@
 import { Link, useRoute } from "wouter";
 import { LayoutDashboard, BookOpen, MessageCircle, Wrench, Brain } from "lucide-react";
 import { useGetUnreadCount } from "@workspace/api-client-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const NAV_ITEMS = [
-  { href: "/", icon: LayoutDashboard, label: "Home" },
-  { href: "/journal", icon: BookOpen, label: "Diario" },
-  { href: "/tools", icon: Wrench, label: "Strumenti" },
-  { href: "/zen", icon: Brain, label: "Zen" },
-  { href: "/chat", icon: MessageCircle, label: "Chat" },
+  { href: "/",        icon: LayoutDashboard, labelKey: "nav.home",    isChat: false },
+  { href: "/journal", icon: BookOpen,         labelKey: "nav.journal", isChat: false },
+  { href: "/tools",   icon: Wrench,           labelKey: "nav.tools",   isChat: false },
+  { href: "/zen",     icon: Brain,            labelKey: "nav.zen",     isChat: false },
+  { href: "/chat",    icon: MessageCircle,    labelKey: "nav.chat",    isChat: true  },
 ] as const;
 
-function NavItem({ href, icon: Icon, label, badge, vertical }: { href: string; icon: typeof LayoutDashboard; label: string; badge?: number; vertical?: boolean }) {
+function NavItem({ href, icon: Icon, label, badge, vertical }: {
+  href: string;
+  icon: typeof LayoutDashboard;
+  label: string;
+  badge?: number;
+  vertical?: boolean;
+}) {
   const [isActive] = useRoute(href);
 
   if (vertical) {
@@ -71,6 +78,7 @@ function NavItem({ href, icon: Icon, label, badge, vertical }: { href: string; i
 }
 
 export function BottomNav() {
+  const { t } = useLanguage();
   const { data: unreadData } = useGetUnreadCount({ query: { refetchInterval: 5000 } });
   const unreadCount = unreadData?.count ?? 0;
 
@@ -83,8 +91,8 @@ export function BottomNav() {
               key={item.href}
               href={item.href}
               icon={item.icon}
-              label={item.label}
-              badge={item.label === "Chat" ? unreadCount : undefined}
+              label={t(item.labelKey)}
+              badge={item.isChat ? unreadCount : undefined}
             />
           ))}
         </div>
@@ -103,8 +111,8 @@ export function BottomNav() {
               key={item.href}
               href={item.href}
               icon={item.icon}
-              label={item.label}
-              badge={item.label === "Chat" ? unreadCount : undefined}
+              label={t(item.labelKey)}
+              badge={item.isChat ? unreadCount : undefined}
               vertical
             />
           ))}

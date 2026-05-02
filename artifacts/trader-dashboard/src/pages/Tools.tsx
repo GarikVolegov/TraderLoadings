@@ -33,7 +33,7 @@ import {
   type BacktestSession,
 } from "@workspace/api-client-react";
 import { format, parseISO } from "date-fns";
-import { it } from "date-fns/locale";
+import { useLanguage, useDateLocale } from "@/contexts/LanguageContext";
 
 const API = "/api";
 
@@ -142,10 +142,11 @@ function ErrorCard({ message }: { message: string }) {
 }
 
 function LoadingCard() {
+  const { t } = useLanguage();
   return (
     <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
       <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      <p className="text-sm">Caricamento dati...</p>
+      <p className="text-sm">{t("tools.loading")}</p>
     </div>
   );
 }
@@ -1219,6 +1220,7 @@ function NewSessionForm({ onClose }: { onClose: () => void }) {
 }
 
 function BacktestSessionDetail({ session, onBack }: { session: BacktestSession; onBack: () => void }) {
+  const dateLocale = useDateLocale();
   const { toast } = useToast();
   const qc = useQueryClient();
   const { data: trades, isLoading } = useGetBacktestTrades(session.id);
@@ -1477,7 +1479,7 @@ function BacktestSessionDetail({ session, onBack }: { session: BacktestSession; 
                       {trade.result === "win" ? "+" : ""}{trade.pips ?? "0"} pips
                     </span>
                     <span className="text-[10px] text-muted-foreground/60">
-                      {format(parseISO(trade.tradeDate), "d MMM", { locale: it })}
+                      {format(parseISO(trade.tradeDate), "d MMM", { locale: dateLocale })}
                     </span>
                     {trade.notes && <span className="text-[10px] text-muted-foreground/50 truncate">{trade.notes}</span>}
                   </div>
@@ -1611,19 +1613,20 @@ function BacktestTool() {
 }
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
-const TABS = [
-  { id: "montecarlo", label: "Montecarlo", icon: TrendingUp },
-  { id: "sentiment", label: "Sentiment", icon: Activity },
-  { id: "volatility", label: "Volatilità", icon: BarChart2 },
-  { id: "cot", label: "COT Report", icon: FileText },
-  { id: "backtest", label: "Backtest", icon: FlaskConical },
-  { id: "lot", label: "Dimensionamento", icon: BarChart2 },
-];
 
 export default function Tools() {
+  const { t } = useLanguage();
+  const TABS = [
+    { id: "montecarlo", label: t("tools.tab.montecarlo"), icon: TrendingUp },
+    { id: "sentiment", label: t("tools.tab.sentiment"), icon: Activity },
+    { id: "volatility", label: t("tools.tab.volatility"), icon: BarChart2 },
+    { id: "cot", label: t("tools.tab.cot"), icon: FileText },
+    { id: "backtest", label: t("tools.tab.backtest"), icon: FlaskConical },
+    { id: "lot", label: "Dimensionamento", icon: BarChart2 },
+  ];
   return (
     <PageLayout>
-      <PageHeader title="Strumenti Avanzati" subtitle="Analisi quantitativa, sentiment e dati istituzionali" />
+      <PageHeader title={t("tools.title")} subtitle={t("tools.subtitle")} />
 
       <motion.section
         initial={{ opacity: 0, y: 20 }}

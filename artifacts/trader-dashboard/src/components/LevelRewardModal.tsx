@@ -3,8 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useGetProfile } from "@workspace/api-client-react";
 import { X, Trophy, Lock, ExternalLink, Play, FileText, Presentation, Sparkles, ChevronRight } from "lucide-react";
 import { getRewardsForMilestone, MILESTONES, type Reward, type RewardType } from "@/lib/rewardsLibrary";
-
-// ─── Storage helpers ───────────────────────────────────────────────────────────
+import { useLanguage } from "@/contexts/LanguageContext";
 
 function getCelebrated(): Set<number> {
   try {
@@ -20,8 +19,6 @@ function markCelebrated(milestone: number) {
     localStorage.setItem("tl_celebrated_milestones", JSON.stringify([...s]));
   } catch { /* ignore */ }
 }
-
-// ─── Icon helpers ──────────────────────────────────────────────────────────────
 
 export function RewardTypeIcon({ type, className = "w-4 h-4" }: { type: RewardType; className?: string }) {
   if (type === "video")        return <Play className={className} />;
@@ -44,8 +41,6 @@ export function RewardTypeBadge({ type }: { type: RewardType }) {
     </span>
   );
 }
-
-// ─── Reward card ───────────────────────────────────────────────────────────────
 
 export function RewardCard({ reward, compact = false }: { reward: Reward; compact?: boolean }) {
   return (
@@ -88,14 +83,13 @@ export function RewardCard({ reward, compact = false }: { reward: Reward; compac
   );
 }
 
-// ─── Milestone celebration modal ───────────────────────────────────────────────
-
 interface MilestoneModalProps {
   milestone: number;
   onClose: () => void;
 }
 
 function MilestoneModal({ milestone, onClose }: MilestoneModalProps) {
+  const { t } = useLanguage();
   const rewards = getRewardsForMilestone(milestone);
 
   return (
@@ -107,7 +101,6 @@ function MilestoneModal({ milestone, onClose }: MilestoneModalProps) {
         transition={{ type: "spring", damping: 20, stiffness: 280 }}
         className="relative bg-card border border-primary/30 rounded-2xl shadow-2xl shadow-primary/10 w-full max-w-lg overflow-hidden"
       >
-        {/* Header glow */}
         <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-primary/20 to-transparent pointer-events-none" />
 
         <button
@@ -118,7 +111,6 @@ function MilestoneModal({ milestone, onClose }: MilestoneModalProps) {
         </button>
 
         <div className="relative p-6 text-center">
-          {/* Trophy */}
           <motion.div
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
@@ -128,15 +120,11 @@ function MilestoneModal({ milestone, onClose }: MilestoneModalProps) {
             <Trophy className="w-10 h-10 text-primary" />
           </motion.div>
 
-          {/* Floating sparkles */}
           {[...Array(6)].map((_, i) => (
             <motion.div
               key={i}
               className="absolute text-primary/40 pointer-events-none"
-              style={{
-                top: `${15 + Math.random() * 30}%`,
-                left: `${10 + i * 15}%`,
-              }}
+              style={{ top: `${15 + Math.random() * 30}%`, left: `${10 + i * 15}%` }}
               initial={{ opacity: 0, y: 10, scale: 0.5 }}
               animate={{ opacity: [0, 1, 0], y: [-10, -30, -50], scale: [0.5, 1, 0.5] }}
               transition={{ delay: 0.2 + i * 0.1, duration: 1.5, repeat: Infinity, repeatDelay: 2 }}
@@ -151,20 +139,19 @@ function MilestoneModal({ milestone, onClose }: MilestoneModalProps) {
             transition={{ delay: 0.25 }}
           >
             <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-1">
-              Traguardo sbloccato!
+              {t("rewards.unlocked_badge")}
             </p>
-            <h2 className="text-2xl font-bold">Livello {milestone} raggiunto</h2>
+            <h2 className="text-2xl font-bold">{t("rewards.milestone_title", { n: String(milestone) })}</h2>
             <p className="text-sm text-muted-foreground mt-1">
-              Hai sbloccato nuovi contenuti esclusivi nella tua Biblioteca.
+              {t("rewards.milestone_desc")}
             </p>
           </motion.div>
         </div>
 
-        {/* Unlocked rewards */}
         {rewards.length > 0 && (
           <div className="px-6 pb-2">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-              Contenuti sbloccati
+              {t("rewards.unlocked_section")}
             </p>
             <div className="grid grid-cols-2 gap-3">
               {rewards.map((r, i) => (
@@ -186,7 +173,7 @@ function MilestoneModal({ milestone, onClose }: MilestoneModalProps) {
             onClick={onClose}
             className="w-full flex items-center justify-center gap-2 py-3 bg-primary text-primary-foreground rounded-xl font-semibold text-sm hover:bg-primary/90 transition-colors"
           >
-            Vai alla Biblioteca
+            {t("rewards.go_library")}
             <ChevronRight className="w-4 h-4" />
           </button>
         </div>
@@ -194,8 +181,6 @@ function MilestoneModal({ milestone, onClose }: MilestoneModalProps) {
     </div>
   );
 }
-
-// ─── Global hook + renderer ────────────────────────────────────────────────────
 
 export function LevelRewardModal() {
   const { data: profile } = useGetProfile();
@@ -209,9 +194,8 @@ export function LevelRewardModal() {
     const hit = MILESTONES.find((m) => level >= m && !celebrated.has(m));
     if (hit) {
       markCelebrated(hit);
-      // Small delay so the app is stable first
-      const t = setTimeout(() => setPendingMilestone(hit), 1200);
-      return () => clearTimeout(t);
+      const timer = setTimeout(() => setPendingMilestone(hit), 1200);
+      return () => clearTimeout(timer);
     }
   }, [profile?.level]);
 

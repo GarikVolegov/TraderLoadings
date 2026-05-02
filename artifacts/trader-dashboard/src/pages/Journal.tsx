@@ -1,7 +1,6 @@
 import { useState, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { format, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks, subMonths, addWeeks, addMonths, isWithinInterval } from "date-fns";
-import { it } from "date-fns/locale";
 import { Plus, Edit2, Trash2, Image as ImageIcon, CalendarDays, Tag, Lightbulb, Target, BookOpen, Check, TrendingUp, TrendingDown, Minus, ChevronLeft, ChevronRight, BarChart3, Calendar, Bell, BellOff, CalendarPlus, RefreshCw } from "lucide-react";
 import { PageLayout } from "@/components/PageLayout";
 import { PageHeader } from "@/components/PageHeader";
@@ -25,10 +24,13 @@ import {
   type Idea,
 } from "@workspace/api-client-react";
 import { downloadICS } from "@/utils/icsExport";
+import { useLanguage, useDateLocale } from "@/contexts/LanguageContext";
 
 type Tab = "trades" | "idee" | "obiettivi" | "recap-settimanale" | "recap-mensile";
 
 function TradesTab() {
+  const { t } = useLanguage();
+  const dateLocale = useDateLocale();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -46,13 +48,13 @@ function TradesTab() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm("Eliminare questo entry?")) return;
+    if (!confirm(t("journal.delete_confirm"))) return;
     try {
       await deleteMutation.mutateAsync({ id });
       queryClient.invalidateQueries({ queryKey: getGetJournalEntriesQueryKey() });
-      toast({ description: "Entry eliminato." });
+      toast({ description: t("journal.deleted") });
     } catch {
-      toast({ description: "Errore.", variant: "destructive" });
+      toast({ description: t("journal.error"), variant: "destructive" });
     }
   };
 
@@ -61,7 +63,7 @@ function TradesTab() {
       <div className="flex justify-end mb-4 sm:mb-6">
         <Button onClick={() => { setEditingEntry(null); setIsModalOpen(true); }}>
           <Plus className="w-4 h-4 mr-2" />
-          Nuovo Trade
+          {t("journal.new_trade")}
         </Button>
       </div>
 
@@ -90,7 +92,7 @@ function TradesTab() {
                     <div className="flex justify-between items-start mb-3">
                       <div className="flex items-center gap-2 text-sm text-muted-foreground font-medium">
                         <CalendarDays className="w-4 h-4" />
-                        {format(parseISO(entry.tradeDate), "d MMM yyyy", { locale: it })}
+                        {format(parseISO(entry.tradeDate), "d MMM yyyy", { locale: dateLocale })}
                       </div>
                       <div className={`px-2.5 py-0.5 rounded-md text-xs font-semibold border ${resConfig.class}`}>
                         {resConfig.label}
@@ -124,13 +126,13 @@ function TradesTab() {
                     )}
 
                     <p className="text-sm text-muted-foreground/80 line-clamp-3 mb-6 flex-grow">
-                      {entry.content || "Nessuna nota."}
+                      {entry.content || t("journal.no_note")}
                     </p>
 
                     <div className="flex justify-end gap-2 mt-auto pt-4 border-t border-border/50 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Button variant="ghost" size="sm" className="h-8" onClick={() => { setEditingEntry(entry); setIsModalOpen(true); }}>
                         <Edit2 className="w-4 h-4 mr-2" />
-                        Modifica
+                        {t("journal.edit")}
                       </Button>
                       <Button variant="ghost" size="sm" className="h-8 text-destructive hover:bg-destructive/20" onClick={() => handleDelete(entry.id)}>
                         <Trash2 className="w-4 h-4" />
@@ -145,13 +147,13 @@ function TradesTab() {
         <Card className="bg-card/60 backdrop-blur-sm border-dashed border-border/30">
           <CardContent className="p-16 text-center">
             <BookOpen className="w-12 h-12 mx-auto mb-4 opacity-20" />
-            <h3 className="text-xl font-bold mb-2">Nessun trade registrato</h3>
+            <h3 className="text-xl font-bold mb-2">{t("journal.no_trades")}</h3>
             <p className="text-muted-foreground max-w-md mx-auto mb-6">
-              Inizia a tracciare i tuoi trade per migliorare le tue performance.
+              {t("journal.no_trades_desc")}
             </p>
             <Button onClick={() => { setEditingEntry(null); setIsModalOpen(true); }}>
               <Plus className="w-4 h-4 mr-2" />
-              Primo Trade
+              {t("journal.first_trade")}
             </Button>
           </CardContent>
         </Card>
@@ -167,6 +169,8 @@ function TradesTab() {
 }
 
 function IdeasTab({ type }: { type: "idea" | "goal" }) {
+  const { t } = useLanguage();
+  const dateLocale = useDateLocale();
   const { toast } = useToast();
   const qc = useQueryClient();
   const [newContent, setNewContent] = useState("");
@@ -184,10 +188,10 @@ function IdeasTab({ type }: { type: "idea" | "goal" }) {
 
   const daysUntil = (dateStr: string): number => {
     const d = parseISO(dateStr);
-    const t = new Date();
-    t.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
     d.setHours(0, 0, 0, 0);
-    return Math.round((d.getTime() - t.getTime()) / 86_400_000);
+    return Math.round((d.getTime() - today.getTime()) / 86_400_000);
   };
 
   const deadlineBadgeClass = (dateStr: string): string => {
@@ -200,16 +204,15 @@ function IdeasTab({ type }: { type: "idea" | "goal" }) {
 
   const deadlineBadgeLabel = (dateStr: string): string => {
     const days = daysUntil(dateStr);
-    if (days < 0)  return `scaduto ${Math.abs(days)}g fa`;
-    if (days === 0) return "oggi";
-    if (days === 1) return "domani";
-    if (days <= 14) return `tra ${days}g`;
-    if (days <= 60) return `tra ${Math.round(days / 7)}sett`;
-    return format(parseISO(dateStr), "d MMM", { locale: it });
+    if (days < 0)  return t("journal.deadline.expired", { n: String(Math.abs(days)) });
+    if (days === 0) return t("journal.deadline.today");
+    if (days === 1) return t("journal.deadline.tomorrow");
+    if (days <= 14) return t("journal.deadline.days", { n: String(days) });
+    if (days <= 60) return t("journal.deadline.weeks", { n: String(Math.round(days / 7)) });
+    return format(parseISO(dateStr), "d MMM", { locale: dateLocale });
   };
 
   const baseItems = all?.filter(i => i.type === type) ?? [];
-  // Mostra tutti gli obiettivi; quelli con scadenza passata solo se completati
   const items = baseItems.filter(item => {
     if (type === "goal" && item.deadlineDate && !item.completed) {
       return daysUntil(item.deadlineDate) >= 0;
@@ -217,8 +220,25 @@ function IdeasTab({ type }: { type: "idea" | "goal" }) {
     return true;
   });
   const Icon = type === "idea" ? Lightbulb : Target;
-  const label = type === "idea" ? "idea" : "obiettivo";
-  const placeholder = type === "idea" ? "Nuova strategia o osservazione..." : "Obiettivo da raggiungere...";
+  const placeholder = type === "idea" ? t("journal.add_idea") : t("journal.add_goal");
+
+  const CADENCE_LABELS: Record<string, string> = {
+    daily: t("journal.cadence.daily"),
+    weekly: t("journal.cadence.weekly"),
+    monthly: t("journal.cadence.monthly"),
+  };
+
+  const IMPORTANCE_LABELS: Record<string, string> = {
+    low: t("journal.importance.low"),
+    medium: t("journal.importance.medium"),
+    high: t("journal.importance.high"),
+  };
+
+  const IMPORTANCE_COLORS: Record<string, string> = {
+    low: "text-blue-400 bg-blue-400/10",
+    medium: "text-yellow-400 bg-yellow-400/10",
+    high: "text-red-400 bg-red-400/10",
+  };
 
   const insertEmoji = (emoji: string) => {
     const el = inputRef.current;
@@ -245,7 +265,7 @@ function IdeasTab({ type }: { type: "idea" | "goal" }) {
       setNewDeadline("");
       invalidate();
     } catch {
-      toast({ description: "Errore.", variant: "destructive" });
+      toast({ description: t("journal.error"), variant: "destructive" });
     }
   };
 
@@ -297,7 +317,7 @@ function IdeasTab({ type }: { type: "idea" | "goal" }) {
       {
         uid: `goal-${item.id}-${today.toISOString().slice(0, 10)}@traderloading`,
         summary: `Obiettivo: ${item.content}`,
-        description: item.cadence ? `Cadenza: ${item.cadence}` : undefined,
+        description: item.cadence ? `Cadence: ${item.cadence}` : undefined,
         dtstart: start,
         dtend: end,
         alarm: reminderMin,
@@ -308,24 +328,6 @@ function IdeasTab({ type }: { type: "idea" | "goal" }) {
   const handleDelete = async (id: number) => {
     await deleteMutation.mutateAsync({ id });
     invalidate();
-  };
-
-  const CADENCE_LABELS: Record<string, string> = {
-    daily: "Giornaliero",
-    weekly: "Settimanale",
-    monthly: "Mensile",
-  };
-
-  const IMPORTANCE_LABELS: Record<string, string> = {
-    low: "Bassa",
-    medium: "Media",
-    high: "Alta",
-  };
-
-  const IMPORTANCE_COLORS: Record<string, string> = {
-    low: "text-blue-400 bg-blue-400/10",
-    medium: "text-yellow-400 bg-yellow-400/10",
-    high: "text-red-400 bg-red-400/10",
   };
 
   return (
@@ -347,14 +349,13 @@ function IdeasTab({ type }: { type: "idea" | "goal" }) {
                   type="button"
                   onClick={() => setShowEmojiPicker(s => !s)}
                   className={`absolute right-2 top-1/2 -translate-y-1/2 text-base transition-colors ${showEmojiPicker ? "text-primary" : "text-muted-foreground hover:text-primary"}`}
-                  title="Aggiungi emoji"
                 >
                   😊
                 </button>
               </div>
               <Button onClick={handleAdd} disabled={!newContent.trim() || createMutation.isPending}>
                 <Plus className="w-4 h-4 mr-2" />
-                Aggiungi
+                {t("journal.add_button")}
               </Button>
             </div>
             {showEmojiPicker && (
@@ -364,19 +365,19 @@ function IdeasTab({ type }: { type: "idea" | "goal" }) {
           {type === "goal" && (
             <div className="flex gap-3 items-end flex-wrap">
               <div className="flex-1 min-w-fit">
-                <label className="text-xs text-muted-foreground mb-1 block">Importanza</label>
+                <label className="text-xs text-muted-foreground mb-1 block">{t("journal.importance")}</label>
                 <select
                   value={newImportance}
                   onChange={(e) => setNewImportance(e.target.value as "low" | "medium" | "high")}
                   className="w-full px-3 py-2 text-xs rounded-lg bg-secondary/50 border border-border hover:border-primary/50 transition-colors focus:outline-none focus:border-primary/50"
                 >
-                  <option value="low">Bassa</option>
-                  <option value="medium">Media</option>
-                  <option value="high">Alta</option>
+                  <option value="low">{t("journal.importance.low")}</option>
+                  <option value="medium">{t("journal.importance.medium")}</option>
+                  <option value="high">{t("journal.importance.high")}</option>
                 </select>
               </div>
               <div className="flex-1 min-w-fit">
-                <label className="text-xs text-muted-foreground mb-1 block">Scadenza (opzionale)</label>
+                <label className="text-xs text-muted-foreground mb-1 block">{t("journal.deadline")}</label>
                 <input
                   type="date"
                   value={newDeadline}
@@ -398,7 +399,7 @@ function IdeasTab({ type }: { type: "idea" | "goal" }) {
         <Card className="border-dashed border-white/10">
           <CardContent className="p-10 text-center">
             <Icon className="w-10 h-10 mx-auto mb-3 opacity-20" />
-            <p className="text-muted-foreground">Nessun{type === "idea" ? "a" : ""} {label} aggiunt{type === "idea" ? "a" : "o"}.</p>
+            <p className="text-muted-foreground">{type === "idea" ? t("journal.no_ideas") : t("journal.no_goals")}</p>
           </CardContent>
         </Card>
       ) : (
@@ -428,11 +429,11 @@ function IdeasTab({ type }: { type: "idea" | "goal" }) {
                   </p>
                   <div className="flex items-center flex-wrap gap-2 mt-1">
                     <p className="text-xs text-muted-foreground/50">
-                      {format(parseISO(item.createdAt), "d MMM yyyy", { locale: it })}
+                      {format(parseISO(item.createdAt), "d MMM yyyy", { locale: dateLocale })}
                     </p>
                     {type === "goal" && item.importance && (
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${IMPORTANCE_COLORS[item.importance] || "text-yellow-400 bg-yellow-400/10"}`}>
-                        {IMPORTANCE_LABELS[item.importance] || "Media"}
+                        {IMPORTANCE_LABELS[item.importance] || t("journal.importance.medium")}
                       </span>
                     )}
                     {type === "goal" && item.deadlineDate && (
@@ -442,9 +443,9 @@ function IdeasTab({ type }: { type: "idea" | "goal" }) {
                       </span>
                     )}
                     {type === "goal" && !item.deadlineDate && !item.completed && (
-                      <label className="inline-flex items-center gap-1 text-xs text-muted-foreground/40 hover:text-primary/60 cursor-pointer transition-colors" title="Imposta scadenza">
+                      <label className="inline-flex items-center gap-1 text-xs text-muted-foreground/40 hover:text-primary/60 cursor-pointer transition-colors">
                         <CalendarPlus className="w-3 h-3" />
-                        <span>scadenza</span>
+                        <span>{t("journal.deadline")}</span>
                         <input
                           type="date"
                           min={todayStr}
@@ -465,7 +466,7 @@ function IdeasTab({ type }: { type: "idea" | "goal" }) {
                       </span>
                     )}
                     {type === "goal" && item.recurrence && (
-                      <span className="text-xs text-primary/60 bg-primary/10 px-1.5 py-0.5 rounded">Ricorrente</span>
+                      <span className="text-xs text-primary/60 bg-primary/10 px-1.5 py-0.5 rounded">{t("journal.recurring")}</span>
                     )}
                   </div>
 
@@ -493,7 +494,7 @@ function IdeasTab({ type }: { type: "idea" | "goal" }) {
                         }`}
                       >
                         <RefreshCw className="w-2.5 h-2.5" />
-                        Ricorrente
+                        {t("journal.recurring")}
                       </button>
                     </div>
                   )}
@@ -506,26 +507,23 @@ function IdeasTab({ type }: { type: "idea" | "goal" }) {
                         variant="ghost"
                         size="sm"
                         className="h-7 w-7 p-0 text-primary hover:bg-primary/10"
-                        title="Rimuovi promemoria"
                         onClick={() => handleSetReminder(item.id, null)}
                       >
                         <BellOff className="w-3.5 h-3.5" />
                       </Button>
                     ) : (
-                      <label className="relative cursor-pointer" title="Imposta promemoria">
+                      <label className="relative cursor-pointer">
                         <Bell className="w-3.5 h-3.5 text-muted-foreground hover:text-primary transition-colors mx-1.5" />
                         <input
                           type="time"
                           className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                          onChange={(e) => {
-                            if (e.target.value) handleSetReminder(item.id, e.target.value);
-                          }}
+                          onChange={(e) => { if (e.target.value) handleSetReminder(item.id, e.target.value); }}
                         />
                       </label>
                     )
                   )}
                   {type === "goal" && !item.completed && (
-                    <label className="relative cursor-pointer h-7 w-7 flex items-center justify-center rounded hover:bg-primary/10 transition-colors" title={item.deadlineDate ? "Modifica scadenza" : "Aggiungi scadenza"}>
+                    <label className="relative cursor-pointer h-7 w-7 flex items-center justify-center rounded hover:bg-primary/10 transition-colors">
                       <Calendar className={`w-3.5 h-3.5 transition-colors ${item.deadlineDate ? "text-primary/70" : "text-muted-foreground hover:text-primary"}`} />
                       <input
                         type="date"
@@ -541,10 +539,9 @@ function IdeasTab({ type }: { type: "idea" | "goal" }) {
                       variant="ghost"
                       size="sm"
                       className="h-7 w-7 p-0 text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10"
-                      title="Rimuovi scadenza"
                       onClick={() => handleSetDeadline(item.id, null)}
                     >
-                      <X className="w-3 h-3" />
+                      <Minus className="w-3 h-3" />
                     </Button>
                   )}
                   {type === "goal" && (
@@ -552,7 +549,6 @@ function IdeasTab({ type }: { type: "idea" | "goal" }) {
                       variant="ghost"
                       size="sm"
                       className="h-7 w-7 p-0 text-muted-foreground hover:text-primary"
-                      title="Aggiungi a calendario"
                       onClick={() => handleExportGoal(item)}
                     >
                       <CalendarPlus className="w-3.5 h-3.5" />
@@ -577,6 +573,8 @@ function IdeasTab({ type }: { type: "idea" | "goal" }) {
 }
 
 function RecapTab({ mode }: { mode: "week" | "month" }) {
+  const { t } = useLanguage();
+  const dateLocale = useDateLocale();
   const { data: entries, isLoading } = useGetJournalEntries();
   const [offset, setOffset] = useState(0);
 
@@ -593,11 +591,11 @@ function RecapTab({ mode }: { mode: "week" | "month" }) {
       : endOfMonth(base);
 
     const label = mode === "week"
-      ? `${format(start, "d MMM", { locale: it })} - ${format(end, "d MMM yyyy", { locale: it })}`
-      : format(start, "MMMM yyyy", { locale: it });
+      ? `${format(start, "d MMM", { locale: dateLocale })} - ${format(end, "d MMM yyyy", { locale: dateLocale })}`
+      : format(start, "MMMM yyyy", { locale: dateLocale });
 
     return { start, end, label };
-  }, [mode, offset]);
+  }, [mode, offset, dateLocale]);
 
   const stats = useMemo(() => {
     if (!entries) return null;
@@ -616,8 +614,8 @@ function RecapTab({ mode }: { mode: "week" | "month" }) {
     const tagMap = new Map<string, number>();
     filtered.forEach((e) => {
       if (e.tags) {
-        e.tags.split(",").forEach((t) => {
-          const tag = t.trim();
+        e.tags.split(",").forEach((tg) => {
+          const tag = tg.trim();
           if (tag) tagMap.set(tag, (tagMap.get(tag) ?? 0) + 1);
         });
       }
@@ -628,7 +626,7 @@ function RecapTab({ mode }: { mode: "week" | "month" }) {
 
     const dailyMap = new Map<string, { wins: number; losses: number; breakevens: number }>();
     filtered.forEach((e) => {
-      const dayKey = format(parseISO(e.tradeDate), "EEE d", { locale: it });
+      const dayKey = format(parseISO(e.tradeDate), "EEE d", { locale: dateLocale });
       const existing = dailyMap.get(dayKey) ?? { wins: 0, losses: 0, breakevens: 0 };
       if (e.result === "win") existing.wins++;
       else if (e.result === "loss") existing.losses++;
@@ -637,7 +635,7 @@ function RecapTab({ mode }: { mode: "week" | "month" }) {
     });
 
     return { total, wins, losses, breakevens, winRate, topTags, dailyBreakdown: Array.from(dailyMap.entries()), trades: filtered };
-  }, [entries, periodInfo]);
+  }, [entries, periodInfo, dateLocale]);
 
   if (isLoading) {
     return (
@@ -671,20 +669,20 @@ function RecapTab({ mode }: { mode: "week" | "month" }) {
         <Card className="border-dashed border-white/10">
           <CardContent className="p-10 text-center">
             <BarChart3 className="w-10 h-10 mx-auto mb-3 opacity-20" />
-            <p className="text-muted-foreground">Nessun trade in questo periodo.</p>
+            <p className="text-muted-foreground">{t("journal.no_trades_period")}</p>
           </CardContent>
         </Card>
       ) : (
         <>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <StatCard label="Totale Trade" value={stats.total} icon={<BarChart3 className="w-4 h-4" />} color="text-foreground" />
-            <StatCard label="Win" value={stats.wins} icon={<TrendingUp className="w-4 h-4" />} color="text-green-400" />
-            <StatCard label="Loss" value={stats.losses} icon={<TrendingDown className="w-4 h-4" />} color="text-red-400" />
-            <StatCard label="Break Even" value={stats.breakevens} icon={<Minus className="w-4 h-4" />} color="text-yellow-400" />
+            <StatCard label={t("journal.total_trades")} value={stats.total} icon={<BarChart3 className="w-4 h-4" />} color="text-foreground" />
+            <StatCard label={t("journal.wins")} value={stats.wins} icon={<TrendingUp className="w-4 h-4" />} color="text-green-400" />
+            <StatCard label={t("journal.losses")} value={stats.losses} icon={<TrendingDown className="w-4 h-4" />} color="text-red-400" />
+            <StatCard label={t("journal.breakevens")} value={stats.breakevens} icon={<Minus className="w-4 h-4" />} color="text-yellow-400" />
           </div>
 
           <div className="rounded-2xl bg-card/60 backdrop-blur-sm border border-border/50 p-4 sm:p-6">
-            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3">Win Rate</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3">{t("journal.win_rate")}</p>
             <div className="flex items-end gap-3">
               <span className={`text-4xl sm:text-5xl font-mono font-bold ${stats.winRate >= 50 ? "text-green-400" : "text-red-400"}`}>
                 {stats.winRate}%
@@ -717,7 +715,7 @@ function RecapTab({ mode }: { mode: "week" | "month" }) {
 
           {stats.dailyBreakdown.length > 0 && (
             <div className="rounded-2xl bg-card/60 backdrop-blur-sm border border-border/50 p-4 sm:p-6">
-              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-4">Breakdown Giornaliero</p>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-4">{t("journal.daily_breakdown")}</p>
               <div className="space-y-2.5">
                 {stats.dailyBreakdown.map(([day, data]) => {
                   const dayTotal = data.wins + data.losses + data.breakevens;
@@ -760,7 +758,7 @@ function RecapTab({ mode }: { mode: "week" | "month" }) {
 
           {stats.topTags.length > 0 && (
             <div className="rounded-2xl bg-card/60 backdrop-blur-sm border border-border/50 p-4 sm:p-6">
-              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3">Tag Più Usati</p>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3">{t("journal.top_tags")}</p>
               <div className="flex flex-wrap gap-2">
                 {stats.topTags.map(([tag, count]) => (
                   <span
@@ -794,35 +792,36 @@ function StatCard({ label, value, icon, color }: { label: string; value: number;
 }
 
 export default function Journal() {
+  const { t } = useLanguage();
   const [tab, setTab] = useState<Tab>("trades");
 
-  const tabs: { id: Tab; label: string; icon: typeof BookOpen }[] = [
-    { id: "trades", label: "Trade", icon: BookOpen },
-    { id: "recap-settimanale", label: "Sett.", icon: BarChart3 },
-    { id: "recap-mensile", label: "Mese", icon: Calendar },
-    { id: "idee", label: "Idee", icon: Lightbulb },
-    { id: "obiettivi", label: "Obiettivi", icon: Target },
+  const tabs: { id: Tab; labelKey: string; icon: typeof BookOpen }[] = [
+    { id: "trades", labelKey: "journal.tab.trades", icon: BookOpen },
+    { id: "recap-settimanale", labelKey: "journal.tab.weekly", icon: BarChart3 },
+    { id: "recap-mensile", labelKey: "journal.tab.monthly", icon: Calendar },
+    { id: "idee", labelKey: "journal.tab.ideas", icon: Lightbulb },
+    { id: "obiettivi", labelKey: "journal.tab.goals", icon: Target },
   ];
 
   return (
     <PageLayout>
-      <PageHeader title="Diario" subtitle="Registra trade, idee e obiettivi di trading." />
+      <PageHeader title={t("journal.title")} subtitle={t("journal.subtitle")} />
 
       <div className="flex items-center gap-1 bg-card/50 backdrop-blur-md p-1.5 rounded-xl border border-border w-full overflow-x-auto">
-        {tabs.map(t => {
-          const Icon = t.icon;
+        {tabs.map(tabItem => {
+          const Icon = tabItem.icon;
           return (
             <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
+              key={tabItem.id}
+              onClick={() => setTab(tabItem.id)}
               className={`flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex-1 ${
-                tab === t.id
+                tab === tabItem.id
                   ? "bg-primary/10 text-primary shadow-[inset_0_0_20px_rgba(34,197,94,0.1)]"
                   : "text-muted-foreground hover:text-foreground hover:bg-white/5"
               }`}
             >
               <Icon className="w-4 h-4" />
-              {t.label}
+              {t(tabItem.labelKey)}
             </button>
           );
         })}

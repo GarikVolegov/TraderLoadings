@@ -15,9 +15,11 @@ import {
   useDeleteChecklistItem,
   getGetChecklistQueryKey,
 } from "@workspace/api-client-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function Checklist() {
   const { toast } = useToast();
+  const { t } = useLanguage();
   const qc = useQueryClient();
   const [newText, setNewText] = useState("");
   const { data: items, isLoading } = useGetChecklist();
@@ -34,7 +36,7 @@ export default function Checklist() {
       setNewText("");
       invalidate();
     } catch {
-      toast({ description: "Errore durante l'aggiunta.", variant: "destructive" });
+      toast({ description: t("checklist.error_add"), variant: "destructive" });
     }
   };
 
@@ -56,7 +58,7 @@ export default function Checklist() {
       )
     );
     invalidate();
-    toast({ description: "Checklist resettata." });
+    toast({ description: t("checklist.reset_done") });
   };
 
   const completed = items?.filter(i => i.completed).length ?? 0;
@@ -66,11 +68,11 @@ export default function Checklist() {
   return (
     <PageLayout>
       <PageHeader
-        title="Checklist Pre-Trade"
-        subtitle="Verifica ogni passaggio prima di entrare in trade."
+        title={t("checklist.title")}
+        subtitle={t("checklist.subtitle")}
         action={total > 0 ? (
           <Button variant="outline" size="sm" onClick={handleResetAll}>
-            Reset Giornaliero
+            {t("checklist.reset")}
           </Button>
         ) : undefined}
       />
@@ -78,7 +80,9 @@ export default function Checklist() {
       {total > 0 && (
         <Card className="p-4">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-muted-foreground">{completed}/{total} completati</span>
+            <span className="text-sm font-medium text-muted-foreground">
+              {t("checklist.completed_count", { done: completed, total })}
+            </span>
             <span className="text-sm font-bold text-primary">{progress}%</span>
           </div>
           <div className="w-full bg-secondary rounded-full h-2">
@@ -96,13 +100,13 @@ export default function Checklist() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <CheckSquare className="w-5 h-5 text-primary" />
-            Aggiungi Voce
+            {t("checklist.add_title")}
           </CardTitle>
         </CardHeader>
         <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
           <div className="flex gap-2 sm:gap-3">
             <Input
-              placeholder="es. Ho controllato le news..."
+              placeholder={t("checklist.add_placeholder")}
               value={newText}
               onChange={(e) => setNewText(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleAdd()}
@@ -110,7 +114,7 @@ export default function Checklist() {
             />
             <Button onClick={handleAdd} disabled={!newText.trim() || createMutation.isPending}>
               <Plus className="w-4 h-4 mr-1" />
-              <span className="hidden sm:inline">Aggiungi</span>
+              <span className="hidden sm:inline">{t("checklist.add_button")}</span>
             </Button>
           </div>
         </CardContent>
@@ -125,8 +129,8 @@ export default function Checklist() {
           ) : !items || items.length === 0 ? (
             <div className="p-12 text-center text-muted-foreground">
               <CheckSquare className="w-12 h-12 mx-auto mb-4 opacity-20" />
-              <p className="font-medium mb-1">Nessuna voce nella checklist</p>
-              <p className="text-sm">Aggiungi i passaggi da verificare prima di ogni trade.</p>
+              <p className="font-medium mb-1">{t("checklist.empty")}</p>
+              <p className="text-sm">{t("checklist.empty_desc")}</p>
             </div>
           ) : (
             <AnimatePresence>

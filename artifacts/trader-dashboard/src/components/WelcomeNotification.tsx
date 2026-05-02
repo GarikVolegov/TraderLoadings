@@ -2,9 +2,11 @@ import { useEffect, useRef } from "react";
 import { useGetMissions, useGetChecklist } from "@workspace/api-client-react";
 import { useLoading } from "@/contexts/LoadingContext";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export function WelcomeNotification() {
   const { isLoading } = useLoading();
+  const { t } = useLanguage();
   const firedRef = useRef(false);
   const { data: missions } = useGetMissions();
   const { data: checklist } = useGetChecklist();
@@ -26,12 +28,12 @@ export function WelcomeNotification() {
     if (totalMissions > 0) {
       lines.push(
         pendingMissions === 0
-          ? `Missioni: ${doneMissions}/${totalMissions} completate`
-          : `Missioni: ${pendingMissions} da completare (${doneMissions}/${totalMissions})`
+          ? `${t("welcome.missions")} ${doneMissions}/${totalMissions}`
+          : `${t("welcome.missions")} ${pendingMissions} — ${doneMissions}/${totalMissions}`
       );
     }
     if (totalChecklist > 0) {
-      lines.push(`Checklist: ${doneChecklist}/${totalChecklist}`);
+      lines.push(`${t("welcome.checklist")} ${doneChecklist}/${totalChecklist}`);
     }
 
     if (lines.length === 0) return;
@@ -48,7 +50,7 @@ export function WelcomeNotification() {
 
     const showToast = () => {
       toast({
-        title: "Riepilogo di oggi",
+        title: t("welcome.summary"),
         description: summary,
         duration: 6000,
       });
@@ -64,9 +66,8 @@ export function WelcomeNotification() {
     } else if (Notification.permission === "default") {
       showToast();
       toast({
-        title: "Attiva le notifiche",
-        description:
-          "Consenti le notifiche del browser per ricevere promemoria sui tuoi obiettivi e aggiornamenti sulle sessioni di trading.",
+        title: t("welcome.enable_notif"),
+        description: t("welcome.enable_notif_desc"),
         duration: 8000,
       });
       setTimeout(() => {
@@ -75,7 +76,7 @@ export function WelcomeNotification() {
     } else {
       showToast();
     }
-  }, [isLoading, missions, checklist, toast]);
+  }, [isLoading, missions, checklist, toast, t]);
 
   return null;
 }

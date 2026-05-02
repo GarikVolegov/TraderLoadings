@@ -6,11 +6,13 @@ import { QuoteWidget } from "@/components/QuoteWidget";
 import { MissionsWidget } from "@/components/MissionsWidget";
 import { CalendarWidget } from "@/components/CalendarWidget";
 import { ChecklistDashboardWidget } from "@/components/ChecklistDashboardWidget";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function Dashboard() {
+  const { t } = useLanguage();
   return (
     <PageLayout>
-      <PageHeader title="Dashboard" subtitle="Panoramica giornaliera del tuo trading" />
+      <PageHeader title={t("dashboard.title")} subtitle={t("dashboard.subtitle")} />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1fr_2fr] gap-4 sm:gap-6">
         <div className="space-y-4 sm:space-y-6">
           <motion.section

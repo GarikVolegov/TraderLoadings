@@ -1569,7 +1569,7 @@ interface SettingsTile {
 export default function Settings() {
   const { isAuthenticated, isLoading, login, logout } = useAuth();
   const { isPinSet } = usePinLock();
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const [activeDesktopSection, setActiveDesktopSection] = useState<TileId>("audio");
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     pairs: false,
@@ -1588,23 +1588,23 @@ export default function Settings() {
   });
 
   const tiles: SettingsTile[] = [
-    { id: "profilo", icon: <UserPlus className="w-6 h-6" />, label: "Profilo", subtitle: "Nome, avatar, XP", color: "text-primary", glow: "group-hover:shadow-primary/20" },
-    { id: "pairs", icon: <BarChart2 className="w-6 h-6" />, label: "Pair Preferiti", subtitle: "Strumenti di trading", color: "text-indigo-400", glow: "group-hover:shadow-indigo-400/20" },
-    { id: "audio", icon: <Music className="w-6 h-6" />, label: "Audio", subtitle: "Binaural & focus", color: "text-blue-400", glow: "group-hover:shadow-blue-400/20" },
-    { id: "aspetto", icon: <Sun className="w-6 h-6" />, label: "Aspetto", subtitle: "Sfondo, font, tema", color: "text-yellow-400", glow: "group-hover:shadow-yellow-400/20" },
-    { id: "notifiche", icon: <Bell className="w-6 h-6" />, label: "Notifiche", subtitle: "Allarmi & reminder", color: "text-orange-400", glow: "group-hover:shadow-orange-400/20" },
-    { id: "sicurezza", icon: <Lock className="w-6 h-6" />, label: "Sicurezza", subtitle: isPinSet ? "PIN attivo 🟢" : "PIN non impostato", color: "text-emerald-400", glow: "group-hover:shadow-emerald-400/20" },
-    { id: "lingua", icon: <Globe className="w-6 h-6" />, label: "Lingua", subtitle: `${LANGUAGES[language].flag} ${LANGUAGES[language].name}`, color: "text-cyan-400", glow: "group-hover:shadow-cyan-400/20" },
-    { id: "trading", icon: <TrendingUp className="w-6 h-6" />, label: "Trading", subtitle: "Sessioni & risk", color: "text-violet-400", glow: "group-hover:shadow-violet-400/20" },
-    { id: "missioni", icon: <Target className="w-6 h-6" />, label: "Missioni", subtitle: "Template & abitudini", color: "text-rose-400", glow: "group-hover:shadow-rose-400/20" },
-    { id: "citazioni", icon: <Quote className="w-6 h-6" />, label: "Citazioni", subtitle: "Frasi motivazionali", color: "text-amber-400", glow: "group-hover:shadow-amber-400/20" },
-    { id: "checklist", icon: <CheckSquare className="w-6 h-6" />, label: "Checklist", subtitle: "Routine pre-trade", color: "text-teal-400", glow: "group-hover:shadow-teal-400/20" },
-    { id: "biblioteca", icon: <Library className="w-6 h-6" />, label: "Biblioteca", subtitle: "Premi & contenuti formativi", color: "text-primary", glow: "group-hover:shadow-primary/20" },
-    { id: "supporto", icon: <HelpCircle className="w-6 h-6" />, label: "Supporto & Aiuto", subtitle: "FAQ, guide, feedback", color: "text-sky-400", glow: "group-hover:shadow-sky-400/20" },
-    { id: "account", icon: isAuthenticated ? <LogOut className="w-6 h-6" /> : <LogIn className="w-6 h-6" />, label: "Account", subtitle: isAuthenticated ? "Accesso attivo" : "Accedi o registrati", color: "text-slate-400", glow: "group-hover:shadow-slate-400/20" },
+    { id: "profilo", icon: <UserPlus className="w-6 h-6" />, label: t("settings.tile.profile"), subtitle: t("settings.tile.profile_sub"), color: "text-primary", glow: "group-hover:shadow-primary/20" },
+    { id: "pairs", icon: <BarChart2 className="w-6 h-6" />, label: t("settings.tile.pairs"), subtitle: t("settings.tile.pairs_sub"), color: "text-indigo-400", glow: "group-hover:shadow-indigo-400/20" },
+    { id: "audio", icon: <Music className="w-6 h-6" />, label: t("settings.tile.audio"), subtitle: t("settings.tile.audio_sub"), color: "text-blue-400", glow: "group-hover:shadow-blue-400/20" },
+    { id: "aspetto", icon: <Sun className="w-6 h-6" />, label: t("settings.tile.appearance"), subtitle: t("settings.tile.appearance_sub"), color: "text-yellow-400", glow: "group-hover:shadow-yellow-400/20" },
+    { id: "notifiche", icon: <Bell className="w-6 h-6" />, label: t("settings.tile.notifications"), subtitle: t("settings.tile.notifications_sub"), color: "text-orange-400", glow: "group-hover:shadow-orange-400/20" },
+    { id: "sicurezza", icon: <Lock className="w-6 h-6" />, label: t("settings.tile.security"), subtitle: isPinSet ? t("settings.tile.security_active") : t("settings.tile.security_inactive"), color: "text-emerald-400", glow: "group-hover:shadow-emerald-400/20" },
+    { id: "lingua", icon: <Globe className="w-6 h-6" />, label: t("settings.tile.language"), subtitle: `${LANGUAGES[language].flag} ${LANGUAGES[language].name}`, color: "text-cyan-400", glow: "group-hover:shadow-cyan-400/20" },
+    { id: "trading", icon: <TrendingUp className="w-6 h-6" />, label: t("settings.tile.trading"), subtitle: t("settings.tile.trading_sub"), color: "text-violet-400", glow: "group-hover:shadow-violet-400/20" },
+    { id: "missioni", icon: <Target className="w-6 h-6" />, label: t("settings.tile.missions"), subtitle: t("settings.tile.missions_sub"), color: "text-rose-400", glow: "group-hover:shadow-rose-400/20" },
+    { id: "citazioni", icon: <Quote className="w-6 h-6" />, label: t("settings.tile.quotes"), subtitle: t("settings.tile.quotes_sub"), color: "text-amber-400", glow: "group-hover:shadow-amber-400/20" },
+    { id: "checklist", icon: <CheckSquare className="w-6 h-6" />, label: t("settings.tile.checklist"), subtitle: t("settings.tile.checklist_sub"), color: "text-teal-400", glow: "group-hover:shadow-teal-400/20" },
+    { id: "biblioteca", icon: <Library className="w-6 h-6" />, label: t("settings.tile.library"), subtitle: t("settings.tile.library_sub"), color: "text-primary", glow: "group-hover:shadow-primary/20" },
+    { id: "supporto", icon: <HelpCircle className="w-6 h-6" />, label: t("settings.tile.support"), subtitle: t("settings.tile.support_sub"), color: "text-sky-400", glow: "group-hover:shadow-sky-400/20" },
+    { id: "account", icon: isAuthenticated ? <LogOut className="w-6 h-6" /> : <LogIn className="w-6 h-6" />, label: t("settings.tile.account"), subtitle: isAuthenticated ? t("settings.tile.account_active") : t("settings.tile.account_inactive"), color: "text-slate-400", glow: "group-hover:shadow-slate-400/20" },
   ];
   
-  const collapsibleSections = tiles.filter(t => t.id !== "profilo");
+  const collapsibleSections = tiles.filter(tile => tile.id !== "profilo");
 
   const tileContent: Record<TileId, React.ReactNode> = {
     profilo: <ProfileWidget />,
@@ -1628,13 +1628,13 @@ export default function Settings() {
     supporto: <SupportSection />,
     account: isAuthenticated ? (
       <div className="space-y-4">
-        <p className="text-sm text-muted-foreground">Sei attualmente autenticato. Puoi uscire dal tuo account in qualsiasi momento.</p>
+        <p className="text-sm text-muted-foreground">{t("settings.account.logged_in")}</p>
         <Button onClick={logout} variant="outline" className="w-full border-destructive/50 text-destructive hover:bg-destructive/10">
-          <LogOut className="w-4 h-4 mr-2" /> Esci
+          <LogOut className="w-4 h-4 mr-2" /> {t("settings.account.logout")}
         </Button>
       </div>
     ) : (
-      !isLoading ? <AuthSection login={login} /> : <p className="text-sm text-muted-foreground">Caricamento...</p>
+      !isLoading ? <AuthSection login={login} /> : <p className="text-sm text-muted-foreground">{t("settings.account.loading")}</p>
     ),
   };
 

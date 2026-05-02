@@ -2,6 +2,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Delete, ShieldCheck, AlertCircle } from "lucide-react";
 import { usePinLock } from "@/contexts/PinLockContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const KEYS = [
   ["1", "2", "3"],
@@ -12,6 +13,7 @@ const KEYS = [
 
 export function PinLockScreen() {
   const { isLocked, unlock } = usePinLock();
+  const { t } = useLanguage();
   const [pin, setPin] = useState("");
   const [error, setError] = useState(false);
   const [shake, setShake] = useState(false);
@@ -57,7 +59,7 @@ export function PinLockScreen() {
             <ShieldCheck className="w-8 h-8 text-primary" />
           </div>
           <h1 className="text-2xl font-bold font-mono tracking-tight">TraderLoading</h1>
-          <p className="text-sm text-muted-foreground">Inserisci il tuo PIN per continuare</p>
+          <p className="text-sm text-muted-foreground">{t("pin.enter")}</p>
         </div>
 
         <motion.div
@@ -93,7 +95,7 @@ export function PinLockScreen() {
               className="flex items-center gap-2 text-destructive text-sm"
             >
               <AlertCircle className="w-4 h-4" />
-              PIN non corretto
+              {t("pin.incorrect")}
             </motion.div>
           )}
         </AnimatePresence>
@@ -118,7 +120,7 @@ export function PinLockScreen() {
           ))}
         </div>
 
-        <p className="text-xs text-muted-foreground/50">Dispositivo ricordato per questa sessione</p>
+        <p className="text-xs text-muted-foreground/50">{t("pin.remembered")}</p>
       </motion.div>
     </div>
   );

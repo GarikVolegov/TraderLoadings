@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useGetMissions, useCompleteMission, getGetMissionsQueryKey, getGetProfileQueryKey, type Mission } from "@workspace/api-client-react";
 import { downloadICS } from "@/utils/icsExport";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 function exportMissionToCalendar(mission: Mission) {
   const today = new Date();
@@ -28,6 +29,7 @@ function exportMissionToCalendar(mission: Mission) {
 export function MissionsWidget() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { t } = useLanguage();
   const { data: missions, isLoading } = useGetMissions();
 
   const completeMutation = useCompleteMission({
@@ -35,18 +37,18 @@ export function MissionsWidget() {
       onSuccess: (data) => {
         queryClient.invalidateQueries({ queryKey: getGetMissionsQueryKey() });
         queryClient.invalidateQueries({ queryKey: getGetProfileQueryKey() });
-        
+
         toast({
-          title: "Missione Completata!",
-          description: `Hai guadagnato ${data.mission.xpReward} XP.`,
+          title: t("missions.completed_toast"),
+          description: t("missions.xp_earned", { xp: data.mission.xpReward }),
           className: "bg-card border-primary text-foreground",
         });
 
         if (data.levelUp) {
           fireConfetti();
           toast({
-            title: "🎉 LIVELLO SUPERATO! 🎉",
-            description: `Complimenti! Hai raggiunto il livello ${data.profile.level}.`,
+            title: t("missions.level_up"),
+            description: t("missions.level_up_desc", { level: data.profile.level }),
             className: "bg-primary text-primary-foreground border-none shadow-[0_0_30px_rgba(34,197,94,0.5)] font-bold",
             duration: 6000,
           });
@@ -86,7 +88,7 @@ export function MissionsWidget() {
     completeMutation.mutate({ id });
   };
 
-  const totalEarnedXp = missions 
+  const totalEarnedXp = missions
     ? missions.filter(m => m.completed).reduce((sum, m) => sum + m.xpReward, 0)
     : 0;
 
@@ -95,14 +97,14 @@ export function MissionsWidget() {
       <CardHeader className="flex flex-row items-center justify-between pb-3 sm:pb-4 px-3 sm:px-6 pt-3 sm:pt-6 border-b border-border/50 bg-secondary/10">
         <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
           <Target className="w-4 h-4 sm:w-5 sm:h-5 text-accent" />
-          Missioni Giornaliere
+          {t("missions.title")}
         </CardTitle>
         <div className="flex items-center gap-1.5 sm:gap-2 bg-primary/10 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full border border-primary/20">
           <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />
           <span className="text-xs sm:text-sm font-bold text-primary font-mono">+{totalEarnedXp} XP</span>
         </div>
       </CardHeader>
-      
+
       <CardContent className="p-0">
         {isLoading ? (
           <div className="p-4 flex justify-center">
@@ -113,9 +115,9 @@ export function MissionsWidget() {
             <div className="px-4 py-4 flex items-center gap-3 text-muted-foreground hover:text-foreground hover:bg-secondary/20 transition-colors cursor-pointer group">
               <Settings className="w-5 h-5 opacity-40 group-hover:opacity-70 transition-opacity shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium">Nessuna missione disponibile oggi</p>
+                <p className="text-sm font-medium">{t("missions.empty")}</p>
                 <span className="text-xs flex items-center gap-1 text-primary mt-0.5">
-                  Configura le missioni in Impostazioni
+                  {t("missions.empty_link")}
                   <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-0.5" />
                 </span>
               </div>
@@ -124,11 +126,11 @@ export function MissionsWidget() {
         ) : (
           <div className="divide-y divide-border/50">
             {missions.map((mission, idx) => (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: idx * 0.1 }}
-                key={mission.id} 
+                key={mission.id}
                 className={`p-3 sm:p-4 md:p-6 flex flex-col sm:flex-row gap-3 sm:gap-4 items-start sm:items-center justify-between transition-colors hover:bg-secondary/20 ${mission.completed ? 'opacity-60 grayscale' : ''}`}
               >
                 <div className="flex items-start gap-3 sm:gap-4">
@@ -153,25 +155,25 @@ export function MissionsWidget() {
                   <div className="flex items-center justify-center bg-secondary/80 border border-border px-3 py-1 rounded-md font-mono text-sm font-bold text-accent">
                     {mission.xpReward} XP
                   </div>
-                  
+
                   <Button
                     size="sm"
                     variant="ghost"
                     className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
-                    title="Aggiungi a calendario"
+                    title={t("missions.add_calendar")}
                     onClick={() => exportMissionToCalendar(mission)}
                   >
                     <CalendarPlus className="w-4 h-4" />
                   </Button>
 
                   {!mission.completed && (
-                    <Button 
+                    <Button
                       size="sm"
                       onClick={() => handleComplete(mission.id)}
                       disabled={completeMutation.isPending}
                       className="group"
                     >
-                      Completa
+                      {t("missions.complete_button")}
                       <ChevronRight className="w-4 h-4 ml-1 transition-transform group-hover:translate-x-1" />
                     </Button>
                   )}

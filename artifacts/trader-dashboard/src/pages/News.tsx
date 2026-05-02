@@ -6,8 +6,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
-import { it } from "date-fns/locale";
 import { useBackground } from "@/contexts/BackgroundContext";
+import { useLanguage, useDateLocale } from "@/contexts/LanguageContext";
 
 interface Article {
   title: string;
@@ -26,28 +26,30 @@ interface NewsData {
 }
 
 function SentimentBadge({ sentiment }: { sentiment?: string | null }) {
+  const { t } = useLanguage();
   if (!sentiment) return null;
-  const map: Record<string, { label: string; cls: string; Icon: typeof TrendingUp }> = {
-    bullish: { label: "Rialzista 🟢", cls: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30", Icon: TrendingUp },
-    bearish: { label: "Ribassista 🔴", cls: "bg-red-500/10 text-red-400 border-red-500/30", Icon: TrendingDown },
-    neutral: { label: "Neutro ⚪", cls: "bg-white/5 text-muted-foreground border-white/10", Icon: Minus },
+  const map: Record<string, { labelKey: string; cls: string; Icon: typeof TrendingUp }> = {
+    bullish: { labelKey: "news.bullish", cls: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30", Icon: TrendingUp },
+    bearish: { labelKey: "news.bearish", cls: "bg-red-500/10 text-red-400 border-red-500/30", Icon: TrendingDown },
+    neutral: { labelKey: "news.neutral", cls: "bg-white/5 text-muted-foreground border-white/10", Icon: Minus },
   };
   const cfg = map[sentiment] ?? map.neutral;
   const { Icon } = cfg;
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold border whitespace-nowrap ${cfg.cls}`}>
       <Icon className="w-3 h-3" />
-      {cfg.label}
+      {t(cfg.labelKey)}
     </span>
   );
 }
 
 function TimeAgo({ iso }: { iso?: string | null }) {
+  const locale = useDateLocale();
   if (!iso) return null;
   try {
     return (
       <span>
-        {formatDistanceToNow(new Date(iso), { locale: it, addSuffix: true })}
+        {formatDistanceToNow(new Date(iso), { locale, addSuffix: true })}
       </span>
     );
   } catch {
@@ -56,10 +58,11 @@ function TimeAgo({ iso }: { iso?: string | null }) {
 }
 
 export default function News() {
+  const { t } = useLanguage();
   const qc = useQueryClient();
   const { selectedPairs } = useBackground();
   const pairsParam = selectedPairs.length > 0 ? `&pairs=${selectedPairs.join(",")}` : "";
-  const { data, isLoading, isFetching, refetch } = useQuery<NewsData>({
+  const { data, isLoading, isFetching } = useQuery<NewsData>({
     queryKey: ["macro-news", selectedPairs],
     queryFn: async () => {
       const res = await fetch(`api/news?_=1${pairsParam}`, { credentials: "include" });
@@ -78,18 +81,18 @@ export default function News() {
     }
   };
 
-  const sourceLabel = newsData?.source === "ai" ? "Perplexity AI" : "RSS Feed in tempo reale";
+  const sourceLabel = newsData?.source === "ai" ? t("news.source.ai") : t("news.source.rss");
   const SourceIcon = newsData?.source === "ai" ? Cpu : Rss;
 
   return (
     <PageLayout>
       <PageHeader
-        title="Notizie Macro"
-        subtitle="News su oro (XAU) e dollaro (USD) in tempo reale."
+        title={t("news.title")}
+        subtitle={t("news.subtitle")}
         action={
           <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isFetching}>
             <RefreshCw className={`w-4 h-4 mr-2 ${isFetching ? "animate-spin" : ""}`} />
-            Aggiorna
+            {t("news.refresh")}
           </Button>
         }
       />
@@ -104,7 +107,7 @@ export default function News() {
         <>
           <div className="flex items-center gap-2 text-xs text-muted-foreground/60">
             <SourceIcon className="w-3.5 h-3.5" />
-            <span>Fonte: {sourceLabel}</span>
+            <span>{sourceLabel}</span>
             {newsData.fetchedAt && (
               <>
                 <span>·</span>
@@ -167,13 +170,13 @@ export default function News() {
         <Card className="bg-card/60 backdrop-blur-sm border-border/30">
           <CardContent className="p-16 text-center">
             <Newspaper className="w-14 h-14 mx-auto mb-5 opacity-15" />
-            <h3 className="text-xl font-bold mb-2">Nessuna notizia disponibile</h3>
+            <h3 className="text-xl font-bold mb-2">{t("news.empty")}</h3>
             <p className="text-sm text-muted-foreground max-w-sm mx-auto mb-6">
-              Impossibile recuperare le notizie in questo momento. Controlla la connessione e riprova.
+              {t("news.empty_desc")}
             </p>
             <Button variant="outline" onClick={handleRefresh} disabled={isFetching}>
               <RefreshCw className={`w-4 h-4 mr-2 ${isFetching ? "animate-spin" : ""}`} />
-              Riprova
+              {t("news.refresh")}
             </Button>
           </CardContent>
         </Card>

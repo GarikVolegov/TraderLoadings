@@ -8,20 +8,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Wind, Eye, BookOpen, Heart, Clock, Play, Pause, RotateCcw, ChevronRight } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 type Phase = "inspira" | "trattieni" | "espira" | "riposa";
 
-const PHASE_CONFIG: Record<Phase, { label: string; duration: number; color: string; ringColor: string }> = {
-  inspira:   { label: "Inspira",   duration: 4, color: "text-emerald-400", ringColor: "stroke-emerald-400" },
-  trattieni: { label: "Trattieni", duration: 4, color: "text-sky-400",     ringColor: "stroke-sky-400" },
-  espira:    { label: "Espira",    duration: 4, color: "text-amber-400",   ringColor: "stroke-amber-400" },
-  riposa:    { label: "Riposa",    duration: 2, color: "text-slate-400",   ringColor: "stroke-slate-400" },
+const PHASE_CONFIG: Record<Phase, { duration: number; color: string; ringColor: string }> = {
+  inspira:   { duration: 4, color: "text-emerald-400", ringColor: "stroke-emerald-400" },
+  trattieni: { duration: 4, color: "text-sky-400",     ringColor: "stroke-sky-400" },
+  espira:    { duration: 4, color: "text-amber-400",   ringColor: "stroke-amber-400" },
+  riposa:    { duration: 2, color: "text-slate-400",   ringColor: "stroke-slate-400" },
 };
 
 const PHASES: Phase[] = ["inspira", "trattieni", "espira", "riposa"];
 const CIRCUMFERENCE = 2 * Math.PI * 46;
 
 function BreathingExercise() {
+  const { t } = useLanguage();
   const [phase, setPhase] = useState<Phase>("inspira");
   const [isActive, setIsActive] = useState(false);
   const [count, setCount] = useState(0);
@@ -95,7 +97,7 @@ function BreathingExercise() {
               className="w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-gradient-to-br from-card to-card/60 border border-border/50 flex flex-col items-center justify-center shadow-lg"
             >
               <span className={`text-base sm:text-lg font-bold ${config.color} transition-colors duration-500`}>
-                {config.label}
+                {t(`zen.breathing.${phase}` as any)}
               </span>
               {isActive && (
                 <span className="text-2xl sm:text-3xl font-mono font-bold text-foreground mt-0.5">
@@ -118,24 +120,26 @@ function BreathingExercise() {
         </div>
 
         <p className="text-xs text-muted-foreground">
-          Cicli completati: <span className="font-semibold text-foreground">{count}</span>
+          {t("zen.breathing.cycles")} <span className="font-semibold text-foreground">{count}</span>
         </p>
 
         <div className="flex gap-3">
           <Button onClick={() => setIsActive(!isActive)} className="gap-2 min-w-[120px]">
-            {isActive ? <><Pause className="w-4 h-4" /> Pausa</> : <><Play className="w-4 h-4" /> Inizia</>}
+            {isActive
+              ? <><Pause className="w-4 h-4" /> {t("common.pause")}</>
+              : <><Play className="w-4 h-4" /> {t("common.start")}</>}
           </Button>
           <Button
             variant="outline"
             onClick={() => { setIsActive(false); setPhase("inspira"); setCount(0); setElapsed(0); }}
             className="gap-2"
           >
-            <RotateCcw className="w-4 h-4" /> Reset
+            <RotateCcw className="w-4 h-4" /> {t("common.reset")}
           </Button>
         </div>
 
         <p className="text-[10px] sm:text-xs text-muted-foreground/60 text-center max-w-xs">
-          Tecnica 4-4-4-2: inspira (4s), trattieni (4s), espira (4s), riposa (2s)
+          {t("zen.breathing.hint")}
         </p>
       </CardContent>
     </Card>
@@ -143,6 +147,7 @@ function BreathingExercise() {
 }
 
 function ResultVisualization() {
+  const { t } = useLanguage();
   const [goal, setGoal] = useState("");
 
   return (
@@ -150,17 +155,17 @@ function ResultVisualization() {
       <CardContent className="space-y-4 sm:space-y-6 py-6 sm:py-8 px-4 sm:px-6">
         <div className="flex items-center gap-2 mb-2">
           <Eye className="w-5 h-5 text-primary" />
-          <h3 className="text-base font-bold">Visualizzazione del Risultato</h3>
+          <h3 className="text-base font-bold">{t("zen.visualization.title")}</h3>
         </div>
 
         <div>
           <label className="text-xs sm:text-sm font-medium text-muted-foreground block mb-2">
-            Visualizza il tuo obiettivo di trading:
+            {t("zen.visualization.label")}
           </label>
           <Textarea
             value={goal}
             onChange={(e) => setGoal(e.target.value)}
-            placeholder="Es. Voglio completare 3 trade vincenti con disciplina, gestire il rischio perfettamente..."
+            placeholder={t("zen.visualization.placeholder")}
             className="h-24 sm:h-32 resize-none text-sm"
           />
         </div>
@@ -172,7 +177,7 @@ function ResultVisualization() {
             className="p-4 sm:p-6 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 space-y-3 sm:space-y-4"
           >
             <p className="text-xs sm:text-sm text-muted-foreground">
-              Chiudi gli occhi, respira profondamente e visualizza chiaramente:
+              {t("zen.visualization.hint_1")}
             </p>
             <motion.p
               className="text-sm sm:text-lg font-semibold text-foreground italic"
@@ -182,7 +187,7 @@ function ResultVisualization() {
               {goal}
             </motion.p>
             <p className="text-[10px] sm:text-xs text-muted-foreground/60">
-              Mantieni questa immagine per 1-2 minuti. Senti le emozioni di successo.
+              {t("zen.visualization.hint_2")}
             </p>
           </motion.div>
         )}
@@ -192,11 +197,12 @@ function ResultVisualization() {
 }
 
 function MotivationalQuotes() {
+  const { t } = useLanguage();
   const quotes = [
-    { text: "La disciplina \u00e8 scegliere tra ci\u00f2 che vuoi adesso e ci\u00f2 che vuoi di pi\u00f9.", author: "Abraham Lincoln" },
-    { text: "Il trading non \u00e8 una maratona, \u00e8 una serie di sprint disciplinati.", author: "Saggezza del mercato" },
-    { text: "La paura e l\u2019avidit\u00e0 sono i nemici del trader consapevole.", author: "Saggio del trading" },
-    { text: "Ogni perdita \u00e8 una lezione, non una sconfitta.", author: "Mentalit\u00e0 vincente" },
+    { text: "La disciplina è scegliere tra ciò che vuoi adesso e ciò che vuoi di più.", author: "Abraham Lincoln" },
+    { text: "Il trading non è una maratona, è una serie di sprint disciplinati.", author: "Saggezza del mercato" },
+    { text: "La paura e l'avidità sono i nemici del trader consapevole.", author: "Saggio del trading" },
+    { text: "Ogni perdita è una lezione, non una sconfitta.", author: "Mentalità vincente" },
     { text: "Il successo arriva a chi controlla le emozioni, non a chi segue le emozioni.", author: "Psicologia del trading" },
     { text: "Pianifica il tuo trade, quindi trada il tuo piano.", author: "Mark Douglas" },
   ];
@@ -208,7 +214,7 @@ function MotivationalQuotes() {
       <CardContent className="flex flex-col items-center justify-center py-8 sm:py-14 px-4 space-y-6 sm:space-y-8">
         <div className="flex items-center gap-2 mb-2">
           <BookOpen className="w-5 h-5 text-primary" />
-          <h3 className="text-base font-bold">Frasi Motivazionali</h3>
+          <h3 className="text-base font-bold">{t("zen.quotes.title")}</h3>
         </div>
 
         <AnimatePresence mode="wait">
@@ -227,7 +233,7 @@ function MotivationalQuotes() {
         </AnimatePresence>
 
         <Button variant="outline" onClick={() => setCurrent((current + 1) % quotes.length)} size="sm">
-          Prossima
+          {t("zen.quotes.next")}
         </Button>
 
         <p className="text-[10px] sm:text-xs text-muted-foreground/60">
@@ -239,6 +245,7 @@ function MotivationalQuotes() {
 }
 
 function Gratitude() {
+  const { t } = useLanguage();
   const [gratitudes, setGratitudes] = useState<string[]>([]);
   const [input, setInput] = useState("");
 
@@ -254,11 +261,11 @@ function Gratitude() {
       <CardContent className="space-y-4 py-6 sm:py-8 px-4 sm:px-6">
         <div className="flex items-center gap-2 mb-2">
           <Heart className="w-5 h-5 text-primary" />
-          <h3 className="text-base font-bold">Gratitudine</h3>
+          <h3 className="text-base font-bold">{t("zen.gratitude.title")}</h3>
         </div>
 
         <p className="text-xs sm:text-sm text-muted-foreground">
-          Elenca 3 cose per cui sei grato oggi:
+          {t("zen.gratitude.label")}
         </p>
 
         <div className="flex gap-2">
@@ -267,7 +274,7 @@ function Gratitude() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && addGratitude()}
-            placeholder="Es. La disciplina..."
+            placeholder={t("zen.gratitude.placeholder")}
             className="flex-1 text-sm"
           />
           <Button onClick={addGratitude} size="sm" className="px-3">
@@ -298,6 +305,7 @@ function Gratitude() {
 }
 
 function MeditationTimer() {
+  const { t } = useLanguage();
   const [minutes, setMinutes] = useState(5);
   const [seconds, setSeconds] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
@@ -340,7 +348,7 @@ function MeditationTimer() {
       <CardContent className="flex flex-col items-center justify-center py-8 sm:py-12 px-4 space-y-6 sm:space-y-8">
         <div className="flex items-center gap-2 mb-2">
           <Clock className="w-5 h-5 text-primary" />
-          <h3 className="text-base font-bold">Meditazione</h3>
+          <h3 className="text-base font-bold">{t("zen.meditation.title")}</h3>
         </div>
 
         <div className="relative w-36 h-36 sm:w-48 sm:h-48">
@@ -381,20 +389,20 @@ function MeditationTimer() {
         ) : (
           <div className="flex gap-2">
             <Button onClick={() => setIsRunning(false)} className="gap-2">
-              <Pause className="w-4 h-4" /> Pausa
+              <Pause className="w-4 h-4" /> {t("common.pause")}
             </Button>
             <Button
               variant="outline"
               onClick={() => { setIsRunning(false); setMinutes(5); setSeconds(0); }}
               className="gap-2"
             >
-              <RotateCcw className="w-4 h-4" /> Reset
+              <RotateCcw className="w-4 h-4" /> {t("common.reset")}
             </Button>
           </div>
         )}
 
         <p className="text-[10px] sm:text-xs text-muted-foreground/60 text-center max-w-xs">
-          Trova un posto tranquillo, chiudi gli occhi e concentrati sul respiro.
+          {t("zen.meditation.hint")}
         </p>
       </CardContent>
     </Card>
@@ -402,9 +410,10 @@ function MeditationTimer() {
 }
 
 export default function Zen() {
+  const { t } = useLanguage();
   return (
     <PageLayout>
-      <PageHeader title="Zona Zen" subtitle="Respira, medita e coltiva la mentalità giusta" />
+      <PageHeader title={t("zen.title")} subtitle={t("zen.subtitle")} />
       <motion.section
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -413,33 +422,19 @@ export default function Zen() {
         <Tabs defaultValue="breathing" className="w-full">
           <div className="flex flex-col md:flex-row gap-4 md:gap-6">
             <TabsList className="flex md:flex-col w-full md:w-1/3 h-auto gap-1 bg-card/50 backdrop-blur-md p-1.5 rounded-xl border border-border md:self-start">
-              <TabsTrigger value="breathing" className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm flex-1 md:w-full">Respira</TabsTrigger>
-              <TabsTrigger value="visualization" className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm flex-1 md:w-full">Visualizza</TabsTrigger>
-              <TabsTrigger value="quotes" className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm flex-1 md:w-full">Frasi</TabsTrigger>
-              <TabsTrigger value="gratitude" className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm flex-1 md:w-full">Gratitudine</TabsTrigger>
-              <TabsTrigger value="meditation" className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm flex-1 md:w-full">Meditazione</TabsTrigger>
+              <TabsTrigger value="breathing"     className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm flex-1 md:w-full">{t("zen.tab.breathing")}</TabsTrigger>
+              <TabsTrigger value="visualization" className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm flex-1 md:w-full">{t("zen.tab.visualization")}</TabsTrigger>
+              <TabsTrigger value="quotes"        className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm flex-1 md:w-full">{t("zen.tab.quotes")}</TabsTrigger>
+              <TabsTrigger value="gratitude"     className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm flex-1 md:w-full">{t("zen.tab.gratitude")}</TabsTrigger>
+              <TabsTrigger value="meditation"    className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm flex-1 md:w-full">{t("zen.tab.meditation")}</TabsTrigger>
             </TabsList>
 
             <div className="md:w-2/3">
-              <TabsContent value="breathing" className="mt-0">
-                <BreathingExercise />
-              </TabsContent>
-
-              <TabsContent value="visualization" className="mt-0">
-                <ResultVisualization />
-              </TabsContent>
-
-              <TabsContent value="quotes" className="mt-0">
-                <MotivationalQuotes />
-              </TabsContent>
-
-              <TabsContent value="gratitude" className="mt-0">
-                <Gratitude />
-              </TabsContent>
-
-              <TabsContent value="meditation" className="mt-0">
-                <MeditationTimer />
-              </TabsContent>
+              <TabsContent value="breathing"     className="mt-0"><BreathingExercise /></TabsContent>
+              <TabsContent value="visualization" className="mt-0"><ResultVisualization /></TabsContent>
+              <TabsContent value="quotes"        className="mt-0"><MotivationalQuotes /></TabsContent>
+              <TabsContent value="gratitude"     className="mt-0"><Gratitude /></TabsContent>
+              <TabsContent value="meditation"    className="mt-0"><MeditationTimer /></TabsContent>
             </div>
           </div>
         </Tabs>

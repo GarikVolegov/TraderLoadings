@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { PageLayout } from "@/components/PageLayout";
 import { PageHeader } from "@/components/PageHeader";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { EmojiPickerPanel } from "@/components/EmojiPickerPanel";
 import { useE2EEKeys } from "@/hooks/useE2EEKeys";
 import { useAuth } from "@workspace/replit-auth-web";
@@ -166,19 +167,29 @@ function PositionBadge({ position }: { position: number }) {
   return <div className="w-8 h-8 rounded-full bg-secondary/50 border border-border flex items-center justify-center"><span className="text-xs font-bold font-mono text-muted-foreground">#{position}</span></div>;
 }
 
-function timeAgo(iso: string) {
+function timeAgo(iso: string, lang: string) {
   const diff = Date.now() - new Date(iso).getTime();
   const m = Math.floor(diff / 60000);
-  if (m < 1) return "ora";
-  if (m < 60) return `${m}m fa`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h fa`;
-  return `${Math.floor(h / 24)}g fa`;
+  try {
+    const rtf = new Intl.RelativeTimeFormat(lang, { numeric: "auto" });
+    if (m < 1) return rtf.format(0, "minute");
+    if (m < 60) return rtf.format(-m, "minute");
+    const h = Math.floor(m / 60);
+    if (h < 24) return rtf.format(-h, "hour");
+    return rtf.format(-Math.floor(h / 24), "day");
+  } catch {
+    if (m < 1) return "now";
+    if (m < 60) return `${m}m`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h`;
+    return `${Math.floor(h / 24)}d`;
+  }
 }
 
 // ─── User Profile Modal ───────────────────────────────────────────────────────
 
 function UserProfileModal({ userId, currentUserId, onClose, onStartChat }: { userId: string; currentUserId: string; onClose: () => void; onStartChat?: (u: SocialUser) => void }) {
+  const { language } = useLanguage();
   const qc = useQueryClient();
   const { data, isLoading } = useUserProfile(userId);
 
@@ -261,7 +272,7 @@ function UserProfileModal({ userId, currentUserId, onClose, onStartChat }: { use
                     <p className="text-foreground/90 whitespace-pre-wrap">{p.content}</p>
                     <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1"><Heart className="w-3 h-3" />{p.likesCount}</span>
-                      <span>{timeAgo(p.createdAt)}</span>
+                      <span>{timeAgo(p.createdAt, language)}</span>
                     </div>
                   </div>
                 ))}
@@ -673,6 +684,7 @@ function CreatePostModal({ onClose, currentUserId }: { onClose: () => void; curr
 // ─── Post Card ────────────────────────────────────────────────────────────────
 
 function PostCard({ post, currentUserId, onViewProfile }: { post: Post & { likedByMe: boolean; isOwnPost: boolean }; currentUserId: string; onViewProfile: (id: string) => void }) {
+  const { language } = useLanguage();
   const qc = useQueryClient();
   const [liked, setLiked] = useState(post.likedByMe);
   const [count, setCount] = useState(post.likesCount);
@@ -702,7 +714,7 @@ function PostCard({ post, currentUserId, onViewProfile }: { post: Post & { liked
             <Avatar name={post.userName} avatarUrl={post.avatarUrl} size="sm" />
             <div className="text-left">
               <p className="text-sm font-semibold leading-tight">{post.userName}</p>
-              <p className="text-xs text-muted-foreground">{timeAgo(post.createdAt)}</p>
+              <p className="text-xs text-muted-foreground">{timeAgo(post.createdAt, language)}</p>
             </div>
           </button>
           {post.isOwnPost && (
@@ -1412,6 +1424,7 @@ function ClassificaTab() {
 type Tab = "social" | "messaggi" | "classifica";
 
 export default function Chat() {
+  const { language, t } = useLanguage();
   const { isAuthenticated, isLoading: authLoading, login, user } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>("social");
   const [pendingChat, setPendingChat] = useState<SocialUser | null>(null);
@@ -1436,10 +1449,10 @@ export default function Chat() {
       <div className="flex items-center justify-center h-[60vh]">
         <div className="text-center space-y-4">
           <Globe className="w-16 h-16 mx-auto text-primary opacity-40" />
-          <h2 className="text-xl font-bold font-mono tracking-tight">Community Trader</h2>
-          <p className="text-muted-foreground">Accedi per entrare nella community, pubblicare post e chattare con gli altri trader</p>
+          <h2 className="text-xl font-bold font-mono tracking-tight">{t("chat.title")}</h2>
+          <p className="text-muted-foreground">{t("chat.login_required")}</p>
           <button onClick={() => login()} className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-colors">
-            <LogIn className="w-4 h-4" /> Accedi
+            <LogIn className="w-4 h-4" /> {t("common.start")}
           </button>
         </div>
       </div>
@@ -1447,14 +1460,14 @@ export default function Chat() {
   );
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
-    { id: "social", label: "Social", icon: <Globe className="w-4 h-4" /> },
-    { id: "messaggi", label: "Messaggi", icon: <Lock className="w-4 h-4" /> },
-    { id: "classifica", label: "Classifica", icon: <Trophy className="w-4 h-4" /> },
+    { id: "social", label: t("chat.tab.social"), icon: <Globe className="w-4 h-4" /> },
+    { id: "messaggi", label: t("chat.tab.messages"), icon: <Lock className="w-4 h-4" /> },
+    { id: "classifica", label: t("chat.tab.leaderboard"), icon: <Trophy className="w-4 h-4" /> },
   ];
 
   return (
     <PageLayout>
-      <PageHeader title="Community Trader" subtitle="Social, messaggi crittografati e classifica" />
+      <PageHeader title={t("chat.title")} subtitle={t("chat.subtitle")} />
       <motion.section
         initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
