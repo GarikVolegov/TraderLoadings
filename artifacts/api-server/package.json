@@ -9,6 +9,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@clerk/express": "^2.1.11",
+    "@clerk/shared": "^4.8.7",
     "@types/multer": "^2.1.0",
     "@types/ws": "^8.18.1",
     "@workspace/api-zod": "workspace:*",
@@ -19,6 +21,7 @@
     "cors": "^2",
     "drizzle-orm": "catalog:",
     "express": "^5",
+    "http-proxy-middleware": "^3.0.5",
     "multer": "^2.1.1",
     "node-cron": "^4.2.1",
     "openai": "^6.27.0",
