@@ -4,6 +4,7 @@ import { useGetIdeas, useGetUserSettings, useCreateCheckin } from "@workspace/ap
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { ShieldAlert, Target, X } from "lucide-react";
+import { MOOD_EMOJIS } from "@/lib/zenEmojis";
 
 function todayKey() {
   const d = new Date();
@@ -23,13 +24,7 @@ function markSessionChecked(name: string) {
   } catch { /* ignore */ }
 }
 
-const MOODS = [
-  { emoji: "😤", label: "Agitato" },
-  { emoji: "😐", label: "Neutro" },
-  { emoji: "😊", label: "Positivo" },
-  { emoji: "😄", label: "Eccellente" },
-  { emoji: "🧘", label: "Zen" },
-];
+const MOODS = MOOD_EMOJIS;
 
 function parseTime(t: string): number {
   const [h, m] = t.split(":").map(Number);

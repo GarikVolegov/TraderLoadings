@@ -1,10 +1,11 @@
-import { useState, useMemo } from "react";
+import { useState, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { format, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks, subMonths, addWeeks, addMonths, isWithinInterval } from "date-fns";
 import { it } from "date-fns/locale";
 import { Plus, Edit2, Trash2, Image as ImageIcon, CalendarDays, Tag, Lightbulb, Target, BookOpen, Check, TrendingUp, TrendingDown, Minus, ChevronLeft, ChevronRight, BarChart3, Calendar, Bell, BellOff, CalendarPlus, RefreshCw } from "lucide-react";
 import { PageLayout } from "@/components/PageLayout";
 import { PageHeader } from "@/components/PageHeader";
+import { EmojiPickerPanel } from "@/components/EmojiPickerPanel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -171,6 +172,8 @@ function IdeasTab({ type }: { type: "idea" | "goal" }) {
   const [newContent, setNewContent] = useState("");
   const [newImportance, setNewImportance] = useState<"low" | "medium" | "high">("medium");
   const [newDeadline, setNewDeadline] = useState("");
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
   const { data: all, isLoading } = useGetIdeas();
   const createMutation = useCreateIdea();
   const updateMutation = useUpdateIdea();
@@ -192,6 +195,17 @@ function IdeasTab({ type }: { type: "idea" | "goal" }) {
   const Icon = type === "idea" ? Lightbulb : Target;
   const label = type === "idea" ? "idea" : "obiettivo";
   const placeholder = type === "idea" ? "Nuova strategia o osservazione..." : "Obiettivo da raggiungere...";
+
+  const insertEmoji = (emoji: string) => {
+    const el = inputRef.current;
+    if (!el) { setNewContent(c => c + emoji); return; }
+    const start = el.selectionStart ?? newContent.length;
+    const end = el.selectionEnd ?? newContent.length;
+    const next = newContent.slice(0, start) + emoji + newContent.slice(end);
+    setNewContent(next);
+    setShowEmojiPicker(false);
+    requestAnimationFrame(() => { el.selectionStart = el.selectionEnd = start + emoji.length; el.focus(); });
+  };
 
   const handleAdd = async () => {
     if (!newContent.trim()) return;
@@ -294,18 +308,34 @@ function IdeasTab({ type }: { type: "idea" | "goal" }) {
     <div className="space-y-6">
       <Card>
         <CardContent className="p-5 space-y-3">
-          <div className="flex gap-3">
-            <Input
-              placeholder={placeholder}
-              value={newContent}
-              onChange={(e) => setNewContent(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-              className="flex-1"
-            />
-            <Button onClick={handleAdd} disabled={!newContent.trim() || createMutation.isPending}>
-              <Plus className="w-4 h-4 mr-2" />
-              Aggiungi
-            </Button>
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Input
+                  ref={inputRef}
+                  placeholder={placeholder}
+                  value={newContent}
+                  onChange={(e) => setNewContent(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleAdd()}
+                  className="flex-1 pr-9"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowEmojiPicker(s => !s)}
+                  className={`absolute right-2 top-1/2 -translate-y-1/2 text-base transition-colors ${showEmojiPicker ? "text-primary" : "text-muted-foreground hover:text-primary"}`}
+                  title="Aggiungi emoji"
+                >
+                  😊
+                </button>
+              </div>
+              <Button onClick={handleAdd} disabled={!newContent.trim() || createMutation.isPending}>
+                <Plus className="w-4 h-4 mr-2" />
+                Aggiungi
+              </Button>
+            </div>
+            {showEmojiPicker && (
+              <EmojiPickerPanel onSelect={insertEmoji} />
+            )}
           </div>
           {type === "goal" && (
             <div className="flex gap-3 items-end flex-wrap">

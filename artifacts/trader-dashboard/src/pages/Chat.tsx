@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { PageLayout } from "@/components/PageLayout";
 import { PageHeader } from "@/components/PageHeader";
+import { EmojiPickerPanel } from "@/components/EmojiPickerPanel";
 import { useE2EEKeys } from "@/hooks/useE2EEKeys";
 import { useAuth } from "@workspace/replit-auth-web";
 import { getSharedKey, encryptMessage, decryptMessage } from "@/lib/e2ee";
@@ -30,12 +31,6 @@ function fmtDur(s: number) {
   return `${m}:${String(s % 60).padStart(2, "0")}`;
 }
 
-const ZEN_EMOJIS = [
-  "🧘","🌊","🏔️","🌿","🌸","🌅","☀️","🌙","⭐","✨",
-  "📈","📉","💹","💰","💎","🏆","🎯","🔥","⚡","💪",
-  "😊","😤","😌","🤔","💡","🔑","🙏","💫","🌟","🦅",
-  "📊","⏰","🎲","🛡️","🗝️","⚖️","🧠","💼","🌱","🔮",
-];
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -468,11 +463,7 @@ function StoryViewer({ groups, startIndex, onClose }: { groups: StoryGroup[]; st
 
                   {replyTab === "emoji" && (
                     <div className="space-y-2">
-                      <div className="grid grid-cols-10 gap-1">
-                        {ZEN_EMOJIS.map(e => (
-                          <button key={e} onClick={() => sendStoryReply(e, "text")} className="text-xl hover:scale-125 transition-transform p-0.5 rounded">{e}</button>
-                        ))}
-                      </div>
+                      <EmojiPickerPanel onSelect={(e) => sendStoryReply(e, "text")} />
                     </div>
                   )}
 
@@ -635,15 +626,7 @@ function CreatePostModal({ onClose, currentUserId }: { onClose: () => void; curr
         )}
 
         {showEmoji && (
-          <div className="rounded-xl border border-border bg-secondary/50 p-3">
-            <div className="grid grid-cols-10 gap-1">
-              {ZEN_EMOJIS.map(e => (
-                <button key={e} onClick={() => insertEmoji(e)} className="text-lg hover:scale-125 transition-transform p-0.5 rounded">
-                  {e}
-                </button>
-              ))}
-            </div>
-          </div>
+          <EmojiPickerPanel onSelect={insertEmoji} />
         )}
 
         <div className="flex items-center justify-between">
@@ -1292,11 +1275,7 @@ function MessaggiTab({ currentUser }: { currentUser: { id: string } }) {
 
           {showEmojiDM && (
             <div className="border-t border-border bg-card/50 p-3 shrink-0">
-              <div className="grid grid-cols-10 gap-1">
-                {ZEN_EMOJIS.map(e => (
-                  <button key={e} onClick={() => insertEmojiDM(e)} className="text-lg hover:scale-125 transition-transform p-0.5 rounded">{e}</button>
-                ))}
-              </div>
+              <EmojiPickerPanel onSelect={insertEmojiDM} />
             </div>
           )}
 
