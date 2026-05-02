@@ -2,8 +2,8 @@ import { Router, type IRouter } from "express";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
-import { db, followsTable, postsTable, postLikesTable, profileTable, userPublicKeysTable } from "@workspace/db";
-import { eq, and, or, desc, sql, inArray, gt, isNull } from "drizzle-orm";
+import { db, followsTable, postsTable, postLikesTable, postCommentsTable, profileTable, userPublicKeysTable } from "@workspace/db";
+import { eq, and, or, desc, asc, sql, inArray, gt, isNull } from "drizzle-orm";
 
 const POST_IMAGES_DIR = path.join(process.cwd(), "uploads", "post-images");
 if (!fs.existsSync(POST_IMAGES_DIR)) fs.mkdirSync(POST_IMAGES_DIR, { recursive: true });
@@ -408,6 +408,74 @@ router.post("/social/upload-voice", (req: any, res: any) => {
     if (err || !req.file) { res.status(400).json({ error: "Upload fallito" }); return; }
     res.json({ audioUrl: `/api/uploads/voice/${req.file.filename}` });
   });
+});
+
+// ─── Post Comments ────────────────────────────────────────────────────────────
+
+router.get("/social/posts/:id/comments", async (req, res) => {
+  const userId = requireAuth(req, res);
+  if (!userId) return;
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) { res.status(400).json({ error: "ID non valido" }); return; }
+    const comments = await db
+      .select()
+      .from(postCommentsTable)
+      .where(eq(postCommentsTable.postId, id))
+      .orderBy(asc(postCommentsTable.createdAt))
+      .limit(100);
+    res.json(comments);
+  } catch (err) {
+    console.error("GET comments error:", err);
+    res.status(500).json({ error: "Errore interno" });
+  }
+});
+
+router.post("/social/posts/:id/comments", async (req, res) => {
+  const userId = requireAuth(req, res);
+  if (!userId) return;
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) { res.status(400).json({ error: "ID non valido" }); return; }
+    const { content } = req.body;
+    if (!content || typeof content !== "string" || content.trim().length === 0) {
+      res.status(400).json({ error: "Contenuto vuoto" }); return;
+    }
+    if (content.trim().length > 1000) {
+      res.status(400).json({ error: "Commento troppo lungo (max 1000 caratteri)" }); return;
+    }
+    const [post] = await db.select({ id: postsTable.id }).from(postsTable).where(eq(postsTable.id, id)).limit(1);
+    if (!post) { res.status(404).json({ error: "Post non trovato" }); return; }
+    const profile = await getProfile(userId);
+    const [comment] = await db.insert(postCommentsTable).values({
+      postId: id,
+      userId,
+      userName: profile?.name ?? "Trader",
+      avatarUrl: profile?.avatarUrl ?? null,
+      content: content.trim(),
+    }).returning();
+    res.status(201).json(comment);
+  } catch (err) {
+    console.error("POST comment error:", err);
+    res.status(500).json({ error: "Errore interno" });
+  }
+});
+
+router.delete("/social/posts/:postId/comments/:commentId", async (req, res) => {
+  const userId = requireAuth(req, res);
+  if (!userId) return;
+  try {
+    const commentId = parseInt(req.params.commentId);
+    if (isNaN(commentId)) { res.status(400).json({ error: "ID non valido" }); return; }
+    const [comment] = await db.select().from(postCommentsTable).where(eq(postCommentsTable.id, commentId)).limit(1);
+    if (!comment) { res.status(404).json({ error: "Commento non trovato" }); return; }
+    if (comment.userId !== userId) { res.status(403).json({ error: "Non autorizzato" }); return; }
+    await db.delete(postCommentsTable).where(eq(postCommentsTable.id, commentId));
+    res.json({ success: true });
+  } catch (err) {
+    console.error("DELETE comment error:", err);
+    res.status(500).json({ error: "Errore interno" });
+  }
 });
 
 // ─── Story Replies ────────────────────────────────────────────────────────────

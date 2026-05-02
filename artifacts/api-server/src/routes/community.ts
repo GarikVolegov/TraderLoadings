@@ -1,6 +1,41 @@
 import { Router, type IRouter } from "express";
-import { db, communitiesTable, communityMembersTable, communityChannelsTable, communityMessagesTable, voicePresenceTable, profileTable } from "@workspace/db";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+import { db, communitiesTable, communityMembersTable, communityChannelsTable, communityMessagesTable, communityFilesTable, voicePresenceTable, profileTable } from "@workspace/db";
 import { eq, and, desc, asc, sql, lt } from "drizzle-orm";
+
+const COMMUNITY_FILES_DIR = path.join(process.cwd(), "uploads", "community-files");
+if (!fs.existsSync(COMMUNITY_FILES_DIR)) fs.mkdirSync(COMMUNITY_FILES_DIR, { recursive: true });
+
+const communityFileStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, COMMUNITY_FILES_DIR),
+  filename: (_req, file, cb) => {
+    const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `cfile-${unique}${ext}`);
+  },
+});
+
+const ALLOWED_FILE_TYPES = new Set([
+  "image/jpeg", "image/png", "image/webp", "image/gif",
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "text/plain", "text/csv",
+  "application/zip", "application/x-zip-compressed",
+]);
+
+const communityFileUpload = multer({
+  storage: communityFileStorage,
+  limits: { fileSize: 50 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (ALLOWED_FILE_TYPES.has(file.mimetype)) cb(null, true);
+    else cb(new Error("Tipo file non supportato"));
+  },
+});
 
 const router: IRouter = Router();
 

@@ -38,6 +38,20 @@ export const postLikesTable = pgTable("post_likes", {
   index("post_likes_post_idx").on(t.postId),
 ]);
 
+export const postCommentsTable = pgTable("post_comments", {
+  id: serial("id").primaryKey(),
+  postId: integer("post_id").notNull(),
+  userId: text("user_id").notNull(),
+  userName: text("user_name").notNull(),
+  avatarUrl: text("avatar_url"),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => [
+  index("post_comments_post_idx").on(t.postId),
+  index("post_comments_created_idx").on(t.createdAt),
+]);
+
 export type Follow = typeof followsTable.$inferSelect;
 export type Post = typeof postsTable.$inferSelect;
 export type PostLike = typeof postLikesTable.$inferSelect;
+export type PostComment = typeof postCommentsTable.$inferSelect;

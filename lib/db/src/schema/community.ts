@@ -51,6 +51,24 @@ export const communityMessagesTable = pgTable("community_messages", {
   index("community_messages_created_idx").on(t.createdAt),
 ]);
 
+export const communityFilesTable = pgTable("community_files", {
+  id: serial("id").primaryKey(),
+  channelId: integer("channel_id").notNull(),
+  communityId: integer("community_id").notNull(),
+  userId: text("user_id").notNull(),
+  userName: text("user_name").notNull(),
+  avatarUrl: text("avatar_url"),
+  fileName: text("file_name").notNull(),
+  fileSize: integer("file_size").notNull().default(0),
+  mimeType: text("mime_type").notNull(),
+  fileUrl: text("file_url").notNull(),
+  downloadable: boolean("downloadable").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => [
+  index("community_files_channel_idx").on(t.channelId),
+  index("community_files_community_idx").on(t.communityId),
+]);
+
 export const voicePresenceTable = pgTable("voice_presence", {
   id: serial("id").primaryKey(),
   channelId: integer("channel_id").notNull(),
@@ -68,4 +86,5 @@ export type Community = typeof communitiesTable.$inferSelect;
 export type CommunityMember = typeof communityMembersTable.$inferSelect;
 export type CommunityChannel = typeof communityChannelsTable.$inferSelect;
 export type CommunityMessage = typeof communityMessagesTable.$inferSelect;
+export type CommunityFile = typeof communityFilesTable.$inferSelect;
 export type VoicePresence = typeof voicePresenceTable.$inferSelect;
