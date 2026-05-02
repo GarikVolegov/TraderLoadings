@@ -36,6 +36,7 @@ interface MacroArticle {
   verified?: boolean;
   timestamp?: string;
   imageUrl?: string | null;
+  url?: string | null;
 }
 
 interface MacroNewsData {
@@ -186,8 +187,10 @@ export function MacroNewsTicker() {
       const flag = CURRENCY_FLAGS[a.currency] ?? "\u{1F4CA}";
       const dot = IMPACT_DOT[a.impact] ?? "\u26AA";
       const impactLabel = a.impact ? a.impact.toUpperCase() : "";
-      const src = a.source ? ` [${a.source}]` : "";
-      return `${dot} ${flag} ${a.currency}: ${a.title} \u2014 ${impactLabel}${src}`;
+      const sourceCount = a.sources?.length ?? (a.source ? 1 : 0);
+      const srcLabel = sourceCount > 0 ? ` [${sourceCount} ${sourceCount === 1 ? "fonte" : "fonti"}]` : "";
+      const verifiedMark = sourceCount >= 3 ? " \u2713" : "";
+      return `${dot} ${flag} ${a.currency}: ${a.title} \u2014 ${impactLabel}${srcLabel}${verifiedMark}`;
     });
   }, [data]);
 
@@ -404,11 +407,21 @@ export function MacroNewsTicker() {
                         >
                           {article.direction}
                         </span>
-                        {article.verified && (
+                        {/* Verification badge — 3+ sources = verified, else warning */}
+                        {article.verified ? (
                           <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[9px] font-bold border border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
                             <ShieldCheck className="w-2.5 h-2.5" />
-                            VERIFICATO
+                            {article.sources && article.sources.length >= 3
+                              ? `${article.sources.length} FONTI`
+                              : "VERIFICATO"}
                           </span>
+                        ) : (
+                          article.sources && article.sources.length > 0 ? (
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[9px] font-bold border border-yellow-500/30 bg-yellow-500/10 text-yellow-400">
+                              <ShieldCheck className="w-2.5 h-2.5" />
+                              {article.sources.length} {article.sources.length === 1 ? "FONTE" : "FONTI"}
+                            </span>
+                          ) : null
                         )}
                         {article.timestamp && (
                           <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground/60 ml-auto">
@@ -417,21 +430,36 @@ export function MacroNewsTicker() {
                           </span>
                         )}
                       </div>
+
+                      {/* Sources section — always visible when present */}
                       {article.sources && article.sources.length > 0 && (
-                        <div className="flex items-center gap-1.5 flex-wrap pt-0.5 border-t border-border/30">
-                          <span className="text-[9px] text-muted-foreground/50 font-semibold uppercase">Fonti:</span>
-                          {article.sources.map((src, si) => (
-                            <a
-                              key={si}
-                              href={searchSourceUrl(src, article.title)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[9px] font-medium border border-blue-500/20 bg-blue-500/5 text-blue-400 hover:bg-blue-500/15 transition-all"
-                            >
-                              <ExternalLink className="w-2 h-2" />
-                              {src}
-                            </a>
-                          ))}
+                        <div className="pt-1.5 border-t border-border/30">
+                          <div className="flex items-center gap-1 mb-1">
+                            <span className="text-[9px] text-muted-foreground/50 font-semibold uppercase tracking-wide">
+                              Fonti ({article.sources.length}
+                              {article.sources.length < 3 && (
+                                <span className="text-yellow-400"> · min 3 richieste</span>
+                              )}
+                              {article.sources.length >= 3 && (
+                                <span className="text-emerald-400"> · verificato</span>
+                              )}
+                              )
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {article.sources.map((src, si) => (
+                              <a
+                                key={si}
+                                href={searchSourceUrl(src, article.title)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md text-[10px] font-medium border border-blue-500/25 bg-blue-500/8 text-blue-400 hover:bg-blue-500/20 hover:border-blue-500/40 transition-all"
+                              >
+                                <ExternalLink className="w-2.5 h-2.5 shrink-0" />
+                                {src}
+                              </a>
+                            ))}
+                          </div>
                         </div>
                       )}
                       </div>

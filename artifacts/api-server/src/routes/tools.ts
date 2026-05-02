@@ -683,9 +683,10 @@ async function fetchMacroNewsPerplexity(currencyLabel: string, lang = "it"): Pro
   const langName = LANG_NAMES[lang] ?? "italiano";
 
   const systemPrompt = `Sei un analista macro forex e commodities esperto. Oggi è ${today}.
-Fornisci un briefing macro VERIFICATO: ogni notizia deve essere confermata da almeno 2 fonti.
-Fonti: BCE, Federal Reserve, BoE, BoJ, SNB, BLS, Eurostat, FMI, WGC, LBMA, CFTC, Bloomberg, Reuters, FT, WSJ.
-Per XAU includi SEMPRE: acquisti banche centrali, flussi ETF, dati CFTC.
+Fornisci un briefing macro VERIFICATO CON ALMENO 3 FONTI INDIPENDENTI per ogni notizia.
+REGOLA CRITICA: ogni articolo DEVE riportare almeno 3 fonti distinte nel campo "sources". Se una notizia non può essere verificata da 3 fonti, NON includerla.
+Fonti accettate: BCE, Federal Reserve, BoE, BoJ, SNB, BLS, Eurostat, FMI, WGC, LBMA, CFTC, Bloomberg, Reuters, Financial Times, Wall Street Journal, AP, CNBC, MarketWatch, Investing.com.
+Per XAU includi SEMPRE: acquisti banche centrali, flussi ETF, dati CFTC come fonti separate.
 IMPORTANTE: scrivi title e summary in ${langName}.
 Rispondi SOLO con JSON valido, nessun testo extra:
 {
@@ -696,8 +697,8 @@ Rispondi SOLO con JSON valido, nessun testo extra:
       "impact": "alto|medio|basso",
       "currency": "EUR|USD|GBP|JPY|CHF|CAD|AUD|NZD|XAU|GLOBALE",
       "direction": "bullish|bearish|neutrale",
-      "source": "Fonte primaria",
-      "sources": ["Fonte 1", "Fonte 2"],
+      "source": "Fonte primaria (la più autorevole)",
+      "sources": ["Fonte primaria", "Seconda fonte indipendente", "Terza fonte indipendente"],
       "verified": true,
       "timestamp": "ISO timestamp",
       "imageKeywords": ["english_keyword1", "english_keyword2"]
@@ -706,8 +707,8 @@ Rispondi SOLO con JSON valido, nessun testo extra:
   "sentiment": "risk-on|risk-off|neutrale",
   "summary": "Sintesi quadro macro in ${langName}"
 }
-imageKeywords: 2-3 English words for representative image (e.g. ["gold","bullion"], ["inflation","rate"]).
-Genera 6-8 articoli.`;
+OBBLIGATORIO: il campo "sources" deve avere MINIMO 3 voci distinte per ogni articolo. Genera 6-8 articoli.
+imageKeywords: 2-3 English words for representative image (e.g. ["gold","bullion"], ["inflation","rate"]).`;
 
   const response = await fetch("https://api.perplexity.ai/chat/completions", {
     method: "POST",
@@ -721,7 +722,7 @@ Genera 6-8 articoli.`;
         { role: "system", content: systemPrompt },
         {
           role: "user",
-          content: `Genera briefing macro per oggi con focus su ${currencyLabel}. Includi imageKeywords in inglese. Rispondi SOLO con JSON, tutto il testo in ${langName}.`,
+          content: `Genera briefing macro per oggi con focus su ${currencyLabel}. Per ogni articolo includi MINIMO 3 fonti indipendenti nel campo "sources". Includi imageKeywords in inglese. Rispondi SOLO con JSON, tutto il testo in ${langName}.`,
         },
       ],
       temperature: 0.2,
@@ -740,13 +741,21 @@ Genera 6-8 articoli.`;
   const jsonMatch = raw.match(/\{[\s\S]*\}/);
   const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : raw) as Partial<MacroNewsResult>;
 
-  const articles = (parsed.articles ?? []).map((a, i) => ({
-    ...a,
-    source: a.source || "",
-    sources: Array.isArray(a.sources) && a.sources.length > 0 ? a.sources : (a.source ? [a.source] : []),
-    verified: a.verified ?? (Array.isArray(a.sources) && a.sources.length >= 2),
-    imageUrl: buildMacroImageUrl(a.imageKeywords, a.currency ?? "GLOBALE", i),
-  }));
+  const articles = (parsed.articles ?? []).map((a, i) => {
+    const rawSources = Array.isArray(a.sources) && a.sources.length > 0
+      ? a.sources
+      : a.source ? [a.source] : [];
+    // Deduplicate and normalise
+    const dedupedSources = [...new Set(rawSources.map((s) => String(s).trim()).filter(Boolean))];
+    return {
+      ...a,
+      source: a.source || dedupedSources[0] || "",
+      sources: dedupedSources,
+      // Verified only when at least 3 independent sources are cited
+      verified: dedupedSources.length >= 3,
+      imageUrl: buildMacroImageUrl(a.imageKeywords, a.currency ?? "GLOBALE", i),
+    };
+  });
 
   return {
     articles,

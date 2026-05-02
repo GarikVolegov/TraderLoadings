@@ -7,6 +7,8 @@ interface NewsArticle {
   title: string;
   summary: string;
   source: string;
+  sources?: string[];
+  verified?: boolean;
   publishedAt: string | null;
   url: string | null;
   sentiment: string | null;
@@ -246,18 +248,20 @@ async function tryPerplexity(apiKey: string, pairCurrencies: string[], lang = "i
         messages: [
           {
             role: "system",
-            content: `You are a financial news analyst. Respond only with valid JSON and no extra text or markdown. Write all title and summary fields in ${langName}.`,
+            content: `You are a professional financial news analyst. Respond only with valid JSON, no extra text or markdown. Write all title and summary fields in ${langName}. CRITICAL RULE: every article MUST be verified by at least 3 independent sources listed in the "sources" array. Do not include any news you cannot verify from 3 separate sources. Accepted sources: Federal Reserve, ECB, BoE, BoJ, BLS, Eurostat, IMF, WGC, LBMA, CFTC, Bloomberg, Reuters, Financial Times, Wall Street Journal, AP, CNBC, MarketWatch.`,
           },
           {
             role: "user",
-            content: `Give me the 5 most recent macro-economic news (last 24h) affecting ${currencyFocus}.
-Return ONLY this JSON (no markdown): {"articles":[{"title":"...","summary":"2-3 sentences","source":"...","publishedAt":"ISO date","sentiment":"bullish|bearish|neutral","url":null,"imageKeywords":["keyword1","keyword2"]}]}
-IMPORTANT: title and summary must be written in ${langName}.
+            content: `Give me the 5 most impactful macro-economic news (last 24h) affecting ${currencyFocus}.
+Each article MUST have at least 3 independent sources in the "sources" array.
+Return ONLY this JSON (no markdown):
+{"articles":[{"title":"...","summary":"2-3 sentences","source":"Primary source","sources":["Source 1","Source 2","Source 3"],"verified":true,"publishedAt":"ISO date","sentiment":"bullish|bearish|neutral","url":null,"imageKeywords":["keyword1","keyword2"]}]}
+IMPORTANT: title and summary must be written in ${langName}. "sources" MUST contain at least 3 distinct entries.
 imageKeywords: 2-3 short English words for a representative image (e.g. ["inflation","federal reserve"], ["gold","bullion"])`,
           },
         ],
         temperature: 0.1,
-        max_tokens: 2000,
+        max_tokens: 2500,
       }),
       signal: AbortSignal.timeout(15000),
     });
@@ -267,12 +271,21 @@ imageKeywords: 2-3 short English words for a representative image (e.g. ["inflat
     const data = await response.json() as { choices: Array<{ message: { content: string } }> };
     const raw = data.choices[0]?.message?.content ?? "";
     const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-    const parsed = JSON.parse(cleaned) as { articles: Array<NewsArticle & { imageKeywords?: string[] }> };
+    const parsed = JSON.parse(cleaned) as { articles: Array<NewsArticle & { imageKeywords?: string[]; sources?: string[] }> };
     if (!Array.isArray(parsed.articles) || parsed.articles.length === 0) return null;
-    return parsed.articles.map((a, i) => ({
-      ...a,
-      imageUrl: a.imageUrl ?? buildNewsImageUrl(a.imageKeywords, a.sentiment, i),
-    }));
+    return parsed.articles.map((a, i) => {
+      const rawSources = Array.isArray(a.sources) && a.sources.length > 0
+        ? a.sources
+        : a.source ? [a.source] : [];
+      const dedupedSources = [...new Set(rawSources.map((s) => String(s).trim()).filter(Boolean))];
+      return {
+        ...a,
+        source: a.source || dedupedSources[0] || "",
+        sources: dedupedSources,
+        verified: dedupedSources.length >= 3,
+        imageUrl: a.imageUrl ?? buildNewsImageUrl(a.imageKeywords, a.sentiment, i),
+      };
+    });
   } catch {
     return null;
   }
