@@ -16,6 +16,7 @@ interface Article {
   publishedAt?: string | null;
   url?: string | null;
   sentiment?: string | null;
+  imageUrl?: string | null;
 }
 
 interface NewsData {
@@ -124,7 +125,18 @@ export default function News() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: idx * 0.07 }}
               >
-                <Card className="bg-card/60 backdrop-blur-sm border-border/30 hover:border-primary/40 transition-all duration-200 group h-full flex flex-col">
+                <Card className="bg-card/60 backdrop-blur-sm border-border/30 hover:border-primary/40 transition-all duration-200 group h-full flex flex-col overflow-hidden">
+                  {article.imageUrl && (
+                    <div className="w-full h-36 overflow-hidden shrink-0">
+                      <img
+                        src={article.imageUrl}
+                        alt=""
+                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        loading="lazy"
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                      />
+                    </div>
+                  )}
                   <CardContent className="p-3 sm:p-5 flex flex-col flex-1">
                     <div className="flex items-start justify-between gap-4 mb-2">
                       <h3 className="font-bold text-base leading-snug group-hover:text-primary transition-colors flex-1">

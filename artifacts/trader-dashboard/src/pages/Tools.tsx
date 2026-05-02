@@ -123,6 +123,7 @@ interface MacroArticle {
   direction: "bullish" | "bearish" | "neutrale";
   source?: string;
   timestamp?: string;
+  imageUrl?: string | null;
 }
 
 interface MacroNewsResult {
@@ -1072,30 +1073,43 @@ function MacroNewsTool() {
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.06 }}
-                className="p-4 rounded-2xl border border-border bg-card/60 space-y-2"
+                className="rounded-2xl border border-border bg-card/60 overflow-hidden"
               >
-                <div className="flex items-start justify-between gap-3">
-                  <h4 className="text-sm font-semibold leading-tight flex-1">{article.title}</h4>
-                  <div className="flex items-center gap-1.5 flex-shrink-0">
-                    <span className="font-mono text-xs font-bold text-muted-foreground">{article.currency}</span>
-                    {DIRECTION_ICONS[article.direction as keyof typeof DIRECTION_ICONS] ?? DIRECTION_ICONS.neutrale}
+                {article.imageUrl && (
+                  <div className="w-full h-32 overflow-hidden">
+                    <img
+                      src={article.imageUrl}
+                      alt=""
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).parentElement!.style.display = "none"; }}
+                    />
                   </div>
-                </div>
-                <p className="text-xs text-muted-foreground leading-relaxed">{article.summary}</p>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border ${IMPACT_STYLES[article.impact] ?? IMPACT_STYLES.basso}`}>
-                    {article.impact.toUpperCase()}
-                  </span>
-                  <span className={`text-[10px] font-medium ${
-                    article.direction === "bullish" ? "text-primary" : article.direction === "bearish" ? "text-destructive" : "text-muted-foreground"
-                  }`}>
-                    {article.direction}
-                  </span>
-                  {article.source && (
-                    <span className="px-2 py-0.5 rounded-lg text-[10px] font-medium border border-blue-500/20 bg-blue-500/5 text-blue-400">
-                      {article.source}
+                )}
+                <div className="p-4 space-y-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <h4 className="text-sm font-semibold leading-tight flex-1">{article.title}</h4>
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <span className="font-mono text-xs font-bold text-muted-foreground">{article.currency}</span>
+                      {DIRECTION_ICONS[article.direction as keyof typeof DIRECTION_ICONS] ?? DIRECTION_ICONS.neutrale}
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{article.summary}</p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border ${IMPACT_STYLES[article.impact] ?? IMPACT_STYLES.basso}`}>
+                      {article.impact.toUpperCase()}
                     </span>
-                  )}
+                    <span className={`text-[10px] font-medium ${
+                      article.direction === "bullish" ? "text-primary" : article.direction === "bearish" ? "text-destructive" : "text-muted-foreground"
+                    }`}>
+                      {article.direction}
+                    </span>
+                    {article.source && (
+                      <span className="px-2 py-0.5 rounded-lg text-[10px] font-medium border border-blue-500/20 bg-blue-500/5 text-blue-400">
+                        {article.source}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </motion.div>
             ))}

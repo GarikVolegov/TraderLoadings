@@ -34,6 +34,7 @@ interface MacroArticle {
   sources?: string[];
   verified?: boolean;
   timestamp?: string;
+  imageUrl?: string | null;
 }
 
 interface MacroNewsData {
@@ -337,8 +338,20 @@ export function MacroNewsTicker() {
                       initial={{ opacity: 0, y: 6 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: i * 0.04 }}
-                      className="p-3.5 rounded-2xl border border-border bg-card/60 space-y-2"
+                      className="rounded-2xl border border-border bg-card/60 overflow-hidden"
                     >
+                      {article.imageUrl && (
+                        <div className="w-full h-28 overflow-hidden">
+                          <img
+                            src={article.imageUrl}
+                            alt=""
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                            onError={(e) => { (e.currentTarget as HTMLImageElement).parentElement!.style.display = "none"; }}
+                          />
+                        </div>
+                      )}
+                      <div className="p-3.5 space-y-2">
                       <div className="flex items-start justify-between gap-3">
                         <h4 className="text-sm font-semibold leading-tight flex-1">
                           {article.title}
@@ -402,6 +415,7 @@ export function MacroNewsTicker() {
                           ))}
                         </div>
                       )}
+                      </div>
                     </motion.div>
                   ))}
                 </AnimatePresence>

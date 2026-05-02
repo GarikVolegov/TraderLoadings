@@ -10,6 +10,7 @@ interface NewsArticle {
   publishedAt: string | null;
   url: string | null;
   sentiment: string | null;
+  imageUrl: string | null;
 }
 
 let cache: { data: unknown; ts: number; key: string } | null = null;
@@ -34,6 +35,25 @@ function decodeHtml(str: string): string {
     .trim();
 }
 
+function extractRSSImage(block: string, descRaw: string): string | null {
+  const enclosure = block.match(/<enclosure[^>]+url=["']([^"']+)["'][^>]*type=["']image[^"']*["']/i)?.[1]
+    || block.match(/<enclosure[^>]+type=["']image[^"']*["'][^>]+url=["']([^"']+)["']/i)?.[1];
+  if (enclosure) return enclosure;
+
+  const mediaContent = block.match(/<media:content[^>]+url=["']([^"']+)["'][^>]*(?:type=["']image[^"']*["']|medium=["']image["'])/i)?.[1]
+    || block.match(/<media:content[^>]+(?:type=["']image[^"']*["']|medium=["']image["'])[^>]+url=["']([^"']+)["']/i)?.[1]
+    || block.match(/<media:content[^>]+url=["']([^"']+\.(?:jpg|jpeg|png|webp|gif))["']/i)?.[1];
+  if (mediaContent) return mediaContent;
+
+  const mediaThumbnail = block.match(/<media:thumbnail[^>]+url=["']([^"']+)["']/i)?.[1];
+  if (mediaThumbnail) return mediaThumbnail;
+
+  const imgInDesc = descRaw.match(/<img[^>]+src=["']([^"']+\.(?:jpg|jpeg|png|webp|gif)[^"']*)["']/i)?.[1];
+  if (imgInDesc) return imgInDesc;
+
+  return null;
+}
+
 function parseRSS(xml: string, sourceName: string): NewsArticle[] {
   const items: NewsArticle[] = [];
   const itemRegex = /<item>([\s\S]*?)<\/item>/g;
@@ -55,6 +75,8 @@ function parseRSS(xml: string, sourceName: string): NewsArticle[] {
       try { parsedDate = new Date(pubDate).toISOString(); } catch { /* ignore */ }
     }
 
+    const imageUrl = extractRSSImage(block, descRaw);
+
     items.push({
       title,
       summary,
@@ -62,6 +84,7 @@ function parseRSS(xml: string, sourceName: string): NewsArticle[] {
       publishedAt: parsedDate,
       url: link?.startsWith("http") ? link : null,
       sentiment: null,
+      imageUrl,
     });
   }
   return items;
@@ -162,6 +185,17 @@ async function fetchRSSNews(pairCurrencies: string[]): Promise<NewsArticle[]> {
   return deduped.slice(0, 10);
 }
 
+function buildNewsImageUrl(keywords: string[] | undefined, sentiment: string | null): string {
+  const kws = (keywords ?? []).filter(Boolean).slice(0, 3);
+  if (kws.length > 0) {
+    return `https://loremflickr.com/800/400/${kws.join(",")}`;
+  }
+  const sentMap: Record<string, string> = {
+    bullish: "growth,economy,finance", bearish: "recession,economy,finance", neutral: "economy,finance,market",
+  };
+  return `https://loremflickr.com/800/400/${sentMap[sentiment ?? ""] ?? "economy,finance,market"}`;
+}
+
 async function tryPerplexity(apiKey: string, pairCurrencies: string[]): Promise<NewsArticle[] | null> {
   const currencyFocus = pairCurrencies.length > 0
     ? pairCurrencies.join(", ")
@@ -184,7 +218,8 @@ async function tryPerplexity(apiKey: string, pairCurrencies: string[]): Promise<
           {
             role: "user",
             content: `Give me the 5 most recent macro-economic news (last 24h) affecting ${currencyFocus}.
-Return ONLY this JSON (no markdown): {"articles":[{"title":"...","summary":"2-3 sentences","source":"...","publishedAt":"ISO date","sentiment":"bullish|bearish|neutral","url":null}]}`,
+Return ONLY this JSON (no markdown): {"articles":[{"title":"...","summary":"2-3 sentences","source":"...","publishedAt":"ISO date","sentiment":"bullish|bearish|neutral","url":null,"imageKeywords":["keyword1","keyword2"]}]}
+imageKeywords: 2-3 short English words for a representative image (e.g. ["inflation","federal reserve"], ["gold","bullion"])`,
           },
         ],
         temperature: 0.1,
@@ -198,8 +233,12 @@ Return ONLY this JSON (no markdown): {"articles":[{"title":"...","summary":"2-3 
     const data = await response.json() as { choices: Array<{ message: { content: string } }> };
     const raw = data.choices[0]?.message?.content ?? "";
     const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-    const parsed = JSON.parse(cleaned) as { articles: NewsArticle[] };
-    return Array.isArray(parsed.articles) && parsed.articles.length > 0 ? parsed.articles : null;
+    const parsed = JSON.parse(cleaned) as { articles: Array<NewsArticle & { imageKeywords?: string[] }> };
+    if (!Array.isArray(parsed.articles) || parsed.articles.length === 0) return null;
+    return parsed.articles.map((a) => ({
+      ...a,
+      imageUrl: a.imageUrl ?? buildNewsImageUrl(a.imageKeywords, a.sentiment),
+    }));
   } catch {
     return null;
   }
@@ -230,7 +269,11 @@ router.get("/news", async (req, res) => {
 
   if (source !== "ai") {
     try {
-      articles = await fetchRSSNews(pairCurrencies.length > 0 ? pairCurrencies : ["USD", "XAU"]);
+      const rssArticles = await fetchRSSNews(pairCurrencies.length > 0 ? pairCurrencies : ["USD", "XAU"]);
+      articles = rssArticles.map((a) => ({
+        ...a,
+        imageUrl: a.imageUrl ?? buildNewsImageUrl(undefined, a.sentiment),
+      }));
     } catch {
       articles = [];
     }

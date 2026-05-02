@@ -1,15 +1,8 @@
 import { Router } from "express";
-import OpenAI from "openai";
 import cron from "node-cron";
 import { getCurrenciesFromPairs } from "@workspace/pair-catalog";
 
 const router = Router();
-
-// ─── OpenAI client ────────────────────────────────────────────────────────────
-const openai = new OpenAI({
-  apiKey: process.env["AI_INTEGRATIONS_OPENAI_API_KEY"] ?? "",
-  baseURL: process.env["AI_INTEGRATIONS_OPENAI_BASE_URL"] ?? "https://api.openai.com/v1",
-});
 
 // ─── 1. MONTE CARLO ───────────────────────────────────────────────────────────
 router.post("/tools/montecarlo", (req, res) => {
@@ -532,6 +525,8 @@ interface MacroNewsResult {
     sources?: string[];
     verified?: boolean;
     timestamp?: string;
+    imageUrl?: string | null;
+    imageKeywords?: string[];
   }>;
   sentiment: string;
   summary: string;
@@ -557,86 +552,252 @@ function normalizeCurrencies(raw: string): { key: string; label: string } {
   return { key: unique.join(",").toLowerCase(), label: unique.join(", ") };
 }
 
-async function fetchMacroNews(currencyLabel: string): Promise<MacroNewsResult> {
+function buildMacroImageUrl(keywords: string[] | undefined, currency: string): string {
+  const kws = (keywords ?? []).filter(Boolean).slice(0, 3);
+  if (kws.length > 0) {
+    return `https://loremflickr.com/800/400/${kws.join(",")}`;
+  }
+  const fallbacks: Record<string, string> = {
+    EUR: "europe,economy", USD: "dollar,wallstreet", GBP: "london,finance",
+    JPY: "tokyo,japan,finance", CHF: "switzerland,bank", CAD: "canada,economy",
+    AUD: "australia,economy", NZD: "newzealand,economy", XAU: "gold,bullion",
+    GLOBALE: "global,economy,finance",
+  };
+  return `https://loremflickr.com/800/400/${fallbacks[currency] ?? "finance,trading"}`;
+}
+
+async function fetchMacroNewsPerplexity(currencyLabel: string): Promise<MacroNewsResult> {
+  const apiKey = process.env.PERPLEXITY_API_KEY;
+  if (!apiKey) throw new Error("PERPLEXITY_API_KEY not set");
+
   const today = new Date().toLocaleDateString("it-IT", {
     weekday: "long", day: "numeric", month: "long", year: "numeric",
   });
 
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages: [
-      {
-        role: "system",
-        content: `Sei un analista macro forex e commodities esperto con accesso a dati da molteplici fonti primarie. Oggi è ${today}.
-
-Il tuo compito è fornire un briefing macro VERIFICATO: ogni notizia deve essere confermata da ALMENO 2 fonti indipendenti prima di essere inclusa. Se una notizia ha una sola fonte, non includerla o segnarla come non verificata.
-
-Fonti primarie da consultare e incrociare:
-- Banche centrali: BCE, Federal Reserve (Fed), BoE, BoJ, SNB, BoC, RBA, RBNZ
-- Agenzie statistiche: Bureau of Labor Statistics (BLS), Eurostat, ONS, Statistics Canada
-- Istituzioni internazionali: FMI, Banca Mondiale, BIS, OCSE
-- Mercati oro/commodities: World Gold Council (WGC), LBMA, CFTC COT Report
-- Media finanziari tier-1: Bloomberg, Reuters, Financial Times, Wall Street Journal
-- Report ufficiali: Beige Book Fed, ECB Economic Bulletin, BOE Monetary Policy Report
-
-Per XAU includi SEMPRE: acquisti banche centrali (WGC/LBMA), variazioni riserve auree, flussi ETF auriferi, domanda fisica, dati CFTC.
-
-Rispondi SEMPRE in formato JSON valido con questa struttura esatta:
+  const systemPrompt = `Sei un analista macro forex e commodities esperto. Oggi è ${today}.
+Fornisci un briefing macro VERIFICATO: ogni notizia deve essere confermata da almeno 2 fonti.
+Fonti: BCE, Federal Reserve, BoE, BoJ, SNB, BLS, Eurostat, FMI, WGC, LBMA, CFTC, Bloomberg, Reuters, FT, WSJ.
+Per XAU includi SEMPRE: acquisti banche centrali, flussi ETF, dati CFTC.
+Rispondi SOLO con JSON valido, nessun testo extra:
 {
   "articles": [
     {
-      "title": "Titolo breve della notizia",
-      "summary": "Riassunto in 2-3 frasi della notizia, contesto e implicazioni per il trading",
+      "title": "Titolo breve",
+      "summary": "2-3 frasi: notizia, contesto e implicazioni trading",
       "impact": "alto|medio|basso",
       "currency": "EUR|USD|GBP|JPY|CHF|CAD|AUD|NZD|XAU|GLOBALE",
       "direction": "bullish|bearish|neutrale",
-      "source": "Fonte primaria principale (es: Federal Reserve, World Gold Council)",
-      "sources": ["Fonte 1", "Fonte 2", "Fonte 3"],
+      "source": "Fonte primaria",
+      "sources": ["Fonte 1", "Fonte 2"],
       "verified": true,
-      "timestamp": "ISO timestamp approssimativo della notizia"
+      "timestamp": "ISO timestamp",
+      "imageKeywords": ["english_keyword1", "english_keyword2"]
     }
   ],
   "sentiment": "risk-on|risk-off|neutrale",
-  "summary": "Frase di sintesi del quadro macro generale"
+  "summary": "Sintesi quadro macro"
 }
+imageKeywords: 2-3 parole inglesi per immagine rappresentativa (es: ["gold","bullion"], ["inflation","rate"], ["dollar","federal-reserve"]).
+Genera 6-8 articoli.`;
 
-REGOLE CRITICHE:
-1. "sources" deve contenere ALMENO 2 fonti distinte per notizia verificata
-2. "verified" = true solo se confermato da 2+ fonti indipendenti
-3. "source" = la fonte più autorevole tra quelle in "sources"
-4. Preferisci notizie recenti degli ultimi 1-7 giorni
-5. Genera 6-8 articoli per le valute richieste`,
-      },
-      {
-        role: "user",
-        content: `Genera il briefing macro MULTI-FONTE per oggi con focus su ${currencyLabel}. 
-        
-Per ogni notizia:
-- Verifica su almeno 2 fonti primarie indipendenti
-- Includi tutte le fonti nell'array "sources"
-- Priorità: decisioni banche centrali, inflazione, PIL, dati occupazione, geopolitica, sentiment risk
-- Per XAU: dati WGC acquisti banche centrali, CFTC COT, flussi ETF
-- Sii preciso e utile per un trader forex intraday/swing`,
-      },
-    ],
-    temperature: 0.6,
-    max_tokens: 3000,
-    response_format: { type: "json_object" },
+  const response = await fetch("https://api.perplexity.ai/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "sonar",
+      messages: [
+        { role: "system", content: systemPrompt },
+        {
+          role: "user",
+          content: `Genera briefing macro per oggi con focus su ${currencyLabel}. Includi imageKeywords per ogni articolo. Rispondi SOLO con JSON.`,
+        },
+      ],
+      temperature: 0.2,
+      max_tokens: 4000,
+    }),
+    signal: AbortSignal.timeout(30000),
   });
 
-  const raw = completion.choices[0]?.message?.content ?? "{}";
-  const parsed = JSON.parse(raw) as Partial<MacroNewsResult>;
+  if (!response.ok) {
+    const errText = await response.text().catch(() => "");
+    throw new Error(`Perplexity ${response.status}: ${errText.slice(0, 200)}`);
+  }
+
+  const data = await response.json() as { choices: Array<{ message: { content: string } }> };
+  const raw = data.choices[0]?.message?.content ?? "{}";
+  const jsonMatch = raw.match(/\{[\s\S]*\}/);
+  const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : raw) as Partial<MacroNewsResult>;
+
+  const articles = (parsed.articles ?? []).map((a) => ({
+    ...a,
+    source: a.source || "",
+    sources: Array.isArray(a.sources) && a.sources.length > 0 ? a.sources : (a.source ? [a.source] : []),
+    verified: a.verified ?? (Array.isArray(a.sources) && a.sources.length >= 2),
+    imageUrl: buildMacroImageUrl(a.imageKeywords, a.currency ?? "GLOBALE"),
+  }));
+
   return {
-    articles: (parsed.articles ?? []).map((a) => ({
-      ...a,
-      source: a.source || "",
-      sources: Array.isArray(a.sources) && a.sources.length > 0 ? a.sources : (a.source ? [a.source] : []),
-      verified: a.verified ?? (Array.isArray(a.sources) && a.sources.length >= 2),
-    })),
+    articles,
     sentiment: parsed.sentiment ?? "neutrale",
     summary: parsed.summary ?? "",
     fetchedAt: new Date().toISOString(),
   };
+}
+
+// ─── RSS fallback for macro-news ──────────────────────────────────────────────
+const RSS_MACRO_FEEDS = [
+  { url: "https://www.cnbc.com/id/20409666/device/rss/rss.html", source: "CNBC Markets" },
+  { url: "https://www.cnbc.com/id/15839135/device/rss/rss.html", source: "CNBC Finance" },
+  { url: "https://seekingalpha.com/tag/forex.xml", source: "Seeking Alpha – Forex" },
+  { url: "https://seekingalpha.com/tag/gold.xml", source: "Seeking Alpha – Gold" },
+];
+
+const CURRENCY_KW: Record<string, string[]> = {
+  USD: ["dollar","usd","federal reserve","fed","fomc","powell","treasury","nonfarm","payroll","dxy"],
+  EUR: ["euro","eur","ecb","lagarde","eurozone","bce","draghi"],
+  GBP: ["pound","gbp","sterling","boe","bank of england","bailey"],
+  JPY: ["yen","jpy","boj","bank of japan","ueda","nikkei"],
+  CHF: ["swiss","chf","snb","franc"],
+  CAD: ["canadian","cad","boc","loonie"],
+  AUD: ["aussie","aud","rba"],
+  NZD: ["kiwi","nzd","rbnz"],
+  XAU: ["gold","xau","bullion","wgc","lbma","cftc"],
+};
+
+const BULLISH_KW = ["rally","surge","gain","rise","jump","strong","high","increase","growth","beat","above","positive","optimistic","hawkish","tightening"];
+const BEARISH_KW = ["fall","drop","decline","plunge","weak","low","miss","below","cut","ease","dovish","selloff","recession","concern","risk","warn"];
+const HIGH_IMPACT_KW = ["fomc","ecb","boe","boj","rate decision","nonfarm payroll","cpi","gdp","inflation","unemployment","recession","central bank","war","crisis","sanction","default"];
+
+function detectCurrency(text: string): string {
+  const t = text.toLowerCase();
+  for (const [cur, kws] of Object.entries(CURRENCY_KW)) {
+    if (kws.some((kw) => t.includes(kw))) return cur;
+  }
+  return "GLOBALE";
+}
+
+function detectDirection(text: string): "bullish" | "bearish" | "neutrale" {
+  const t = text.toLowerCase();
+  const bull = BULLISH_KW.filter((kw) => t.includes(kw)).length;
+  const bear = BEARISH_KW.filter((kw) => t.includes(kw)).length;
+  if (bull > bear) return "bullish";
+  if (bear > bull) return "bearish";
+  return "neutrale";
+}
+
+function detectImpact(text: string): "alto" | "medio" | "basso" {
+  const t = text.toLowerCase();
+  return HIGH_IMPACT_KW.some((kw) => t.includes(kw)) ? "alto" : "medio";
+}
+
+function extractRSSImageMacro(block: string, descRaw: string): string | null {
+  return block.match(/<enclosure[^>]+url=["']([^"']+)["'][^>]*type=["']image[^"']*["']/i)?.[1]
+    || block.match(/<media:content[^>]+url=["']([^"']+\.(?:jpg|jpeg|png|webp|gif))["']/i)?.[1]
+    || block.match(/<media:thumbnail[^>]+url=["']([^"']+)["']/i)?.[1]
+    || descRaw.match(/<img[^>]+src=["']([^"']+\.(?:jpg|jpeg|png|webp|gif)[^"']*)["']/i)?.[1]
+    || null;
+}
+
+async function fetchMacroRSSFallback(currenciesInput: string): Promise<MacroNewsResult> {
+  const results = await Promise.allSettled(
+    RSS_MACRO_FEEDS.map(async (f) => {
+      const res = await fetch(f.url, {
+        headers: { "User-Agent": "Mozilla/5.0", "Accept": "application/rss+xml, */*" },
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const xml = await res.text();
+      const articles: Array<{
+        title: string; summary: string; currency: string; direction: "bullish"|"bearish"|"neutrale";
+        impact: "alto"|"medio"|"basso"; source: string; sources: string[]; verified: boolean;
+        timestamp: string | null; imageUrl: string | null;
+      }> = [];
+      const itemRe = /<item>([\s\S]*?)<\/item>/g;
+      let m;
+      while ((m = itemRe.exec(xml)) !== null) {
+        const block = m[1];
+        const titleRaw = block.match(/<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/)?.[1] ?? "";
+        const title = titleRaw.replace(/<[^>]+>/g, "").replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&#\d+;/g,"").trim();
+        const descRaw = block.match(/<description>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/)?.[1] ?? "";
+        const summary = descRaw.replace(/<[^>]+>/g,"").replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").trim().slice(0,280) || title;
+        const pubDate = block.match(/<pubDate>([^<]*)<\/pubDate>/)?.[1];
+        const link = block.match(/<link>([^<]*)<\/link>/)?.[1] || block.match(/<guid[^>]*>([^<]*)<\/guid>/)?.[1];
+        if (!title || title.length < 5) continue;
+        let ts: string | null = null;
+        try { ts = pubDate ? new Date(pubDate).toISOString() : null; } catch { /* */ }
+        const combined = `${title} ${summary}`;
+        articles.push({
+          title, summary, source: f.source, sources: [f.source],
+          currency: detectCurrency(combined),
+          direction: detectDirection(combined),
+          impact: detectImpact(combined),
+          verified: false, timestamp: ts,
+          imageUrl: extractRSSImageMacro(block, descRaw),
+        });
+      }
+      return articles;
+    })
+  );
+
+  const targetCurrencies = currenciesInput
+    ? currenciesInput.split(",").map((c) => c.trim().toUpperCase()).filter(Boolean)
+    : [];
+
+  let all: ReturnType<typeof fetchMacroRSSFallback> extends Promise<infer R> ? R["articles"] : never[] = [];
+  for (const r of results) {
+    if (r.status === "fulfilled") all = [...all, ...r.value];
+  }
+
+  // Filter by target currencies if specified
+  const filtered = targetCurrencies.length > 0
+    ? all.filter((a) => targetCurrencies.includes(a.currency) || a.currency === "GLOBALE")
+    : all;
+  const pool = filtered.length >= 4 ? filtered : all;
+
+  // Deduplicate and take top 8
+  const seen = new Set<string>();
+  const deduped = pool.filter((a) => {
+    const k = a.title.toLowerCase().slice(0, 40);
+    if (seen.has(k)) return false;
+    seen.add(k); return true;
+  }).slice(0, 8);
+
+  // Sort by timestamp desc
+  deduped.sort((a, b) => {
+    if (!a.timestamp && !b.timestamp) return 0;
+    if (!a.timestamp) return 1;
+    if (!b.timestamp) return -1;
+    return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+  });
+
+  // Add fallback image for articles without one
+  const articles = deduped.map((a) => ({
+    ...a,
+    imageUrl: a.imageUrl ?? buildMacroImageUrl(undefined, a.currency),
+  }));
+
+  const bullCount = articles.filter((a) => a.direction === "bullish").length;
+  const bearCount = articles.filter((a) => a.direction === "bearish").length;
+  const sentiment = bullCount > bearCount ? "risk-on" : bearCount > bullCount ? "risk-off" : "neutrale";
+
+  return {
+    articles,
+    sentiment,
+    summary: `Notizie in tempo reale da ${RSS_MACRO_FEEDS.map((f) => f.source).join(", ")}`,
+    fetchedAt: new Date().toISOString(),
+  };
+}
+
+async function fetchMacroNews(currencyLabel: string, currenciesRaw = ""): Promise<MacroNewsResult> {
+  try {
+    return await fetchMacroNewsPerplexity(currencyLabel);
+  } catch (err) {
+    console.warn("[tools/macro-news] AI failed, falling back to RSS:", err instanceof Error ? err.message : String(err));
+    return fetchMacroRSSFallback(currenciesRaw);
+  }
 }
 
 router.get("/tools/macro-news", async (req, res) => {
@@ -656,7 +817,7 @@ router.get("/tools/macro-news", async (req, res) => {
   }
 
   try {
-    const result = await fetchMacroNews(label);
+    const result = await fetchMacroNews(label, currenciesInput);
     macroNewsCache.set(key, { data: result, expiresAt: Date.now() + MACRO_NEWS_TTL });
     res.json(result);
   } catch (err) {
@@ -685,7 +846,7 @@ router.post("/tools/macro-news", async (req, res) => {
   }
 
   try {
-    const result = await fetchMacroNews(label);
+    const result = await fetchMacroNews(label, currencyInput);
     macroNewsCache.set(key, { data: result, expiresAt: Date.now() + MACRO_NEWS_TTL });
     res.json(result);
   } catch (err) {
