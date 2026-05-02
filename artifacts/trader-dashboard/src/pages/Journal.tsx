@@ -180,16 +180,40 @@ function IdeasTab({ type }: { type: "idea" | "goal" }) {
   const deleteMutation = useDeleteIdea();
   const invalidate = () => qc.invalidateQueries({ queryKey: getGetIdeasQueryKey() });
 
+  const todayStr = new Date().toISOString().split("T")[0];
+
+  const daysUntil = (dateStr: string): number => {
+    const d = parseISO(dateStr);
+    const t = new Date();
+    t.setHours(0, 0, 0, 0);
+    d.setHours(0, 0, 0, 0);
+    return Math.round((d.getTime() - t.getTime()) / 86_400_000);
+  };
+
+  const deadlineBadgeClass = (dateStr: string): string => {
+    const days = daysUntil(dateStr);
+    if (days < 0)  return "text-muted-foreground/50 bg-muted/20";
+    if (days <= 2) return "text-red-400 bg-red-500/15 border border-red-500/30";
+    if (days <= 7) return "text-amber-400 bg-amber-500/15 border border-amber-500/30";
+    return "text-emerald-400 bg-emerald-500/15 border border-emerald-500/30";
+  };
+
+  const deadlineBadgeLabel = (dateStr: string): string => {
+    const days = daysUntil(dateStr);
+    if (days < 0)  return `scaduto ${Math.abs(days)}g fa`;
+    if (days === 0) return "oggi";
+    if (days === 1) return "domani";
+    if (days <= 14) return `tra ${days}g`;
+    if (days <= 60) return `tra ${Math.round(days / 7)}sett`;
+    return format(parseISO(dateStr), "d MMM", { locale: it });
+  };
+
   const baseItems = all?.filter(i => i.type === type) ?? [];
-  // Filtra gli obiettivi per mostrare solo quelli con data nel futuro
+  // Mostra tutti gli obiettivi; quelli con scadenza passata solo se completati
   const items = baseItems.filter(item => {
-    if (type === "goal" && item.deadlineDate) {
-      const deadlineDate = parseISO(item.deadlineDate);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      return deadlineDate >= today;
+    if (type === "goal" && item.deadlineDate && !item.completed) {
+      return daysUntil(item.deadlineDate) >= 0;
     }
-    // Le idee senza deadline vengono sempre mostrate
     return true;
   });
   const Icon = type === "idea" ? Lightbulb : Target;
@@ -356,6 +380,7 @@ function IdeasTab({ type }: { type: "idea" | "goal" }) {
                 <input
                   type="date"
                   value={newDeadline}
+                  min={todayStr}
                   onChange={(e) => setNewDeadline(e.target.value)}
                   className="w-full px-3 py-2 text-xs rounded-lg bg-secondary/50 border border-border hover:border-primary/50 transition-colors focus:outline-none focus:border-primary/50"
                 />
@@ -411,10 +436,22 @@ function IdeasTab({ type }: { type: "idea" | "goal" }) {
                       </span>
                     )}
                     {type === "goal" && item.deadlineDate && (
-                      <span className="inline-flex items-center gap-1 text-xs text-secondary/70 bg-secondary/10 px-1.5 py-0.5 rounded">
+                      <span className={`inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded font-medium ${deadlineBadgeClass(item.deadlineDate)}`}>
                         <Calendar className="w-3 h-3" />
-                        {format(parseISO(item.deadlineDate), "d MMM", { locale: it })}
+                        {deadlineBadgeLabel(item.deadlineDate)}
                       </span>
+                    )}
+                    {type === "goal" && !item.deadlineDate && !item.completed && (
+                      <label className="inline-flex items-center gap-1 text-xs text-muted-foreground/40 hover:text-primary/60 cursor-pointer transition-colors" title="Imposta scadenza">
+                        <CalendarPlus className="w-3 h-3" />
+                        <span>scadenza</span>
+                        <input
+                          type="date"
+                          min={todayStr}
+                          className="absolute opacity-0 w-0 h-0 pointer-events-none"
+                          onChange={(e) => { if (e.target.value) handleSetDeadline(item.id, e.target.value); }}
+                        />
+                      </label>
                     )}
                     {type === "goal" && item.reminderTime && (
                       <span className="inline-flex items-center gap-1 text-xs text-primary/70">
@@ -486,6 +523,29 @@ function IdeasTab({ type }: { type: "idea" | "goal" }) {
                         />
                       </label>
                     )
+                  )}
+                  {type === "goal" && !item.completed && (
+                    <label className="relative cursor-pointer h-7 w-7 flex items-center justify-center rounded hover:bg-primary/10 transition-colors" title={item.deadlineDate ? "Modifica scadenza" : "Aggiungi scadenza"}>
+                      <Calendar className={`w-3.5 h-3.5 transition-colors ${item.deadlineDate ? "text-primary/70" : "text-muted-foreground hover:text-primary"}`} />
+                      <input
+                        type="date"
+                        min={todayStr}
+                        defaultValue={item.deadlineDate ?? ""}
+                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                        onChange={(e) => handleSetDeadline(item.id, e.target.value || null)}
+                      />
+                    </label>
+                  )}
+                  {type === "goal" && item.deadlineDate && !item.completed && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10"
+                      title="Rimuovi scadenza"
+                      onClick={() => handleSetDeadline(item.id, null)}
+                    >
+                      <X className="w-3 h-3" />
+                    </Button>
                   )}
                   {type === "goal" && (
                     <Button
