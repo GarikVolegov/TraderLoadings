@@ -68,8 +68,17 @@ export const checkinsTable = pgTable("checkins", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const loginAccessTable = pgTable("login_access", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  ipAddress: text("ip_address").notNull(),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export type Idea = typeof ideasTable.$inferSelect;
 export type ChecklistItem = typeof checklistItemsTable.$inferSelect;
 export type UserSetting = typeof userSettingsTable.$inferSelect;
 export type Quote = typeof quotesTable.$inferSelect;
 export type Checkin = typeof checkinsTable.$inferSelect;
+export type LoginAccess = typeof loginAccessTable.$inferSelect;

@@ -19,6 +19,7 @@ import checkinsRouter from "./checkins.js";
 import toolsRouter from "./tools.js";
 import socialRouter from "./social.js";
 import pushRouter from "./push.js";
+import loginAccessRouter from "./login-access.js";
 
 const router: IRouter = Router();
 
@@ -42,5 +43,6 @@ router.use(checkinsRouter);
 router.use(toolsRouter);
 router.use(socialRouter);
 router.use(pushRouter);
+router.use(loginAccessRouter);
 
 export default router;
