@@ -9,7 +9,10 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { Image, Upload, X, LogIn, LogOut, UserPlus, RefreshCw, Type, Sun, TrendingUp, Target, Plus, Pencil, Trash2, Quote, Bell, ShieldAlert, Lock, Globe, Music, ChevronRight, Check, Shield, KeyRound, CheckSquare, ChevronDown, BarChart2 } from "lucide-react";
+import { Image, Upload, X, LogIn, LogOut, UserPlus, RefreshCw, Type, Sun, TrendingUp, Target, Plus, Pencil, Trash2, Quote, Bell, ShieldAlert, Lock, Globe, Music, ChevronRight, Check, Shield, KeyRound, CheckSquare, ChevronDown, BarChart2, Library, HelpCircle, ExternalLink, Mail, MessageSquare, BookOpen, Zap, Star } from "lucide-react";
+import { useGetProfile } from "@workspace/api-client-react";
+import { getUnlockedRewards, getNextMilestone, getMilestoneProgress, MILESTONES, REWARDS } from "@/lib/rewardsLibrary";
+import { RewardCard } from "@/components/LevelRewardModal";
 import { useBackground, DEFAULT_TRADING_SESSIONS, DEFAULT_LOT_DIVISOR, type TradingSessionConfig } from "@/contexts/BackgroundContext";
 import { useGetUserSettings, useUpdateUserSettings, getGetUserSettingsQueryKey, useGetMissionTemplates, useCreateMissionTemplate, useUpdateMissionTemplate, useDeleteMissionTemplate, getGetMissionTemplatesQueryKey, useGetQuotes, useCreateQuote, useUpdateQuote, useDeleteQuote, getGetQuotesQueryKey, getGetRandomQuoteQueryKey, useGetChecklist, useCreateChecklistItem, useDeleteChecklistItem, getGetChecklistQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -1281,7 +1284,278 @@ function PairPreferencesSettings() {
   );
 }
 
-type TileId = "profilo" | "pairs" | "audio" | "aspetto" | "notifiche" | "sicurezza" | "lingua" | "trading" | "missioni" | "citazioni" | "checklist" | "account";
+// ─── Rewards Library Section ─────────────────────────────────────────────────
+
+function RewardsLibrarySection() {
+  const { data: profile } = useGetProfile();
+  const level = profile?.level ?? 0;
+  const unlocked = getUnlockedRewards(level);
+  const nextMilestone = getNextMilestone(level);
+  const progress = getMilestoneProgress(level);
+
+  const unlockedMilestones = MILESTONES.filter((m) => level >= m);
+  const lockedMilestones = MILESTONES.filter((m) => level < m);
+
+  return (
+    <div className="space-y-6">
+      {/* Progress bar to next milestone */}
+      <div className="bg-secondary/30 rounded-xl p-4 border border-border/40">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <Star className="w-4 h-4 text-primary" />
+            <span className="text-sm font-semibold">Livello {level}</span>
+          </div>
+          {nextMilestone ? (
+            <span className="text-xs text-muted-foreground">
+              Prossimo sblocco al livello <span className="text-primary font-bold">{nextMilestone}</span>
+            </span>
+          ) : (
+            <span className="text-xs text-primary font-semibold">Tutti i contenuti sbloccati!</span>
+          )}
+        </div>
+        {nextMilestone && (
+          <>
+            <div className="w-full h-2 bg-secondary rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-primary/70 to-primary rounded-full transition-all duration-700"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-1.5">
+              {level} / {nextMilestone} livelli — ancora {nextMilestone - level} livello{nextMilestone - level !== 1 ? "i" : ""} per sbloccare nuovi contenuti
+            </p>
+          </>
+        )}
+      </div>
+
+      {/* Unlocked content */}
+      {unlockedMilestones.length > 0 && (
+        <div className="space-y-5">
+          {unlockedMilestones.map((m) => {
+            const mRewards = REWARDS.filter((r) => r.milestone === m);
+            return (
+              <div key={m}>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 bg-primary/15 border border-primary/30 rounded-full">
+                    <Zap className="w-3 h-3 text-primary" />
+                    <span className="text-xs font-bold text-primary">Livello {m}</span>
+                  </div>
+                  <div className="h-px flex-1 bg-border/50" />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {mRewards.map((r) => <RewardCard key={r.id} reward={r} />)}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Locked milestones */}
+      {lockedMilestones.length > 0 && (
+        <div className="space-y-4">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Contenuti bloccati
+          </p>
+          {lockedMilestones.map((m) => {
+            const count = REWARDS.filter((r) => r.milestone === m).length;
+            return (
+              <div
+                key={m}
+                className="flex items-center gap-4 p-4 rounded-xl border border-border/30 bg-secondary/20 opacity-60"
+              >
+                <div className="w-10 h-10 rounded-full bg-secondary/60 border border-border/40 flex items-center justify-center shrink-0">
+                  <Lock className="w-4 h-4 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold">
+                    {count} contenuto{count !== 1 ? "i" : ""} al livello {m}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Raggiungi il livello {m} per sbloccarli
+                  </p>
+                </div>
+                <div className="ml-auto text-right">
+                  <span className="text-[11px] text-muted-foreground/70 font-mono">
+                    Lvl {m}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Empty state */}
+      {unlocked.length === 0 && (
+        <div className="text-center py-8 text-muted-foreground">
+          <Library className="w-10 h-10 mx-auto mb-3 opacity-30" />
+          <p className="text-sm font-medium">Raggiungi il livello 5</p>
+          <p className="text-xs mt-1">Il tuo primo contenuto si sbloccherà al livello 5</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Support & Help Section ───────────────────────────────────────────────────
+
+const FAQ_ITEMS: { q: string; a: string }[] = [
+  {
+    q: "Come funziona il sistema di XP e livelli?",
+    a: "Guadagni XP completando missioni giornaliere, mantenendo la streak, aprendo sessioni di check-in e compilando il diario. Ogni 500 XP sali di livello. Ogni 5 livelli sblocchi nuovi contenuti formativi nella Biblioteca.",
+  },
+  {
+    q: "Come attivo le notifiche push?",
+    a: "Vai in Impostazioni → Notifiche, poi attiva il toggle principale. Il browser chiederà il permesso una sola volta. Riceverai notifiche quando si aprono le tue sessioni di trading e quando ricevi messaggi in chat.",
+  },
+  {
+    q: "Come funzionano le sessioni di trading?",
+    a: "In Impostazioni → Trading puoi configurare orari personalizzati per ogni sessione (Londra, New York, Asia...). A ogni apertura ricevi un promemoria push con una citazione disciplinare.",
+  },
+  {
+    q: "Dove vengono salvati i miei dati?",
+    a: "Tutti i dati (diario, obiettivi, missioni, profilo) sono salvati in modo persistente nel database dell'app. Puoi accedere tramite autenticazione per sincronizzarli su dispositivi diversi.",
+  },
+  {
+    q: "Come faccio a guadagnare XP velocemente?",
+    a: "Mantieni la streak giornaliera (bonus crescente), completa tutte le missioni ogni giorno, usa il check-in sessione, compila il diario con riflessioni e utilizza la checklist pre-trade.",
+  },
+  {
+    q: "Cosa sono i contenuti della Biblioteca?",
+    a: "Ogni 5 livelli sblocchi video, PDF e presentazioni su psicologia del trading, risk management, Smart Money Concepts, analisi tecnica avanzata e mindset professionale. Si apriranno nel browser.",
+  },
+  {
+    q: "Come funziona la chat?",
+    a: "La chat ti mette in contatto con altri trader dell'app. Puoi inviare messaggi, immagini, note vocali ed emoji. Nelle storie puoi condividere aggiornamenti quotidiani con reply interattive.",
+  },
+  {
+    q: "Come imposto il PIN di sicurezza?",
+    a: "Vai in Impostazioni → Sicurezza → Imposta PIN. Dopo aver impostato il PIN, l'app lo richiederà ogni volta che viene aperta. Puoi disattivarlo in qualsiasi momento dalla stessa sezione.",
+  },
+];
+
+const FEATURE_GUIDES: { icon: React.ReactNode; title: string; desc: string }[] = [
+  { icon: <BookOpen className="w-4 h-4" />, title: "Diario di Trading", desc: "Registra ogni trade con riflessioni, tag emotivi e immagini. Analizza i pattern del tuo comportamento nel tempo." },
+  { icon: <Target className="w-4 h-4" />, title: "Missioni & Streak", desc: "Completa le missioni giornaliere per guadagnare XP. La streak si azzera se salti un giorno — mantienila per bonus crescenti." },
+  { icon: <TrendingUp className="w-4 h-4" />, title: "Sessioni & Check-in", desc: "Configura le sessioni di trading. Il check-in apre la sessione con una riflessione mentale e registra il tuo stato emotivo." },
+  { icon: <Zap className="w-4 h-4" />, title: "Backtest Visuale", desc: "Allenati su grafici storici in modalità replay. Simula operazioni, gestisci lo stop loss e tieni statistiche precise." },
+  { icon: <MessageSquare className="w-4 h-4" />, title: "Chat & Storie", desc: "Connettiti con altri trader. Invia messaggi, vocali, immagini. Pubblica storie quotidiane e rispondi con emoji o testo." },
+  { icon: <Library className="w-4 h-4" />, title: "Biblioteca Premi", desc: "Ogni 5 livelli sblocchi contenuti formativi esclusivi: video su mindset, PDF di analisi tecnica, presentazioni avanzate." },
+];
+
+function SupportSection() {
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+
+  return (
+    <div className="space-y-8">
+      {/* Quick guides */}
+      <div>
+        <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-3">
+          Come funziona l'app
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {FEATURE_GUIDES.map((g, i) => (
+            <div
+              key={i}
+              className="flex gap-3 p-3 rounded-xl border border-border/40 bg-secondary/20"
+            >
+              <div className="shrink-0 w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
+                {g.icon}
+              </div>
+              <div>
+                <p className="text-sm font-semibold">{g.title}</p>
+                <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{g.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* FAQ */}
+      <div>
+        <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-3">
+          Domande frequenti
+        </h3>
+        <div className="space-y-2">
+          {FAQ_ITEMS.map((item, i) => (
+            <div key={i} className="border border-border/40 rounded-xl overflow-hidden">
+              <button
+                onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-secondary/30 transition-colors"
+              >
+                <span className="text-sm font-medium pr-4">{item.q}</span>
+                <ChevronDown
+                  className={`w-4 h-4 text-muted-foreground shrink-0 transition-transform duration-200 ${
+                    openFaq === i ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+              <AnimatePresence>
+                {openFaq === i && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="px-4 pb-4 pt-1 text-sm text-muted-foreground leading-relaxed border-t border-border/30 bg-secondary/10">
+                      {item.a}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Contact & feedback */}
+      <div>
+        <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-3">
+          Contatti & Feedback
+        </h3>
+        <div className="space-y-3">
+          <a
+            href="mailto:support@traderloading.app"
+            className="flex items-center gap-3 p-4 rounded-xl border border-border/40 bg-secondary/20 hover:border-primary/30 hover:bg-secondary/40 transition-all group"
+          >
+            <div className="w-9 h-9 rounded-lg bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400 shrink-0">
+              <Mail className="w-4 h-4" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-semibold">Scrivi al supporto</p>
+              <p className="text-xs text-muted-foreground">support@traderloading.app</p>
+            </div>
+            <ExternalLink className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+          </a>
+
+          <a
+            href="mailto:feedback@traderloading.app?subject=Feedback%20TraderLOADING"
+            className="flex items-center gap-3 p-4 rounded-xl border border-border/40 bg-secondary/20 hover:border-primary/30 hover:bg-secondary/40 transition-all group"
+          >
+            <div className="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+              <MessageSquare className="w-4 h-4" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-semibold">Invia un feedback</p>
+              <p className="text-xs text-muted-foreground">Suggerimenti, idee, miglioramenti</p>
+            </div>
+            <ExternalLink className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+          </a>
+        </div>
+      </div>
+
+      {/* Version info */}
+      <div className="pt-2 border-t border-border/30 text-center">
+        <p className="text-xs text-muted-foreground/50 font-mono">TraderLOADING · v1.0 · Fatto con ♥ per i trader disciplinati</p>
+      </div>
+    </div>
+  );
+}
+
+type TileId = "profilo" | "pairs" | "audio" | "aspetto" | "notifiche" | "sicurezza" | "lingua" | "trading" | "missioni" | "citazioni" | "checklist" | "account" | "biblioteca" | "supporto";
 
 interface SettingsTile {
   id: TileId;
@@ -1309,6 +1583,8 @@ export default function Settings() {
     citazioni: false,
     checklist: false,
     account: false,
+    biblioteca: false,
+    supporto: false,
   });
 
   const tiles: SettingsTile[] = [
@@ -1323,6 +1599,8 @@ export default function Settings() {
     { id: "missioni", icon: <Target className="w-6 h-6" />, label: "Missioni", subtitle: "Template & abitudini", color: "text-rose-400", glow: "group-hover:shadow-rose-400/20" },
     { id: "citazioni", icon: <Quote className="w-6 h-6" />, label: "Citazioni", subtitle: "Frasi motivazionali", color: "text-amber-400", glow: "group-hover:shadow-amber-400/20" },
     { id: "checklist", icon: <CheckSquare className="w-6 h-6" />, label: "Checklist", subtitle: "Routine pre-trade", color: "text-teal-400", glow: "group-hover:shadow-teal-400/20" },
+    { id: "biblioteca", icon: <Library className="w-6 h-6" />, label: "Biblioteca", subtitle: "Premi & contenuti formativi", color: "text-primary", glow: "group-hover:shadow-primary/20" },
+    { id: "supporto", icon: <HelpCircle className="w-6 h-6" />, label: "Supporto & Aiuto", subtitle: "FAQ, guide, feedback", color: "text-sky-400", glow: "group-hover:shadow-sky-400/20" },
     { id: "account", icon: isAuthenticated ? <LogOut className="w-6 h-6" /> : <LogIn className="w-6 h-6" />, label: "Account", subtitle: isAuthenticated ? "Accesso attivo" : "Accedi o registrati", color: "text-slate-400", glow: "group-hover:shadow-slate-400/20" },
   ];
   
@@ -1346,6 +1624,8 @@ export default function Settings() {
     missioni: <MissionTemplatesSettings />,
     citazioni: <QuotesSettings />,
     checklist: <ChecklistSettings />,
+    biblioteca: <RewardsLibrarySection />,
+    supporto: <SupportSection />,
     account: isAuthenticated ? (
       <div className="space-y-4">
         <p className="text-sm text-muted-foreground">Sei attualmente autenticato. Puoi uscire dal tuo account in qualsiasi momento.</p>

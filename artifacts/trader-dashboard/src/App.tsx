@@ -13,6 +13,7 @@ import { GoalReminders } from "./components/GoalReminders";
 import { DailyAlarmNotifier } from "./components/DailyAlarmNotifier";
 import { MacroNotifier } from "./components/MacroNotifier";
 import { SessionCheckinModal } from "./components/SessionCheckinModal";
+import { LevelRewardModal } from "./components/LevelRewardModal";
 import { PinLockScreen } from "./components/PinLockScreen";
 import { ChecklistSetupModal } from "./components/ChecklistSetupModal";
 import { PairOnboardingWrapper } from "./components/PairOnboardingWrapper";
@@ -72,6 +73,7 @@ function App() {
                   <BackgroundProvider>
                     <PairOnboardingWrapper />
                     <SessionCheckinModal />
+                    <LevelRewardModal />
                     <Router />
                   </BackgroundProvider>
                 </WouterRouter>
