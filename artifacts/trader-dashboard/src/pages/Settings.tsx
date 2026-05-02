@@ -262,6 +262,31 @@ function BackgroundSettings() {
   );
 }
 
+function timeToMin(t: string): number {
+  const [h, m] = t.split(":").map(Number);
+  return h * 60 + (m || 0);
+}
+function toIntervals(open: number, close: number): [number, number][] {
+  if (open <= close) return [[open, close]];
+  return [[open, 1440], [0, close]];
+}
+function intervalsOverlap(a: [number, number], b: [number, number]): boolean {
+  return a[0] < b[1] && b[0] < a[1];
+}
+function detectOverlap(sessions: TradingSessionConfig[]): string | null {
+  const enabled = sessions.filter((s) => s.enabled);
+  for (let i = 0; i < enabled.length; i++) {
+    for (let j = i + 1; j < enabled.length; j++) {
+      const a = toIntervals(timeToMin(enabled[i].openUTC), timeToMin(enabled[i].closeUTC));
+      const b = toIntervals(timeToMin(enabled[j].openUTC), timeToMin(enabled[j].closeUTC));
+      if (a.some((ai) => b.some((bi) => intervalsOverlap(ai, bi)))) {
+        return `"${enabled[i].name}" e "${enabled[j].name}" si sovrappongono`;
+      }
+    }
+  }
+  return null;
+}
+
 function TradingSettings() {
   const { tradingSessions, setTradingSessions, lotDivisor, setLotDivisor } = useBackground();
   const updateMutation = useUpdateUserSettings();
@@ -271,7 +296,6 @@ function TradingSettings() {
   const [localDivisor, setLocalDivisor] = useState(String(lotDivisor));
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
-  // Converti UTC a EST (UTC-5)
   const utcToEst = (utcTime: string): string => {
     const [h, m] = utcTime.split(":").map(Number);
     let estH = h - 5;
@@ -279,7 +303,6 @@ function TradingSettings() {
     return `${String(estH).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
   };
 
-  // Converti EST a UTC (EST+5)
   const estToUtc = (estTime: string): string => {
     const [h, m] = estTime.split(":").map(Number);
     let utcH = h + 5;
@@ -287,23 +310,22 @@ function TradingSettings() {
     return `${String(utcH).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
   };
 
-  useEffect(() => {
-    setLocalSessions(tradingSessions);
-  }, [tradingSessions]);
+  useEffect(() => { setLocalSessions(tradingSessions); }, [tradingSessions]);
+  useEffect(() => { setLocalDivisor(String(lotDivisor)); }, [lotDivisor]);
+  useEffect(() => { return () => clearTimeout(debounceRef.current); }, []);
 
-  useEffect(() => {
-    setLocalDivisor(String(lotDivisor));
-  }, [lotDivisor]);
-
-  useEffect(() => {
-    return () => clearTimeout(debounceRef.current);
-  }, []);
+  const overlapError = detectOverlap(localSessions);
 
   const saveSessions = (sessions: TradingSessionConfig[]) => {
     setLocalSessions(sessions);
     setTradingSessions(sessions);
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
+      const err = detectOverlap(sessions);
+      if (err) {
+        toast({ description: `Sovrapposizione rilevata: ${err}`, variant: "destructive" });
+        return;
+      }
       try {
         await updateMutation.mutateAsync({ data: { tradingSessions: sessions, lotDivisor: Number(localDivisor) || DEFAULT_LOT_DIVISOR } });
         qc.invalidateQueries({ queryKey: getGetUserSettingsQueryKey() });
@@ -317,15 +339,31 @@ function TradingSettings() {
   const handleSessionChange = (idx: number, field: keyof TradingSessionConfig, value: string | boolean) => {
     const updated = localSessions.map((s, i) => {
       if (i === idx) {
-        // Se stai modificando openUTC o closeUTC, converti da EST a UTC
-        if (field === "openUTC" || field === "closeUTC") {
-          return { ...s, [field]: estToUtc(value as string) };
-        }
+        if (field === "openUTC" || field === "closeUTC") return { ...s, [field]: estToUtc(value as string) };
         return { ...s, [field]: value };
       }
       return s;
     });
     saveSessions(updated);
+  };
+
+  const handleAddSession = () => {
+    const newSession: TradingSessionConfig = {
+      id: `custom-${Date.now()}`,
+      name: `Sessione ${localSessions.length + 1}`,
+      openUTC: "07:00",
+      closeUTC: "09:00",
+      color: "session-ny",
+      enabled: false,
+    };
+    const updated = [...localSessions, newSession];
+    setLocalSessions(updated);
+    setTradingSessions(updated);
+  };
+
+  const handleDeleteSession = (idx: number) => {
+    if (localSessions.length <= 1) return;
+    saveSessions(localSessions.filter((_, i) => i !== idx));
   };
 
   const handleDivisorChange = (value: string) => {
@@ -370,13 +408,23 @@ function TradingSettings() {
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="space-y-4">
-          <div>
-            <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Sessioni di Trading</h4>
-            <p className="text-xs text-muted-foreground mt-1">Gli orari visualizzati sono in EST (Eastern Standard Time). Adatta le sessioni ai tuoi bisogni.</p>
+          <div className="flex items-start justify-between">
+            <div>
+              <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Sessioni di Trading</h4>
+              <p className="text-xs text-muted-foreground mt-1">Orari in EST. Nessuna sovrapposizione consentita tra sessioni attive.</p>
+            </div>
           </div>
+
+          {overlapError && (
+            <div className="flex items-center gap-2 rounded-lg bg-destructive/10 border border-destructive/30 px-3 py-2">
+              <ShieldAlert className="w-4 h-4 text-destructive shrink-0" />
+              <p className="text-xs text-destructive">{overlapError}</p>
+            </div>
+          )}
+
           {localSessions.map((session, idx) => (
-            <motion.div 
-              key={session.id} 
+            <motion.div
+              key={session.id}
               className="rounded-xl border border-border/50 bg-card/40 backdrop-blur-sm p-4 space-y-3 hover:border-border/80 transition-colors"
               whileHover={{ borderColor: "var(--border-hover)" }}
             >
@@ -388,11 +436,20 @@ function TradingSettings() {
                   placeholder="Nome sessione"
                 />
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-xs text-muted-foreground font-medium">Visibile</span>
+                  <span className="text-xs text-muted-foreground font-medium">Attiva</span>
                   <Switch
                     checked={session.enabled}
                     onCheckedChange={(checked) => handleSessionChange(idx, "enabled", checked)}
                   />
+                  {localSessions.length > 1 && (
+                    <button
+                      onClick={() => handleDeleteSession(idx)}
+                      className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                      title="Elimina sessione"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -417,6 +474,15 @@ function TradingSettings() {
               </div>
             </motion.div>
           ))}
+
+          <Button
+            variant="outline"
+            className="w-full rounded-xl border-dashed border-border/60 hover:border-primary/40 hover:bg-primary/5 transition-colors"
+            onClick={handleAddSession}
+          >
+            <Plus className="w-4 h-4 mr-2 text-primary" />
+            Aggiungi sessione personalizzata
+          </Button>
         </div>
 
         <Button variant="outline" className="w-full rounded-lg" onClick={handleReset}>

@@ -1,6 +1,32 @@
 import { Router, type IRouter } from "express";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
 import { db, followsTable, postsTable, postLikesTable, profileTable, userPublicKeysTable } from "@workspace/db";
 import { eq, and, or, desc, sql, inArray, gt, isNull } from "drizzle-orm";
+
+const POST_IMAGES_DIR = path.join(process.cwd(), "uploads", "post-images");
+if (!fs.existsSync(POST_IMAGES_DIR)) fs.mkdirSync(POST_IMAGES_DIR, { recursive: true });
+
+const postImageStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, POST_IMAGES_DIR),
+  filename: (_req, file, cb) => {
+    const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    cb(null, `post-${unique}${path.extname(file.originalname).toLowerCase()}`);
+  },
+});
+const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+const ALLOWED_EXT = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif"]);
+
+const postImageUpload = multer({
+  storage: postImageStorage,
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (ALLOWED_TYPES.has(file.mimetype) && ALLOWED_EXT.has(ext)) cb(null, true);
+    else cb(new Error("Solo immagini JPG, PNG, WebP e GIF"));
+  },
+});
 
 const router: IRouter = Router();
 
@@ -139,6 +165,17 @@ router.get("/social/search", async (req, res) => {
     console.error("search error:", err);
     res.status(500).json({ error: "Errore interno" });
   }
+});
+
+router.post("/social/upload-image", (req: any, res: any, next: any) => {
+  const userId = req.user?.id;
+  if (!userId) { res.status(401).json({ error: "Autenticazione richiesta" }); return; }
+  postImageUpload.single("image")(req, res, (err: any) => {
+    if (err) { res.status(400).json({ error: err.message ?? "Upload fallito" }); return; }
+    if (!req.file) { res.status(400).json({ error: "Nessun file caricato" }); return; }
+    const imageUrl = `/api/uploads/post-images/${req.file.filename}`;
+    res.json({ imageUrl });
+  });
 });
 
 router.post("/social/posts", async (req, res) => {

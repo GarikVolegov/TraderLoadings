@@ -317,6 +317,7 @@ router.get("/leaderboard", async (_req, res) => {
     const { level } = computeLevel(p.xp);
     return {
       position: idx + 1,
+      userId: p.userId ?? null,
       name: p.name,
       avatarUrl: p.avatarUrl ?? null,
       level,

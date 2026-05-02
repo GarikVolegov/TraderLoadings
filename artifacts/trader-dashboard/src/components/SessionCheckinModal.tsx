@@ -1,9 +1,27 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useBackground, type TradingSessionConfig } from "@/contexts/BackgroundContext";
-import { useGetIdeas, useGetUserSettings, useCreateCheckin, useGetTodayCheckin } from "@workspace/api-client-react";
+import { useGetIdeas, useGetUserSettings, useCreateCheckin } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { ShieldAlert, Target, X } from "lucide-react";
+
+function todayKey() {
+  const d = new Date();
+  return `${d.getUTCFullYear()}-${d.getUTCMonth()}-${d.getUTCDate()}`;
+}
+function getCheckedSessions(): Set<string> {
+  try {
+    const raw = localStorage.getItem(`tl_checked_sessions_${todayKey()}`);
+    return raw ? new Set(JSON.parse(raw) as string[]) : new Set();
+  } catch { return new Set(); }
+}
+function markSessionChecked(name: string) {
+  try {
+    const s = getCheckedSessions();
+    s.add(name);
+    localStorage.setItem(`tl_checked_sessions_${todayKey()}`, JSON.stringify([...s]));
+  } catch { /* ignore */ }
+}
 
 const MOODS = [
   { emoji: "😤", label: "Agitato" },
@@ -25,16 +43,17 @@ function isInSession(utcHours: number, session: TradingSessionConfig): boolean {
   return utcHours >= open || utcHours < close;
 }
 
+const INIT = Symbol("init");
+
 export function SessionCheckinModal() {
   const { tradingSessions } = useBackground();
   const { data: settings } = useGetUserSettings();
   const { data: ideas } = useGetIdeas();
-  const { data: todayCheckin } = useGetTodayCheckin();
   const createCheckin = useCreateCheckin();
   const { toast } = useToast();
 
   const [time, setTime] = useState(new Date());
-  const prevSessionRef = useRef<string | null>(null);
+  const prevSessionRef = useRef<string | null | typeof INIT>(INIT);
   const [visible, setVisible] = useState(false);
   const [currentSession, setCurrentSession] = useState<string>("");
   const [mood, setMood] = useState<string>("");
@@ -51,13 +70,28 @@ export function SessionCheckinModal() {
   }, [time, tradingSessions]);
 
   useEffect(() => {
-    const sessionName = activeSession?.name || null;
-    if (sessionName && sessionName !== prevSessionRef.current && todayCheckin === null) {
-      setCurrentSession(sessionName);
-      setVisible(true);
+    const sessionName = activeSession?.name ?? null;
+    const prev = prevSessionRef.current;
+
+    // Show questionnaire: on first load (app open) OR when session changes
+    const isFirstLoad = prev === INIT;
+    const sessionChanged = !isFirstLoad && sessionName !== prev;
+
+    if (sessionName && (isFirstLoad || sessionChanged)) {
+      prevSessionRef.current = sessionName;
+      const checked = getCheckedSessions();
+      if (!checked.has(sessionName)) {
+        setCurrentSession(sessionName);
+        setMood("");
+        setNote("");
+        setVisible(true);
+      }
+    } else if (!sessionName && prev !== INIT) {
+      prevSessionRef.current = null;
+    } else if (isFirstLoad) {
+      prevSessionRef.current = sessionName;
     }
-    prevSessionRef.current = sessionName;
-  }, [activeSession, todayCheckin]);
+  }, [activeSession]);
 
   const goals = ideas?.filter((i) => i.type === "goal" && !i.completed) ?? [];
 
@@ -67,11 +101,17 @@ export function SessionCheckinModal() {
       await createCheckin.mutateAsync({
         data: { mood, sessionName: currentSession, note: note || undefined },
       });
+      markSessionChecked(currentSession);
       setVisible(false);
       toast({ description: "Check-in registrato. Buon trading!" });
     } catch {
       toast({ description: "Errore nel check-in.", variant: "destructive" });
     }
+  };
+
+  const handleSkip = () => {
+    markSessionChecked(currentSession);
+    setVisible(false);
   };
 
   if (!visible) return null;
@@ -80,7 +120,7 @@ export function SessionCheckinModal() {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-5 relative animate-in fade-in zoom-in-95 duration-200">
         <button
-          onClick={() => setVisible(false)}
+          onClick={handleSkip}
           className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors"
         >
           <X className="w-5 h-5" />
