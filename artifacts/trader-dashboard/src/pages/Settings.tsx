@@ -9,7 +9,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { Image, Upload, X, LogIn, LogOut, UserPlus, RefreshCw, Type, Sun, TrendingUp, Target, Plus, Pencil, Trash2, Quote, Bell, ShieldAlert, Lock, Globe, Music, ChevronRight, Check, Shield, KeyRound, CheckSquare, ChevronDown, BarChart2, Library, HelpCircle, ExternalLink, Mail, MessageSquare, BookOpen, Zap, Star, Monitor, Smartphone, Tablet as TabletIcon, Clock } from "lucide-react";
+import { Image, Upload, X, LogIn, LogOut, UserPlus, RefreshCw, Type, Sun, TrendingUp, Target, Plus, Pencil, Trash2, Quote, Bell, ShieldAlert, Lock, Globe, Music, ChevronRight, Check, Shield, KeyRound, CheckSquare, ChevronDown, BarChart2, Library, HelpCircle, ExternalLink, Mail, MessageSquare, BookOpen, Zap, Star, Monitor, Smartphone, Tablet as TabletIcon, Clock, FileText, Scale, LifeBuoy, CircleHelp, ArrowRight } from "lucide-react";
 import { useGetProfile } from "@workspace/api-client-react";
 import { getUnlockedRewards, getNextMilestone, getMilestoneProgress, MILESTONES, REWARDS } from "@/lib/rewardsLibrary";
 import { RewardCard } from "@/components/LevelRewardModal";
@@ -1662,7 +1662,277 @@ function SupportSection() {
   );
 }
 
-type TileId = "profilo" | "pairs" | "audio" | "aspetto" | "notifiche" | "sicurezza" | "lingua" | "trading" | "missioni" | "citazioni" | "checklist" | "account" | "biblioteca" | "supporto";
+// ─── Help Section ─────────────────────────────────────────────────────────────
+
+const QUICK_STEPS = [
+  { n: "1", title: "Crea il tuo profilo", desc: "Scegli un username, carica un avatar e imposta il tuo obiettivo di trading settimanale." },
+  { n: "2", title: "Configura le sessioni", desc: "Vai in Trading → Sessioni e imposta gli orari UTC delle sessioni che segui (Londra, New York, Asia…)." },
+  { n: "3", title: "Apri il tuo primo check-in", desc: "Prima di fare trading usa il pulsante sessione nel dashboard per registrare il tuo stato mentale." },
+  { n: "4", title: "Compila il diario", desc: "Dopo ogni trade vai in Diario → Nuovo Trade. Tieni traccia di setup, risultato e riflessioni." },
+  { n: "5", title: "Completa le missioni", desc: "Ogni giorno hai missioni disponibili. Completarle ti dà XP per salire di livello." },
+  { n: "6", title: "Attiva le notifiche", desc: "In Notifiche abilita le push per ricevere avvisi all'apertura delle sessioni di trading." },
+];
+
+const SHORTCUT_ITEMS = [
+  { keys: ["Impostazioni", "→", "Sicurezza"], action: "Imposta PIN di protezione" },
+  { keys: ["Impostazioni", "→", "Aspetto"], action: "Cambia sfondo e font" },
+  { keys: ["Impostazioni", "→", "Pairs"], action: "Seleziona i tuoi pair preferiti" },
+  { keys: ["Diario", "→", "Recap"], action: "Analisi settimanale / mensile" },
+  { keys: ["Tools", "→", "Backtest"], action: "Allenamento su grafici storici" },
+  { keys: ["Zen"], action: "Mood tracking e meditazione" },
+];
+
+const HELP_FAQS = [
+  { q: "Come resetto la mia streak?", a: "La streak si azzera automaticamente se non esegui almeno un'azione di completamento (check-in, diario, missione) entro la giornata. Non c'è un reset manuale." },
+  { q: "Come faccio a cambiare la lingua?", a: "Vai in Impostazioni → Lingua e seleziona la lingua desiderata. Il cambio è immediato e si applica a tutta l'interfaccia." },
+  { q: "Posso usare l'app su più dispositivi?", a: "Sì. I dati sono sincronizzati tramite il tuo account. Accedi con le stesse credenziali su qualsiasi dispositivo e troverai tutto aggiornato." },
+  { q: "Come esporto i miei trade?", a: "Dal Diario puoi esportare le sessioni in formato ICS (calendario). L'export CSV completo è in arrivo nei prossimi aggiornamenti." },
+  { q: "Come funziona il calcolo del lot size?", a: "In Tools → Calcolatore imposti il tuo capitale, il rischio percentuale e lo stop loss in pips. Il sistema calcola automaticamente il lot size corretto per il pair selezionato." },
+  { q: "Cosa succede se cambio il PIN e lo dimentico?", a: "Il PIN è memorizzato localmente. Se lo dimentichi puoi resettarlo dalla pagina delle impostazioni usando l'opzione «Rimuovi PIN» (richiede di conoscere quello attuale)." },
+];
+
+function HelpSection() {
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+
+  return (
+    <div className="space-y-8">
+
+      {/* Quick start */}
+      <div>
+        <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4">
+          Guida rapida — primi passi
+        </h3>
+        <div className="space-y-3">
+          {QUICK_STEPS.map((s) => (
+            <div key={s.n} className="flex gap-4 p-4 rounded-xl border border-border/40 bg-secondary/20">
+              <div className="shrink-0 w-8 h-8 rounded-full bg-primary/15 border border-primary/30 flex items-center justify-center text-primary font-bold text-sm font-mono">
+                {s.n}
+              </div>
+              <div>
+                <p className="text-sm font-semibold">{s.title}</p>
+                <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{s.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Navigation shortcuts */}
+      <div>
+        <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4">
+          Percorsi rapidi
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {SHORTCUT_ITEMS.map((item, i) => (
+            <div key={i} className="flex items-center gap-2 p-3 rounded-xl border border-border/30 bg-secondary/10">
+              <div className="flex items-center gap-1 flex-wrap min-w-0">
+                {item.keys.map((k, ki) => (
+                  <span key={ki} className="flex items-center gap-1">
+                    <span className="text-[11px] font-semibold bg-card border border-border px-1.5 py-0.5 rounded text-foreground whitespace-nowrap">
+                      {k}
+                    </span>
+                    {ki < item.keys.length - 1 && (
+                      <ArrowRight className="w-2.5 h-2.5 text-muted-foreground/50 shrink-0" />
+                    )}
+                  </span>
+                ))}
+              </div>
+              <span className="text-xs text-muted-foreground ml-auto shrink-0 text-right">{item.action}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* FAQ */}
+      <div>
+        <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4">
+          Domande frequenti
+        </h3>
+        <div className="space-y-2">
+          {HELP_FAQS.map((item, i) => (
+            <div key={i} className="border border-border/40 rounded-xl overflow-hidden">
+              <button
+                onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-secondary/30 transition-colors"
+              >
+                <span className="text-sm font-medium pr-4">{item.q}</span>
+                <ChevronDown className={`w-4 h-4 text-muted-foreground shrink-0 transition-transform duration-200 ${openFaq === i ? "rotate-180" : ""}`} />
+              </button>
+              <AnimatePresence>
+                {openFaq === i && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="px-4 pb-4 pt-1 text-sm text-muted-foreground leading-relaxed border-t border-border/30 bg-secondary/10">
+                      {item.a}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Contact */}
+      <div>
+        <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4">
+          Hai ancora bisogno di aiuto?
+        </h3>
+        <a
+          href="mailto:support@traderloading.app?subject=Richiesta%20assistenza"
+          className="flex items-center gap-3 p-4 rounded-xl border border-border/40 bg-secondary/20 hover:border-purple-400/30 hover:bg-secondary/40 transition-all group"
+        >
+          <div className="w-9 h-9 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 shrink-0">
+            <CircleHelp className="w-4 h-4" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-semibold">Contatta il supporto</p>
+            <p className="text-xs text-muted-foreground">support@traderloading.app</p>
+          </div>
+          <ExternalLink className="w-4 h-4 text-muted-foreground group-hover:text-purple-400 transition-colors" />
+        </a>
+      </div>
+    </div>
+  );
+}
+
+// ─── Terms & Conditions Section ────────────────────────────────────────────────
+
+const TERMS_UPDATED = "2 maggio 2025";
+
+function TermsBlock({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        <Scale className="w-4 h-4 text-pink-400 shrink-0" />
+        <h4 className="text-sm font-bold text-foreground">{title}</h4>
+      </div>
+      <div className="pl-6 text-sm text-muted-foreground leading-relaxed space-y-1.5">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function TermsSection() {
+  return (
+    <div className="space-y-8">
+
+      {/* Header banner */}
+      <div className="flex items-start gap-3 p-4 rounded-xl border border-pink-500/20 bg-pink-500/5">
+        <FileText className="w-5 h-5 text-pink-400 mt-0.5 shrink-0" />
+        <div>
+          <p className="text-sm font-semibold text-foreground">Termini di utilizzo · TraderLOADING</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Ultimo aggiornamento: {TERMS_UPDATED}. Utilizzando l'app accetti i termini descritti di seguito.
+          </p>
+        </div>
+      </div>
+
+      <div className="space-y-6">
+
+        <TermsBlock title="Scopo dell'applicazione">
+          <p>
+            TraderLOADING è uno strumento di supporto alla disciplina e all'organizzazione personale per trader.
+            Non fornisce consigli finanziari, segnali di trading o raccomandazioni di investimento di alcun tipo.
+          </p>
+          <p>
+            Qualsiasi decisione di acquisto o vendita di strumenti finanziari è esclusiva responsabilità dell'utente.
+          </p>
+        </TermsBlock>
+
+        <TermsBlock title="Disclaimer finanziario">
+          <p>
+            Il trading su mercati finanziari comporta un rischio elevato di perdita del capitale. I risultati passati
+            non garantiscono risultati futuri. Le funzionalità dell'app (calcolatore, backtest, diario) sono strumenti
+            educativi e organizzativi, non sistemi di trading automatico.
+          </p>
+          <p className="text-xs bg-secondary/40 border border-border/40 rounded-lg p-3 font-mono">
+            ⚠️ Non siamo responsabili per perdite finanziarie derivanti dall'utilizzo dell'app.
+          </p>
+        </TermsBlock>
+
+        <TermsBlock title="Raccolta e uso dei dati">
+          <p>L'app raccoglie e archivia i seguenti dati personali dell'utente:</p>
+          <ul className="list-disc list-inside space-y-0.5 text-xs">
+            <li>Indirizzo email e nome (tramite sistema di autenticazione)</li>
+            <li>Dati del diario di trading inseriti volontariamente</li>
+            <li>Indirizzo IP al momento dell'accesso (visibile in Sicurezza → Accessi recenti)</li>
+            <li>User-agent del browser / dispositivo</li>
+            <li>Preferenze e impostazioni dell'app</li>
+          </ul>
+          <p>
+            I dati sono archiviati in database sicuri. Non vengono venduti né condivisi con terze parti
+            per scopi commerciali. Possono essere utilizzati in forma anonima e aggregata per migliorare l'app.
+          </p>
+        </TermsBlock>
+
+        <TermsBlock title="Account e sicurezza">
+          <p>
+            L'utente è responsabile della sicurezza delle proprie credenziali. In caso di accesso non
+            autorizzato è necessario contattare il supporto immediatamente. Il PIN locale è uno strumento
+            aggiuntivo di privacy sul dispositivo e non sostituisce la password dell'account.
+          </p>
+        </TermsBlock>
+
+        <TermsBlock title="Proprietà intellettuale">
+          <p>
+            Tutti i contenuti dell'app (interfaccia, testi, grafica, logiche di gamification, contenuti
+            formativi della Biblioteca) sono di proprietà esclusiva di TraderLOADING. È vietata la
+            riproduzione, copia o ridistribuzione senza autorizzazione scritta.
+          </p>
+          <p>
+            I dati inseriti dall'utente (diario, note, obiettivi) rimangono di proprietà dell'utente.
+          </p>
+        </TermsBlock>
+
+        <TermsBlock title="Limitazione di responsabilità">
+          <p>
+            L'app è fornita «così com'è». Non garantiamo la disponibilità continua del servizio né
+            l'assenza di bug. Non siamo responsabili per perdite di dati causate da eventi eccezionali
+            (guasti hardware, disastri naturali, attacchi informatici).
+          </p>
+        </TermsBlock>
+
+        <TermsBlock title="Modifiche ai termini">
+          <p>
+            Ci riserviamo il diritto di aggiornare questi termini in qualsiasi momento. Le modifiche
+            saranno comunicate tramite notifica in-app. L'uso continuato dell'app dopo la notifica
+            costituisce accettazione dei nuovi termini.
+          </p>
+        </TermsBlock>
+
+        <TermsBlock title="Contatti legali">
+          <p>
+            Per richieste relative a privacy, cancellazione dati o questioni legali:
+          </p>
+          <a
+            href="mailto:legal@traderloading.app"
+            className="inline-flex items-center gap-1.5 text-pink-400 hover:text-pink-300 transition-colors text-xs font-medium"
+          >
+            <Mail className="w-3.5 h-3.5" />
+            legal@traderloading.app
+            <ExternalLink className="w-3 h-3" />
+          </a>
+        </TermsBlock>
+
+      </div>
+
+      <div className="pt-2 border-t border-border/30 text-center">
+        <p className="text-xs text-muted-foreground/50 font-mono">
+          TraderLOADING · Termini v1.0 · Aggiornato il {TERMS_UPDATED}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+type TileId = "profilo" | "pairs" | "audio" | "aspetto" | "notifiche" | "sicurezza" | "lingua" | "trading" | "missioni" | "citazioni" | "checklist" | "account" | "biblioteca" | "supporto" | "aiuto" | "termini";
 
 interface SettingsTile {
   id: TileId;
@@ -1692,6 +1962,8 @@ export default function Settings() {
     account: false,
     biblioteca: false,
     supporto: false,
+    aiuto: false,
+    termini: false,
   });
 
   const tiles: SettingsTile[] = [
@@ -1708,6 +1980,8 @@ export default function Settings() {
     { id: "checklist", icon: <CheckSquare className="w-6 h-6" />, label: t("settings.tile.checklist"), subtitle: t("settings.tile.checklist_sub"), color: "text-teal-400", glow: "group-hover:shadow-teal-400/20" },
     { id: "biblioteca", icon: <Library className="w-6 h-6" />, label: t("settings.tile.library"), subtitle: t("settings.tile.library_sub"), color: "text-primary", glow: "group-hover:shadow-primary/20" },
     { id: "supporto", icon: <HelpCircle className="w-6 h-6" />, label: t("settings.tile.support"), subtitle: t("settings.tile.support_sub"), color: "text-sky-400", glow: "group-hover:shadow-sky-400/20" },
+    { id: "aiuto", icon: <LifeBuoy className="w-6 h-6" />, label: "Aiuto", subtitle: "Guida rapida e tutorial", color: "text-purple-400", glow: "group-hover:shadow-purple-400/20" },
+    { id: "termini", icon: <FileText className="w-6 h-6" />, label: "Termini & Condizioni", subtitle: "Privacy, licenza e disclaimer", color: "text-pink-400", glow: "group-hover:shadow-pink-400/20" },
     { id: "account", icon: isAuthenticated ? <LogOut className="w-6 h-6" /> : <LogIn className="w-6 h-6" />, label: t("settings.tile.account"), subtitle: isAuthenticated ? t("settings.tile.account_active") : t("settings.tile.account_inactive"), color: "text-slate-400", glow: "group-hover:shadow-slate-400/20" },
   ];
   
@@ -1738,6 +2012,8 @@ export default function Settings() {
     checklist: <ChecklistSettings />,
     biblioteca: <RewardsLibrarySection />,
     supporto: <SupportSection />,
+    aiuto: <HelpSection />,
+    termini: <TermsSection />,
     account: isAuthenticated ? (
       <div className="space-y-4">
         <p className="text-sm text-muted-foreground">{t("settings.account.logged_in")}</p>
