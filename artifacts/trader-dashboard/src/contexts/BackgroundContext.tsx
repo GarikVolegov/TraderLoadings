@@ -1,6 +1,8 @@
-import { createContext, useContext, useState, useEffect, useMemo, type ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useMemo, useCallback, type ReactNode } from "react";
 import { useGetUserSettings, type TradingSessionConfig } from "@workspace/api-client-react";
 import { getCurrenciesFromPairs } from "@workspace/pair-catalog";
+
+const CALENDAR_CURRENCY_LIST = ["USD", "EUR", "GBP", "JPY", "AUD", "CAD", "CHF", "NZD", "CNY"];
 
 export type { TradingSessionConfig };
 
@@ -91,11 +93,22 @@ export function BackgroundProvider({ children }: { children: ReactNode }) {
   const [calendarCurrencies, setCalendarCurrencies] = useState<string[]>(["USD"]);
   const [calendarImpacts, setCalendarImpacts] = useState<string[]>(["High"]);
   const [backgroundPresets, setBackgroundPresets] = useState<BackgroundPreset[]>(DEFAULT_BACKGROUND_PRESETS);
-  const [selectedPairs, setSelectedPairs] = useState<string[]>([]);
+  const [selectedPairs, setSelectedPairsRaw] = useState<string[]>([]);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const { data: settings } = useGetUserSettings();
 
   const selectedCurrencies = useMemo(() => getCurrenciesFromPairs(selectedPairs), [selectedPairs]);
+
+  const syncCalendarFromPairs = useCallback((pairs: string[]) => {
+    const currencies = getCurrenciesFromPairs(pairs);
+    const derived = currencies.filter((c) => CALENDAR_CURRENCY_LIST.includes(c));
+    if (derived.length > 0) setCalendarCurrencies(derived);
+  }, []);
+
+  const setSelectedPairs = useCallback((pairs: string[]) => {
+    setSelectedPairsRaw(pairs);
+    syncCalendarFromPairs(pairs);
+  }, [syncCalendarFromPairs]);
 
   useEffect(() => {
     if (settings?.backgroundType === "custom" && settings.backgroundUrl) {
@@ -115,9 +128,6 @@ export function BackgroundProvider({ children }: { children: ReactNode }) {
     if (settings?.lotDivisor !== undefined) {
       setLotDivisor(settings.lotDivisor);
     }
-    if (settings?.calendarCurrencies && Array.isArray(settings.calendarCurrencies)) {
-      setCalendarCurrencies(settings.calendarCurrencies);
-    }
     if (settings?.calendarImpacts && Array.isArray(settings.calendarImpacts)) {
       setCalendarImpacts(settings.calendarImpacts);
     }
@@ -125,12 +135,16 @@ export function BackgroundProvider({ children }: { children: ReactNode }) {
       setBackgroundPresets(settings.backgroundPresets);
     }
     if (settings?.selectedPairs && Array.isArray(settings.selectedPairs)) {
-      setSelectedPairs(settings.selectedPairs as string[]);
+      const pairs = settings.selectedPairs as string[];
+      setSelectedPairsRaw(pairs);
+      syncCalendarFromPairs(pairs);
+    } else if (settings?.calendarCurrencies && Array.isArray(settings.calendarCurrencies)) {
+      setCalendarCurrencies(settings.calendarCurrencies);
     }
     if (settings) {
       setSettingsLoaded(true);
     }
-  }, [settings]);
+  }, [settings, syncCalendarFromPairs]);
 
   useEffect(() => {
     const family = FONT_MAP[fontChoice] || FONT_MAP.inter;

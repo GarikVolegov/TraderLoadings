@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
+import { useBackground } from "@/contexts/BackgroundContext";
 import {
   Brain,
   RefreshCw,
@@ -139,6 +140,19 @@ export function MacroNewsTicker() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selectedCurrencies, setSelectedCurrencies] = useState<string[]>(loadCurrencies);
   const forceNextRef = useRef(false);
+  const { selectedCurrencies: contextCurrencies } = useBackground();
+
+  const pairDerivedCurrencies = useMemo(() => {
+    const valid = contextCurrencies.filter((c) => ALL_CURRENCIES.includes(c));
+    return valid.length > 0 ? valid : null;
+  }, [contextCurrencies]);
+
+  useEffect(() => {
+    if (pairDerivedCurrencies) {
+      setSelectedCurrencies(pairDerivedCurrencies);
+      saveCurrencies(pairDerivedCurrencies);
+    }
+  }, [pairDerivedCurrencies]);
 
   useEffect(() => {
     saveCurrencies(selectedCurrencies);
