@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckSquare, Plus, Trash2, CheckCircle2 } from "lucide-react";
+import { ShieldCheck, Plus, Trash2, CheckCircle2 } from "lucide-react";
 import { PageLayout } from "@/components/PageLayout";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -48,14 +48,14 @@ export default function Checklist() {
   return (
     <PageLayout>
       <PageHeader
-        title={t("checklist.title")}
-        subtitle="Elementi fissi della tua routine pre-trade"
+        title="Criteri di Conferma"
+        subtitle="I requisiti che devi soddisfare prima di entrare in ogni trade"
       />
 
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <CheckSquare className="w-5 h-5 text-primary" />
+            <ShieldCheck className="w-5 h-5 text-primary" />
             {t("checklist.add_title")}
           </CardTitle>
         </CardHeader>
@@ -84,9 +84,9 @@ export default function Checklist() {
             </div>
           ) : !items || items.length === 0 ? (
             <div className="p-12 text-center text-muted-foreground">
-              <CheckSquare className="w-12 h-12 mx-auto mb-4 opacity-20" />
-              <p className="font-medium mb-1">{t("checklist.empty")}</p>
-              <p className="text-sm">{t("checklist.empty_desc")}</p>
+              <ShieldCheck className="w-12 h-12 mx-auto mb-4 opacity-20" />
+              <p className="font-medium mb-1">Nessun criterio definito</p>
+              <p className="text-sm text-muted-foreground">Aggiungi i criteri che devi verificare prima di entrare in ogni trade</p>
             </div>
           ) : (
             <AnimatePresence>
@@ -124,7 +124,7 @@ export default function Checklist() {
 
       {total > 0 && (
         <p className="text-xs text-muted-foreground text-center">
-          {total} {total === 1 ? "elemento" : "elementi"} nella checklist — puoi selezionarli come tag nel Journal
+          {total} {total === 1 ? "criterio" : "criteri"} di conferma — spuntali nella Dashboard prima di ogni entrata
         </p>
       )}
     </PageLayout>
