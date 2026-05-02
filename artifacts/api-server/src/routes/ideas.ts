@@ -17,12 +17,19 @@ router.get("/ideas", async (req, res) => {
 
 router.post("/ideas", async (req, res) => {
   const userId = getUserId(req);
-  const { type, content } = req.body;
+  const { type, content, deadlineDate, importance } = req.body;
   if (!type || !content) {
     res.status(400).json({ error: "type and content are required" });
     return;
   }
-  const [idea] = await db.insert(ideasTable).values({ type, content, userId }).returning();
+  const insertValues: typeof ideasTable.$inferInsert = {
+    type,
+    content,
+    userId,
+    ...(deadlineDate ? { deadlineDate: String(deadlineDate) } : {}),
+    ...(importance   ? { importance:   String(importance)   } : {}),
+  };
+  const [idea] = await db.insert(ideasTable).values(insertValues).returning();
   res.status(201).json(idea);
 });
 

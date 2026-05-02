@@ -1621,6 +1621,14 @@ components:
           enum: [idea, goal]
         content:
           type: string
+        deadlineDate:
+          type: string
+          nullable: true
+          description: "YYYY-MM-DD deadline date for goals"
+        importance:
+          type: string
+          enum: [low, medium, high]
+          nullable: true
       required:
         - type
         - content

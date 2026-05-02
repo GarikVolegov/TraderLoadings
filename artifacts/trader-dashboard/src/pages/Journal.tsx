@@ -176,6 +176,7 @@ function IdeasTab({ type }: { type: "idea" | "goal" }) {
   const [newContent, setNewContent] = useState("");
   const [newImportance, setNewImportance] = useState<"low" | "medium" | "high">("medium");
   const [newDeadline, setNewDeadline] = useState("");
+  const [customDays, setCustomDays] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const { data: all, isLoading } = useGetIdeas();
@@ -263,6 +264,7 @@ function IdeasTab({ type }: { type: "idea" | "goal" }) {
       setNewContent("");
       setNewImportance("medium");
       setNewDeadline("");
+      setCustomDays("");
       invalidate();
     } catch {
       toast({ description: t("journal.error"), variant: "destructive" });
@@ -377,14 +379,66 @@ function IdeasTab({ type }: { type: "idea" | "goal" }) {
                 </select>
               </div>
               <div className="flex-1 min-w-fit">
-                <label className="text-xs text-muted-foreground mb-1 block">{t("journal.deadline")}</label>
-                <input
-                  type="date"
-                  value={newDeadline}
-                  min={todayStr}
-                  onChange={(e) => setNewDeadline(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-lg bg-secondary/50 border border-border hover:border-primary/50 transition-colors focus:outline-none focus:border-primary/50"
-                />
+                <label className="text-xs text-muted-foreground mb-1.5 block">{t("journal.deadline")}</label>
+                <div className="space-y-2">
+                  <div className="flex flex-wrap gap-1.5 items-center">
+                    {[7, 14, 30, 60, 90, 180].map(days => {
+                      const d = new Date();
+                      d.setDate(d.getDate() + days);
+                      const val = d.toISOString().split("T")[0];
+                      const isSelected = newDeadline === val;
+                      return (
+                        <button
+                          key={days}
+                          type="button"
+                          onClick={() => { setNewDeadline(isSelected ? "" : val); setCustomDays(""); }}
+                          className={`text-[11px] px-2 py-1 rounded-lg border transition-all ${isSelected ? "border-primary bg-primary/15 text-primary font-medium" : "border-border/50 text-muted-foreground hover:border-primary/40 hover:text-primary/70"}`}
+                        >
+                          +{days}gg
+                        </button>
+                      );
+                    })}
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        min="1"
+                        max="3650"
+                        placeholder="N"
+                        value={customDays}
+                        onChange={(e) => {
+                          setCustomDays(e.target.value);
+                          const n = parseInt(e.target.value);
+                          if (!isNaN(n) && n > 0) {
+                            const d = new Date();
+                            d.setDate(d.getDate() + n);
+                            setNewDeadline(d.toISOString().split("T")[0]);
+                          } else {
+                            setNewDeadline("");
+                          }
+                        }}
+                        className="w-14 px-2 py-1 text-[11px] rounded-lg bg-secondary/50 border border-border hover:border-primary/50 focus:border-primary/50 focus:outline-none text-center"
+                      />
+                      <span className="text-[10px] text-muted-foreground">gg</span>
+                    </div>
+                  </div>
+                  {newDeadline ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] text-primary/70 flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />
+                        {format(parseISO(newDeadline), "d MMM yyyy", { locale: dateLocale })}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => { setNewDeadline(""); setCustomDays(""); }}
+                        className="text-[10px] text-muted-foreground/50 hover:text-destructive transition-colors leading-none"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-muted-foreground/30">{t("journal.deadline.optional")}</p>
+                  )}
+                </div>
               </div>
             </div>
           )}
