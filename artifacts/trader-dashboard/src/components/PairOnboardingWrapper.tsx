@@ -2,9 +2,21 @@ import { useState, useEffect, useRef } from "react";
 import { useBackground } from "@/contexts/BackgroundContext";
 import { useUpdateUserSettings, getGetUserSettingsQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { PairOnboardingScreen } from "./PairOnboardingScreen";
 import { PairSelectionModal } from "./PairSelectionModal";
 
-export function PairOnboardingWrapper() {
+interface PairOnboardingWrapperProps {
+  /** When true, uses the full-screen onboarding (used from Settings to re-open as modal) */
+  settingsMode?: boolean;
+  settingsModeOpen?: boolean;
+  onSettingsModeClose?: () => void;
+}
+
+export function PairOnboardingWrapper({
+  settingsMode = false,
+  settingsModeOpen = false,
+  onSettingsModeClose,
+}: PairOnboardingWrapperProps = {}) {
   const { selectedPairs, setSelectedPairs, settingsLoaded } = useBackground();
   const [show, setShow] = useState(false);
   const confirmedRef = useRef(false);
@@ -12,7 +24,6 @@ export function PairOnboardingWrapper() {
   const qc = useQueryClient();
 
   useEffect(() => {
-    // Mostra il modal SOLO se: settings caricati, nessun pair salvato, e l'utente non ha ancora confermato in questa sessione
     if (settingsLoaded && selectedPairs.length === 0 && !confirmedRef.current) {
       setShow(true);
     } else if (selectedPairs.length > 0) {
@@ -22,10 +33,10 @@ export function PairOnboardingWrapper() {
 
   const handleConfirm = async (pairs: string[]) => {
     if (pairs.length === 0) return;
-    // Segna come confermato subito per evitare race condition
     confirmedRef.current = true;
     setSelectedPairs(pairs);
     setShow(false);
+    onSettingsModeClose?.();
     try {
       await updateMutation.mutateAsync({ data: { selectedPairs: pairs } });
       qc.invalidateQueries({ queryKey: getGetUserSettingsQueryKey() });
@@ -34,12 +45,26 @@ export function PairOnboardingWrapper() {
     }
   };
 
+  // Settings mode: re-open as a dismissible modal from Settings page
+  if (settingsMode) {
+    return (
+      <PairSelectionModal
+        open={settingsModeOpen}
+        onConfirm={handleConfirm}
+        initialPairs={selectedPairs}
+        dismissible
+        onClose={onSettingsModeClose}
+      />
+    );
+  }
+
+  // Onboarding mode: full-screen experience for new users
+  if (!show) return null;
+
   return (
-    <PairSelectionModal
-      open={show}
-      onConfirm={handleConfirm}
+    <PairOnboardingScreen
       initialPairs={selectedPairs}
-      dismissible={false}
+      onConfirm={handleConfirm}
     />
   );
 }
