@@ -39,6 +39,7 @@ export const userSettingsTable = pgTable("user_settings", {
   maxDailyLoss: integer("max_daily_loss"),
   selectedPairs: text("selected_pairs"),
   notificationPrefs: text("notification_prefs"),
+  alarmConfigs: text("alarm_configs"),
 });
 
 export const pushSubscriptionsTable = pgTable("push_subscriptions", {
