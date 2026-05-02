@@ -1,8 +1,8 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { format } from "date-fns";
 import { useDropzone } from "react-dropzone";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, UploadCloud, Loader2, Image as ImageIcon } from "lucide-react";
+import { X, UploadCloud, Loader2, Image as ImageIcon, Tag, Plus, Star, Hash } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle
 } from "@/components/ui/dialog";
@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import {
   useCreateJournalEntry,
   useUpdateJournalEntry,
@@ -28,6 +28,194 @@ interface JournalEntryModalProps {
   entry?: JournalEntry | null;
 }
 
+// ─── Saved tags hook ──────────────────────────────────────────────────────────
+
+function useSavedTags() {
+  return useQuery<{ tag: string; count: number }[]>({
+    queryKey: ["journal-tags"],
+    queryFn: () =>
+      fetch("api/journal/tags", { credentials: "include" })
+        .then(r => r.ok ? r.json() : []),
+    staleTime: 30_000,
+  });
+}
+
+// ─── SmartTagInput ────────────────────────────────────────────────────────────
+
+interface SmartTagInputProps {
+  value: string[];
+  onChange: (tags: string[]) => void;
+  savedTags: { tag: string; count: number }[];
+}
+
+function SmartTagInput({ value, onChange, savedTags }: SmartTagInputProps) {
+  const [inputVal, setInputVal] = useState("");
+  const [open, setOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const query = inputVal.trim().toLowerCase();
+
+  const suggestions = savedTags.filter(s =>
+    !value.includes(s.tag) &&
+    (query === "" || s.tag.toLowerCase().includes(query))
+  );
+
+  const addTag = (tag: string) => {
+    const t = tag.trim();
+    if (!t || value.includes(t)) return;
+    onChange([...value, t]);
+    setInputVal("");
+    inputRef.current?.focus();
+  };
+
+  const removeTag = (tag: string) => onChange(value.filter(t => t !== tag));
+
+  const handleKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if ((e.key === "Enter" || e.key === ",") && inputVal.trim()) {
+      e.preventDefault();
+      addTag(inputVal.replace(/,$/, ""));
+    } else if (e.key === "Backspace" && !inputVal && value.length > 0) {
+      removeTag(value[value.length - 1]);
+    } else if (e.key === "Escape") {
+      setOpen(false);
+    }
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const frequentTags = savedTags.filter(s => !value.includes(s.tag)).slice(0, 12);
+
+  return (
+    <div ref={containerRef} className="space-y-2">
+      {/* Selected tag chips */}
+      {value.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          <AnimatePresence>
+            {value.map(tag => (
+              <motion.span
+                key={tag}
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                transition={{ duration: 0.12 }}
+                className="inline-flex items-center gap-1 px-2 py-1 bg-primary/15 border border-primary/30 text-primary rounded-lg text-xs font-medium"
+              >
+                <Hash className="w-3 h-3 opacity-70" />
+                {tag}
+                <button
+                  type="button"
+                  onClick={() => removeTag(tag)}
+                  className="ml-0.5 hover:text-destructive transition-colors rounded-full p-0.5 hover:bg-destructive/10"
+                >
+                  <X className="w-2.5 h-2.5" />
+                </button>
+              </motion.span>
+            ))}
+          </AnimatePresence>
+        </div>
+      )}
+
+      {/* Input with dropdown */}
+      <div className="relative">
+        <div
+          className="flex items-center gap-2 bg-background/50 border border-white/10 rounded-xl px-3 py-2 focus-within:border-primary/40 transition-colors cursor-text"
+          onClick={() => { inputRef.current?.focus(); setOpen(true); }}
+        >
+          <Tag className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+          <input
+            ref={inputRef}
+            value={inputVal}
+            onChange={e => { setInputVal(e.target.value); setOpen(true); }}
+            onFocus={() => setOpen(true)}
+            onKeyDown={handleKey}
+            placeholder={value.length === 0 ? "Aggiungi tag... (Invio o virgola per confermare)" : "Aggiungi altro..."}
+            className="flex-1 bg-transparent text-sm focus:outline-none placeholder:text-muted-foreground/40 min-w-0"
+          />
+          {inputVal.trim() && (
+            <button
+              type="button"
+              onClick={() => addTag(inputVal)}
+              className="shrink-0 text-xs text-primary hover:text-primary/80 font-medium"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        {/* Dropdown suggestions */}
+        <AnimatePresence>
+          {open && suggestions.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.12 }}
+              className="absolute top-full left-0 right-0 z-50 mt-1 bg-card border border-border rounded-xl shadow-xl overflow-hidden max-h-48 overflow-y-auto"
+            >
+              {query === "" && (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 border-b border-border/50">
+                  <Star className="w-3 h-3 text-amber-400" />
+                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Tag usati di frequente</span>
+                </div>
+              )}
+              {suggestions.map((s, i) => (
+                <button
+                  key={s.tag}
+                  type="button"
+                  onMouseDown={e => { e.preventDefault(); addTag(s.tag); }}
+                  className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-secondary/60 transition-colors group"
+                >
+                  <div className="flex items-center gap-2">
+                    <Hash className="w-3 h-3 text-muted-foreground group-hover:text-primary transition-colors" />
+                    <span className="text-sm font-medium">{s.tag}</span>
+                  </div>
+                  <span className="text-[10px] text-muted-foreground/60 bg-secondary/80 px-1.5 py-0.5 rounded-md font-mono">
+                    ×{s.count}
+                  </span>
+                </button>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Quick-select frequent tags (when input is empty and no dropdown is needed) */}
+      {!open && frequentTags.length > 0 && value.length < frequentTags.length && (
+        <div className="space-y-1.5">
+          <p className="text-[10px] text-muted-foreground/60 font-medium uppercase tracking-wider flex items-center gap-1">
+            <Star className="w-3 h-3 text-amber-400" /> Seleziona dai tuoi tag
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {frequentTags.slice(0, 10).filter(s => !value.includes(s.tag)).map(s => (
+              <button
+                key={s.tag}
+                type="button"
+                onClick={() => addTag(s.tag)}
+                className="inline-flex items-center gap-1 px-2 py-1 bg-secondary/40 border border-border/60 text-muted-foreground hover:border-primary/40 hover:text-primary hover:bg-primary/5 rounded-lg text-xs font-medium transition-all"
+              >
+                <Hash className="w-2.5 h-2.5 opacity-60" />
+                {s.tag}
+                <span className="text-[9px] opacity-50 font-mono ml-0.5">×{s.count}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Main Modal ───────────────────────────────────────────────────────────────
+
 export function JournalEntryModal({ isOpen, onClose, entry }: JournalEntryModalProps) {
   const { toast } = useToast();
   const { t } = useLanguage();
@@ -37,17 +225,17 @@ export function JournalEntryModal({ isOpen, onClose, entry }: JournalEntryModalP
   const updateMutation = useUpdateJournalEntry();
   const uploadImageMutation = useUploadJournalImage();
   const deleteImageMutation = useDeleteJournalImage();
+  const { data: savedTagsData = [] } = useSavedTags();
 
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [tradeDate, setTradeDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [result, setResult] = useState<"win" | "loss" | "breakeven" | "none">("none");
-  const [tags, setTags] = useState("");
+  const [tagList, setTagList] = useState<string[]>([]);
 
   const [existingImages, setExistingImages] = useState<{id: number, url: string}[]>([]);
   const [pendingDeletes, setPendingDeletes] = useState<number[]>([]);
   const [pendingFiles, setPendingFiles] = useState<(File & { preview: string })[]>([]);
-
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -56,7 +244,7 @@ export function JournalEntryModal({ isOpen, onClose, entry }: JournalEntryModalP
       setContent(entry.content);
       setTradeDate(entry.tradeDate);
       setResult(entry.result as any);
-      setTags(entry.tags || "");
+      setTagList(entry.tags ? entry.tags.split(",").map(t => t.trim()).filter(Boolean) : []);
       setExistingImages(entry.images || []);
       setPendingDeletes([]);
       setPendingFiles([]);
@@ -65,7 +253,7 @@ export function JournalEntryModal({ isOpen, onClose, entry }: JournalEntryModalP
       setContent("");
       setTradeDate(format(new Date(), "yyyy-MM-dd"));
       setResult("none");
-      setTags("");
+      setTagList([]);
       setExistingImages([]);
       setPendingDeletes([]);
       setPendingFiles([]);
@@ -108,7 +296,8 @@ export function JournalEntryModal({ isOpen, onClose, entry }: JournalEntryModalP
     setIsSaving(true);
     try {
       let entryId = entry?.id;
-      const formData = { title, content, tradeDate, result, tags: tags || null };
+      const tagsString = tagList.length > 0 ? tagList.join(", ") : null;
+      const formData = { title, content, tradeDate, result, tags: tagsString };
 
       if (!entryId) {
         const newEntry = await createMutation.mutateAsync({ data: formData });
@@ -130,6 +319,7 @@ export function JournalEntryModal({ isOpen, onClose, entry }: JournalEntryModalP
 
       toast({ title: t("common.success"), description: t("journal_modal.saved") });
       queryClient.invalidateQueries({ queryKey: getGetJournalEntriesQueryKey() });
+      queryClient.invalidateQueries({ queryKey: ["journal-tags"] });
       onClose();
     } catch (err: any) {
       toast({
@@ -200,14 +390,15 @@ export function JournalEntryModal({ isOpen, onClose, entry }: JournalEntryModalP
           </div>
 
           <div className="space-y-2">
-            <Label className="text-muted-foreground">
-              {t("journal_modal.tags_label")} <span className="text-xs opacity-50">{t("journal_modal.tags_hint")}</span>
+            <Label className="text-muted-foreground flex items-center gap-1.5">
+              <Tag className="w-3.5 h-3.5" />
+              {t("journal_modal.tags_label")}
+              <span className="text-xs opacity-40 font-normal ml-1">Invio o , per aggiungere</span>
             </Label>
-            <Input
-              placeholder={t("journal_modal.tags_placeholder")}
-              value={tags}
-              onChange={e => setTags(e.target.value)}
-              className="bg-background/50 border-white/10"
+            <SmartTagInput
+              value={tagList}
+              onChange={setTagList}
+              savedTags={savedTagsData}
             />
           </div>
 

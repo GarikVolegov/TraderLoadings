@@ -253,6 +253,29 @@ router.delete("/journal/:id/images/:imageId", async (req, res) => {
   res.json({ success: true });
 });
 
+router.get("/journal/tags", async (req, res) => {
+  const userId = getUserId(req);
+  const entries = await db
+    .select({ tags: journalEntriesTable.tags })
+    .from(journalEntriesTable)
+    .where(entryUserFilter(userId));
+
+  const freq = new Map<string, number>();
+  for (const entry of entries) {
+    if (!entry.tags) continue;
+    for (const raw of entry.tags.split(",")) {
+      const tag = raw.trim();
+      if (tag) freq.set(tag, (freq.get(tag) ?? 0) + 1);
+    }
+  }
+
+  const sorted = Array.from(freq.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([tag, count]) => ({ tag, count }));
+
+  res.json(sorted);
+});
+
 router.get("/journal/image/:filename", (req, res) => {
   const filePath = path.join(UPLOADS_DIR, req.params.filename);
   if (!fs.existsSync(filePath)) { res.status(404).json({ error: "Not found" }); return; }
