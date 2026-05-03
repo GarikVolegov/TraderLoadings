@@ -34,6 +34,7 @@ VAPID_PUBLIC_KEY = "BGBlpH50sqUWWZaEjH0S4myX7zWbq2pmvtqT9yEujDVBE4zUTKuCotEMnHgz
 VAPID_PRIVATE_KEY = "U-ODVglMZQq4RfgErat8DaLq_1vfwcPh4deg7YXbyeM"
 VAPID_EMAIL = "mailto:noreply@traderloading.app"
 VITE_CLERK_PUBLISHABLE_KEY = "pk_test_ZW5kbGVzcy1jb3lvdGUtMzIuY2xlcmsuYWNjb3VudHMuZGV2JA"
+PLATFORM_ADMIN_IDS = "Garik"
 
 [nix]
 packages = ["hol"]
