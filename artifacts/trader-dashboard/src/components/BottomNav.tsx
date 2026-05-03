@@ -1,16 +1,15 @@
 import { Link, useRoute } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { LayoutDashboard, BookOpen, MessageCircle, Wrench, Brain, Trophy } from "lucide-react";
+import { LayoutDashboard, BookOpen, MessageCircle, Wrench, Brain } from "lucide-react";
 import { useGetUnreadCount } from "@workspace/api-client-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const NAV_ITEMS = [
-  { href: "/",           icon: LayoutDashboard, labelKey: "nav.home",       isChat: false },
-  { href: "/journal",    icon: BookOpen,         labelKey: "nav.journal",    isChat: false },
-  { href: "/tools",      icon: Wrench,           labelKey: "nav.tools",      isChat: false },
-  { href: "/zen",        icon: Brain,            labelKey: "nav.zen",        isChat: false },
-  { href: "/milestones", icon: Trophy,           labelKey: "nav.milestones", isChat: false },
-  { href: "/chat",       icon: MessageCircle,    labelKey: "nav.chat",       isChat: true  },
+  { href: "/",        icon: LayoutDashboard, labelKey: "nav.home",    isChat: false },
+  { href: "/journal", icon: BookOpen,         labelKey: "nav.journal", isChat: false },
+  { href: "/tools",   icon: Wrench,           labelKey: "nav.tools",   isChat: false },
+  { href: "/zen",     icon: Brain,            labelKey: "nav.zen",     isChat: false },
+  { href: "/chat",    icon: MessageCircle,    labelKey: "nav.chat",    isChat: true  },
 ] as const;
 
 function NavItem({

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useLocation } from "wouter";
 import { PageLayout } from "@/components/PageLayout";
 import { PageHeader } from "@/components/PageHeader";
 import { ProfileWidget } from "@/components/ProfileWidget";
@@ -9,7 +10,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { Image, Upload, X, LogIn, LogOut, UserPlus, RefreshCw, Type, Sun, TrendingUp, Target, Plus, Pencil, Trash2, Quote, Bell, ShieldAlert, Lock, Globe, Music, ChevronRight, Check, Shield, KeyRound, CheckSquare, ChevronDown, BarChart2, Library, HelpCircle, ExternalLink, Mail, MessageSquare, BookOpen, Zap, Star, Monitor, Smartphone, Tablet as TabletIcon, Clock, FileText, Scale, LifeBuoy, CircleHelp, ArrowRight } from "lucide-react";
+import { Image, Upload, X, LogIn, LogOut, UserPlus, RefreshCw, Type, Sun, TrendingUp, Target, Plus, Pencil, Trash2, Quote, Bell, ShieldAlert, Lock, Globe, Music, ChevronRight, Check, Shield, KeyRound, CheckSquare, ChevronDown, BarChart2, Library, HelpCircle, ExternalLink, Mail, MessageSquare, BookOpen, Zap, Star, Monitor, Smartphone, Tablet as TabletIcon, Clock, FileText, Scale, LifeBuoy, CircleHelp, ArrowRight, Trophy } from "lucide-react";
 import { useGetProfile } from "@workspace/api-client-react";
 import { getUnlockedRewards, getNextMilestone, getMilestoneProgress, MILESTONES, REWARDS } from "@/lib/rewardsLibrary";
 import { RewardCard } from "@/components/LevelRewardModal";
@@ -1956,7 +1957,7 @@ function TermsSection() {
   );
 }
 
-type TileId = "profilo" | "pairs" | "audio" | "aspetto" | "notifiche" | "sicurezza" | "lingua" | "trading" | "missioni" | "citazioni" | "checklist" | "account" | "biblioteca" | "supporto" | "aiuto" | "termini";
+type TileId = "profilo" | "pairs" | "audio" | "aspetto" | "notifiche" | "sicurezza" | "lingua" | "trading" | "missioni" | "citazioni" | "checklist" | "account" | "biblioteca" | "traguardi" | "supporto" | "aiuto" | "termini";
 
 interface SettingsTile {
   id: TileId;
@@ -1971,6 +1972,7 @@ export default function Settings() {
   const { isAuthenticated, isLoading, login, logout } = useAuth();
   const { isPinSet } = usePinLock();
   const { language, t } = useLanguage();
+  const [, navigate] = useLocation();
   const [activeDesktopSection, setActiveDesktopSection] = useState<TileId>("audio");
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     pairs: false,
@@ -1985,6 +1987,7 @@ export default function Settings() {
     checklist: false,
     account: false,
     biblioteca: false,
+    traguardi: false,
     supporto: false,
     aiuto: false,
     termini: false,
@@ -2003,6 +2006,7 @@ export default function Settings() {
     { id: "citazioni", icon: <Quote className="w-6 h-6" />, label: t("settings.tile.quotes"), subtitle: t("settings.tile.quotes_sub"), color: "text-amber-400", glow: "group-hover:shadow-amber-400/20" },
     { id: "checklist", icon: <CheckSquare className="w-6 h-6" />, label: t("settings.tile.checklist"), subtitle: t("settings.tile.checklist_sub"), color: "text-teal-400", glow: "group-hover:shadow-teal-400/20" },
     { id: "biblioteca", icon: <Library className="w-6 h-6" />, label: t("settings.tile.library"), subtitle: t("settings.tile.library_sub"), color: "text-primary", glow: "group-hover:shadow-primary/20" },
+    { id: "traguardi", icon: <Trophy className="w-6 h-6" />, label: t("nav.milestones"), subtitle: "Certificati NFT e livelli sbloccati", color: "text-yellow-400", glow: "group-hover:shadow-yellow-400/20" },
     { id: "supporto", icon: <HelpCircle className="w-6 h-6" />, label: t("settings.tile.support"), subtitle: t("settings.tile.support_sub"), color: "text-sky-400", glow: "group-hover:shadow-sky-400/20" },
     { id: "aiuto", icon: <LifeBuoy className="w-6 h-6" />, label: "Aiuto", subtitle: "Guida rapida e tutorial", color: "text-purple-400", glow: "group-hover:shadow-purple-400/20" },
     { id: "termini", icon: <FileText className="w-6 h-6" />, label: "Termini & Condizioni", subtitle: "Privacy, licenza e disclaimer", color: "text-pink-400", glow: "group-hover:shadow-pink-400/20" },
@@ -2035,6 +2039,7 @@ export default function Settings() {
     citazioni: <QuotesSettings />,
     checklist: <ChecklistSettings />,
     biblioteca: <RewardsLibrarySection />,
+    traguardi: null,
     supporto: <SupportSection />,
     aiuto: <HelpSection />,
     termini: <TermsSection />,
@@ -2070,7 +2075,7 @@ export default function Settings() {
               {collapsibleSections.map((tile) => (
                 <button
                   key={tile.id}
-                  onClick={() => setActiveDesktopSection(tile.id)}
+                  onClick={() => tile.id === "traguardi" ? navigate("/milestones") : setActiveDesktopSection(tile.id)}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${
                     activeDesktopSection === tile.id
                       ? "bg-primary/10 text-primary border border-primary/30"
@@ -2125,7 +2130,7 @@ export default function Settings() {
               className="space-y-2"
             >
               <button
-                onClick={() => setOpenSections(prev => ({ ...prev, [tile.id]: !prev[tile.id] }))}
+                onClick={() => tile.id === "traguardi" ? navigate("/milestones") : setOpenSections(prev => ({ ...prev, [tile.id]: !prev[tile.id] }))}
                 className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-border bg-card/60 backdrop-blur-sm hover:border-primary/30 hover:bg-card transition-all group"
               >
                 <div className="flex items-center gap-3">
@@ -2137,11 +2142,15 @@ export default function Settings() {
                     <p className="text-xs text-muted-foreground">{tile.subtitle}</p>
                   </div>
                 </div>
-                <ChevronDown
-                  className={`w-5 h-5 text-muted-foreground transition-transform duration-300 ${
-                    openSections[tile.id] ? "rotate-180" : ""
-                  }`}
-                />
+                {tile.id === "traguardi" ? (
+                  <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                ) : (
+                  <ChevronDown
+                    className={`w-5 h-5 text-muted-foreground transition-transform duration-300 ${
+                      openSections[tile.id] ? "rotate-180" : ""
+                    }`}
+                  />
+                )}
               </button>
 
               <AnimatePresence>
