@@ -95,19 +95,54 @@
 @layer base {
   * {
     @apply border-border;
-  }
-  body {
-    @apply bg-background text-foreground antialiased selection:bg-primary/30 selection:text-primary-foreground;
-    background-image: radial-gradient(circle at top right, rgba(22, 163, 74, 0.05) 0%, transparent 40%),
-                      radial-gradient(circle at bottom left, rgba(59, 130, 246, 0.05) 0%, transparent 40%);
-    background-attachment: fixed;
-  }
-  
-  h1, h2, h3, h4, h5, h6 {
-    @apply font-mono tracking-tight;
+    box-sizing: border-box;
   }
 
-  /* Global smooth press feedback on all interactive elements */
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased selection:bg-primary/30 selection:text-primary-foreground;
+    background-image:
+      radial-gradient(ellipse 80% 60% at 80% -10%, rgba(0, 204, 102, 0.06) 0%, transparent 55%),
+      radial-gradient(ellipse 60% 50% at -10% 90%, rgba(59, 130, 246, 0.05) 0%, transparent 55%),
+      radial-gradient(ellipse 40% 40% at 50% 50%, rgba(0, 0, 0, 0.4) 0%, transparent 100%);
+    background-attachment: fixed;
+    min-height: 100dvh;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-mono tracking-tight;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  /* Custom thin scrollbar */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 99px;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.4);
+  }
+
+  /* Global smooth press feedback */
   button:not(:disabled),
   [role="button"]:not(:disabled),
   a[href] {
@@ -122,14 +157,14 @@
 
   /* Smooth focus outline */
   :focus-visible {
-    outline: 2px solid hsl(var(--primary) / 0.6);
+    outline: 2px solid hsl(var(--primary) / 0.55);
     outline-offset: 2px;
     border-radius: 0.375rem;
   }
 }
 
 @layer components {
-  /* Hover lift for card-like interactive elements */
+  /* ── Card lift effect ─────────────────────────────────────────── */
   .card-hover {
     transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
                 box-shadow 0.2s ease,
@@ -142,6 +177,83 @@
   .card-hover:active {
     transform: translateY(0) scale(0.99);
   }
+
+  /* ── Metric / stat number display ─────────────────────────────── */
+  .stat-number {
+    @apply font-mono font-bold tabular-nums tracking-tighter;
+  }
+  .stat-number-lg {
+    @apply font-mono font-bold tabular-nums tracking-tighter text-2xl sm:text-3xl;
+  }
+  .stat-number-xl {
+    @apply font-mono font-bold tabular-nums tracking-tighter text-3xl sm:text-4xl;
+  }
+
+  /* ── Inline badge pills ───────────────────────────────────────── */
+  .badge {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold border;
+  }
+  .badge-success {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold border bg-success/10 text-success border-success/25;
+  }
+  .badge-danger {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold border bg-destructive/10 text-destructive border-destructive/25;
+  }
+  .badge-warning {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold border bg-warning/10 text-warning border-warning/25;
+  }
+  .badge-muted {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold border bg-white/5 text-muted-foreground border-white/10;
+  }
+  .badge-primary {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold border bg-primary/10 text-primary border-primary/25;
+  }
+
+  /* ── Section label ────────────────────────────────────────────── */
+  .section-label {
+    @apply text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground/50;
+  }
+
+  /* ── Section divider with centred label ──────────────────────── */
+  .section-divider {
+    @apply flex items-center gap-3 my-1;
+  }
+  .section-divider::before,
+  .section-divider::after {
+    content: '';
+    @apply flex-1 h-px bg-border/35;
+  }
+
+  /* ── Subtle inner-glow on focus for interactive cards ─────────── */
+  .focus-ring-primary:focus-within {
+    box-shadow: 0 0 0 2px hsl(var(--primary) / 0.35);
+    border-color: hsl(var(--primary) / 0.4);
+  }
+
+  /* ── Gradient text utility ────────────────────────────────────── */
+  .text-gradient-primary {
+    color: transparent;
+    -webkit-background-clip: text;
+    background-clip: text;
+    background-image: linear-gradient(135deg, hsl(var(--primary)), #34d399);
+  }
+
+  /* ── Ambient card glow variant ────────────────────────────────── */
+  .card-glow-primary {
+    box-shadow: 0 0 0 1px hsl(var(--primary) / 0.15),
+                0 4px 24px rgba(0, 0, 0, 0.3),
+                inset 0 0 40px hsl(var(--primary) / 0.03);
+  }
+
+  /* ── Mono label pair ─────────────────────────────────────────── */
+  .mono-pair {
+    @apply font-mono font-bold tracking-wide text-sm;
+  }
+
+  /* ── Win/Loss coloring ───────────────────────────────────────── */
+  .text-win  { color: hsl(var(--success)); }
+  .text-loss { color: hsl(var(--destructive)); }
+  .text-be   { color: hsl(var(--warning)); }
 }
 
 @layer utilities {
