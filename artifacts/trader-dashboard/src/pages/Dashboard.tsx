@@ -22,6 +22,7 @@ import {
   GripVertical, LayoutGrid, Check, RotateCcw,
   Clock, BookOpen, Sunrise, Target, ClipboardCheck,
   CalendarDays, BarChart2, TrendingUp, BookMarked,
+  Eye, EyeOff,
 } from "lucide-react";
 
 import { PageLayout } from "@/components/PageLayout";
@@ -60,14 +61,14 @@ const WIDGET_DEFS: WidgetDef[] = [
 ];
 
 const DEFAULT_ORDER = WIDGET_DEFS.map((w) => w.id);
-const STORAGE_KEY = "tl_dashboard_order_v1";
+const STORAGE_KEY      = "tl_dashboard_order_v1";
+const VISIBILITY_KEY   = "tl_dashboard_visibility_v1";
 
 function loadOrder(): string[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_ORDER;
     const saved = JSON.parse(raw) as string[];
-    // Merge: keep saved order, append any new widget IDs not yet in saved
     const valid = saved.filter((id) => DEFAULT_ORDER.includes(id));
     const missing = DEFAULT_ORDER.filter((id) => !valid.includes(id));
     return [...valid, ...missing];
@@ -76,19 +77,37 @@ function loadOrder(): string[] {
   }
 }
 
+function loadVisibility(): Record<string, boolean> {
+  try {
+    const raw = localStorage.getItem(VISIBILITY_KEY);
+    if (!raw) return {};
+    return JSON.parse(raw) as Record<string, boolean>;
+  } catch {
+    return {};
+  }
+}
+
+function saveVisibility(v: Record<string, boolean>) {
+  localStorage.setItem(VISIBILITY_KEY, JSON.stringify(v));
+}
+
 // ─── Sortable widget wrapper ───────────────────────────────────────────────────
 
 function SortableWidget({
   def,
   isEditing,
   isDragActive,
+  isHidden,
+  onToggleHide,
 }: {
   def: WidgetDef;
   isEditing: boolean;
   isDragActive: boolean;
+  isHidden: boolean;
+  onToggleHide: (id: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: def.id, disabled: !isEditing });
+    useSortable({ id: def.id, disabled: !isEditing || isHidden });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -104,25 +123,32 @@ function SortableWidget({
       style={style}
       className={`relative ${isDragging ? "opacity-0" : ""}`}
     >
-      {/* Content */}
-      <motion.div
-        animate={
-          isEditing
-            ? { scale: isDragging ? 1.03 : 1, opacity: isDragging ? 0 : 1 }
-            : { scale: 1, opacity: 1 }
-        }
-        transition={{ type: "spring", stiffness: 400, damping: 30 }}
-        className={`relative transition-shadow duration-200 ${
-          isEditing && !isDragging
-            ? "shadow-[0_0_0_2px_hsl(var(--primary)/0.25),0_4px_20px_rgba(0,0,0,0.3)]"
-            : ""
-        }`}
-        style={{ borderRadius: "1rem" }}
-      >
-        <def.component />
-      </motion.div>
+      {/* Widget content — hidden widgets become ghost placeholders in edit mode */}
+      {isHidden && isEditing ? (
+        <div className="w-full h-24 rounded-[1rem] border-2 border-dashed border-border/40 bg-background/20 flex items-center justify-center gap-3 opacity-50">
+          <Icon className="w-4 h-4 text-muted-foreground/50" />
+          <span className="text-xs font-bold text-muted-foreground/50 font-mono">{def.label}</span>
+        </div>
+      ) : (
+        <motion.div
+          animate={
+            isEditing
+              ? { scale: isDragging ? 1.03 : 1, opacity: isDragging ? 0 : 1 }
+              : { scale: 1, opacity: 1 }
+          }
+          transition={{ type: "spring", stiffness: 400, damping: 30 }}
+          className={`relative transition-shadow duration-200 ${
+            isEditing && !isDragging
+              ? "shadow-[0_0_0_2px_hsl(var(--primary)/0.25),0_4px_20px_rgba(0,0,0,0.3)]"
+              : ""
+          }`}
+          style={{ borderRadius: "1rem" }}
+        >
+          <def.component />
+        </motion.div>
+      )}
 
-      {/* Edit-mode drag overlay */}
+      {/* Edit-mode overlay */}
       <AnimatePresence>
         {isEditing && (
           <motion.div
@@ -131,15 +157,38 @@ function SortableWidget({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
-            {...listeners}
-            {...attributes}
-            className="absolute inset-0 z-10 rounded-[1rem] border-2 border-dashed border-primary/35 bg-background/60 backdrop-blur-[2px] cursor-grab active:cursor-grabbing flex items-start justify-between p-3 touch-none"
+            className={`absolute inset-0 z-10 rounded-[1rem] flex items-start justify-between p-3 touch-none ${
+              isHidden
+                ? "border-2 border-dashed border-border/30 bg-transparent cursor-default"
+                : "border-2 border-dashed border-primary/35 bg-background/60 backdrop-blur-[2px] cursor-grab active:cursor-grabbing"
+            }`}
+            {...(!isHidden ? { ...listeners, ...attributes } : {})}
           >
             <div className="flex items-center gap-2">
-              <Icon className="w-3.5 h-3.5 text-primary/60" />
-              <span className="text-xs font-bold text-primary/70 font-mono">{def.label}</span>
+              <Icon className={`w-3.5 h-3.5 ${isHidden ? "text-muted-foreground/40" : "text-primary/60"}`} />
+              <span className={`text-xs font-bold font-mono ${isHidden ? "text-muted-foreground/40 line-through" : "text-primary/70"}`}>
+                {def.label}
+              </span>
             </div>
-            <GripVertical className="w-4 h-4 text-primary/50 shrink-0" />
+            <div className="flex items-center gap-1.5 shrink-0">
+              {/* Eye toggle */}
+              <button
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => { e.stopPropagation(); onToggleHide(def.id); }}
+                className={`w-6 h-6 rounded-md flex items-center justify-center transition-all ${
+                  isHidden
+                    ? "bg-border/30 text-muted-foreground/50 hover:bg-primary/20 hover:text-primary"
+                    : "bg-primary/10 text-primary/70 hover:bg-primary/25 hover:text-primary"
+                }`}
+                title={isHidden ? "Mostra widget" : "Nascondi widget"}
+              >
+                {isHidden
+                  ? <EyeOff className="w-3.5 h-3.5" />
+                  : <Eye className="w-3.5 h-3.5" />
+                }
+              </button>
+              {!isHidden && <GripVertical className="w-4 h-4 text-primary/50" />}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -172,9 +221,10 @@ function WidgetGhost({ def }: { def: WidgetDef }) {
 
 export default function Dashboard() {
   const { t } = useLanguage();
-  const [order, setOrder] = useState<string[]>(loadOrder);
-  const [isEditing, setIsEditing] = useState(false);
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const [order, setOrder]           = useState<string[]>(loadOrder);
+  const [hidden, setHidden]         = useState<Record<string, boolean>>(loadVisibility);
+  const [isEditing, setIsEditing]   = useState(false);
+  const [activeId, setActiveId]     = useState<string | null>(null);
   const prevOrderRef = useRef<string[]>(order);
 
   const sensors = useSensors(
@@ -206,6 +256,14 @@ export default function Dashboard() {
     [],
   );
 
+  const handleToggleHide = useCallback((id: string) => {
+    setHidden((prev) => {
+      const next = { ...prev, [id]: !prev[id] };
+      saveVisibility(next);
+      return next;
+    });
+  }, []);
+
   const handleEditToggle = () => {
     if (isEditing) {
       setIsEditing(false);
@@ -217,10 +275,20 @@ export default function Dashboard() {
 
   const handleReset = () => {
     setOrder(DEFAULT_ORDER);
+    setHidden({});
     localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_ORDER));
+    saveVisibility({});
   };
 
   const activeWidget = activeId ? defMap[activeId] : null;
+
+  // In edit mode: show all widgets (visible + hidden as ghost).
+  // In normal mode: only show visible widgets.
+  const displayOrder = isEditing
+    ? order
+    : order.filter((id) => !hidden[id]);
+
+  const hiddenCount = Object.values(hidden).filter(Boolean).length;
 
   return (
     <PageLayout>
@@ -258,6 +326,11 @@ export default function Dashboard() {
                 <>
                   <LayoutGrid className="w-4 h-4" />
                   Layout
+                  {hiddenCount > 0 && (
+                    <span className="ml-0.5 w-4 h-4 rounded-full bg-primary/20 text-primary text-[10px] font-mono flex items-center justify-center">
+                      {hiddenCount}
+                    </span>
+                  )}
                 </>
               )}
             </motion.button>
@@ -278,7 +351,8 @@ export default function Dashboard() {
             <div className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-primary/20 bg-primary/5">
               <div className="w-2 h-2 rounded-full bg-primary animate-pulse shrink-0" />
               <p className="text-xs text-primary/80 font-medium">
-                <strong>Modalità modifica attiva</strong> — Trascina i widget per riorganizzare la tua dashboard.
+                <strong>Modalità modifica attiva</strong> — Trascina i widget per riorganizzare.
+                Usa <Eye className="inline w-3 h-3 mx-0.5" /> per mostrare/nascondere ogni widget.
                 Premi <strong>Fatto</strong> per salvare.
               </p>
             </div>
@@ -293,19 +367,23 @@ export default function Dashboard() {
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <SortableContext items={order} strategy={rectSortingStrategy}>
+        <SortableContext items={displayOrder} strategy={rectSortingStrategy}>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-            {order.map((id, i) => {
+            {displayOrder.map((id, i) => {
               const def = defMap[id];
               if (!def) return null;
+              const isHid = !!hidden[id];
               return (
                 <motion.div
                   key={id}
+                  layout
                   initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
                   transition={{
-                    opacity: { delay: i * 0.04, duration: 0.28 },
-                    y: { delay: i * 0.04, duration: 0.28, ease: [0.22,1,0.36,1] },
+                    opacity: { delay: i * 0.03, duration: 0.24 },
+                    y: { delay: i * 0.03, duration: 0.24, ease: [0.22,1,0.36,1] },
+                    layout: { duration: 0.28, ease: [0.22,1,0.36,1] },
                   }}
                   className={def.colSpan ?? ""}
                 >
@@ -313,6 +391,8 @@ export default function Dashboard() {
                     def={def}
                     isEditing={isEditing}
                     isDragActive={activeId !== null}
+                    isHidden={isHid}
+                    onToggleHide={handleToggleHide}
                   />
                 </motion.div>
               );

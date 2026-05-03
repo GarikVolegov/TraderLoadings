@@ -700,11 +700,87 @@ async function fetchCotFromSocrata(): Promise<CotEntry[] | null> {
   }
 }
 
+// ─── Parser Legacy COT (deafut.txt) ──────────────────────────────────────────
+// Formato Legacy senza header. Colonne confermate (0-indexed):
+//   0  = Market name
+//   2  = Date YYYY-MM-DD
+//   7  = Open Interest All
+//   8  = NonComm Long All    (Large Speculators)
+//   9  = NonComm Short All
+//  10  = NonComm Spread All
+//  11  = Comm Long All       (Commercial Hedgers)
+//  12  = Comm Short All
+//  13  = Total Reportable Longs (derived)
+//  14  = Total Reportable Shorts (derived)
+//  15  = NonRept Long All
+//  16  = NonRept Short All
+function parseCotLegacyTxt(text: string, onlyCurrencies?: Set<string>): CotEntry[] {
+  const lines = text.trim().split("\n");
+  if (lines.length < 1) return [];
+
+  const historyByMarket: Record<string, CotWeek[]> = {};
+
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const cols = line.split(",").map((c) => c.trim().replace(/^"|"$/g, ""));
+    if (cols.length < 17) continue;
+
+    const market = (cols[0] ?? "").toUpperCase();
+    const matchedKey = Object.keys(COT_MARKET_MAP).find((k) => market.includes(k));
+    if (!matchedKey) continue;
+
+    const currency = COT_MARKET_MAP[matchedKey];
+    if (onlyCurrencies && !onlyCurrencies.has(currency)) continue;
+
+    const date = cols[2] ?? "";
+    if (!date.match(/^\d{4}-\d{2}-\d{2}$/)) continue;
+
+    const n = (i: number) => parseInt(cols[i]) || 0;
+    const ncLong  = n(8);
+    const ncShort = n(9);
+    const commL   = n(11);
+    const commS   = n(12);
+    const nrL     = n(15);
+    const nrS     = n(16);
+
+    if (!historyByMarket[currency]) historyByMarket[currency] = [];
+    if (!historyByMarket[currency].some((w) => w.date === date)) {
+      historyByMarket[currency].push({
+        date, nonCommLong: ncLong, nonCommShort: ncShort,
+        commLong: commL, commShort: commS,
+        retailLong: nrL, retailShort: nrS,
+        nonCommNet: ncLong - ncShort,
+        commNet: commL - commS,
+        retailNet: nrL - nrS,
+      });
+    }
+  }
+
+  return Object.entries(historyByMarket)
+    .map(([currency, weeks]) => {
+      weeks.sort((a, b) => b.date.localeCompare(a.date));
+      const latest = weeks[0];
+      const history = weeks.slice(0, COT_HISTORY_WEEKS).reverse().map((w) => ({
+        date: w.date, nonCommNet: w.nonCommNet, commNet: w.commNet,
+      }));
+      const matchedKey = Object.keys(COT_MARKET_MAP).find((k) => COT_MARKET_MAP[k] === currency) ?? "";
+      return { ...latest, market: matchedKey, currency, history };
+    })
+    .sort((a, b) => COT_ORDER.indexOf(a.currency) - COT_ORDER.indexOf(b.currency));
+}
+
+const LEGACY_COT_URLS = [
+  "https://www.cftc.gov/dea/newcot/deafut.txt",
+];
+
 async function fetchCotData(): Promise<void> {
   const now = Date.now();
   console.info("[tools/cot] Fetching CFTC data...");
 
-  // 1. Tenta i file TXT ufficiali CFTC
+  let fxReports: CotEntry[] = [];
+  let commodityReports: CotEntry[] = [];
+
+  // 1. FinFutWk.txt → FX currencies (EUR, GBP, JPY, CHF, CAD, AUD)
   for (const url of CFTC_URLS) {
     try {
       const response = await fetch(url, {
@@ -714,18 +790,49 @@ async function fetchCotData(): Promise<void> {
       if (!response.ok) { console.warn(`[tools/cot] ${url} → HTTP ${response.status}`); continue; }
       const text = await response.text();
       if (text.trim().startsWith("<!")) { console.warn(`[tools/cot] ${url} → HTML (blocked)`); continue; }
-      // FinFutWk.txt e FinComWk.txt non hanno header row → parser posizionale
       const reports = parseCotTxt(text);
-      if (reports.length === 0) continue;
-      cotCache = { data: reports, fetchedAt: now, expiresAt: nextCftcPublishMs(), fallback: false };
-      console.info(`[tools/cot] TXT OK — ${reports.length} markets, expires at ${new Date(cotCache.expiresAt).toISOString()}`);
-      return;
+      if (reports.length > 0) { fxReports = reports; break; }
     } catch (err) {
       console.warn(`[tools/cot] ${url} →`, err instanceof Error ? err.message : err);
     }
   }
 
-  // 2. Fallback: API Socrata CFTC Public Reporting Portal
+  // 2. deafut.txt → commodities / metals (XAU = Gold)
+  for (const url of LEGACY_COT_URLS) {
+    try {
+      const response = await fetch(url, {
+        headers: { "User-Agent": "Mozilla/5.0 (compatible; TraderLoading/1.0)" },
+        signal: AbortSignal.timeout(15000),
+      });
+      if (!response.ok) { console.warn(`[tools/cot] ${url} → HTTP ${response.status}`); continue; }
+      const text = await response.text();
+      if (text.trim().startsWith("<!")) { console.warn(`[tools/cot] ${url} → HTML (blocked)`); continue; }
+      // Solo XAU e USD (se presenti) — evita duplicati con FX
+      const fxCurrencies = new Set(fxReports.map((r) => r.currency));
+      const missingCurrencies = new Set(COT_ORDER.filter((c) => !fxCurrencies.has(c)));
+      commodityReports = parseCotLegacyTxt(text, missingCurrencies);
+      if (commodityReports.length > 0) break;
+    } catch (err) {
+      console.warn(`[tools/cot] ${url} →`, err instanceof Error ? err.message : err);
+    }
+  }
+
+  // 3. Merge FX + commodities
+  const merged = [...fxReports, ...commodityReports]
+    .sort((a, b) => COT_ORDER.indexOf(a.currency) - COT_ORDER.indexOf(b.currency));
+
+  if (merged.length > 0) {
+    // Colma con fallback le valute ancora mancanti
+    const presentCurrencies = new Set(merged.map((r) => r.currency));
+    const fallbackFill = COT_FALLBACK.filter((f) => !presentCurrencies.has(f.currency));
+    const final = [...merged, ...fallbackFill]
+      .sort((a, b) => COT_ORDER.indexOf(a.currency) - COT_ORDER.indexOf(b.currency));
+    cotCache = { data: final, fetchedAt: now, expiresAt: nextCftcPublishMs(), fallback: false };
+    console.info(`[tools/cot] OK — ${merged.length} live markets + ${fallbackFill.length} static fallback, total ${final.length}`);
+    return;
+  }
+
+  // 4. Fallback: API Socrata CFTC Public Reporting Portal
   console.info("[tools/cot] TXT URLs failed — trying Socrata API...");
   const socrataData = await fetchCotFromSocrata();
   if (socrataData && socrataData.length > 0) {
@@ -733,7 +840,7 @@ async function fetchCotData(): Promise<void> {
     return;
   }
 
-  // 3. Fallback statico hardcoded
+  // 5. Fallback statico hardcoded
   console.info("[tools/cot] All sources failed — using static fallback");
   if (!cotCache) {
     cotCache = { data: COT_FALLBACK, fetchedAt: now, expiresAt: nextCftcPublishMs(), fallback: true };
