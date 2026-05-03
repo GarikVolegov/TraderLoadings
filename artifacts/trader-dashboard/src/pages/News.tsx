@@ -272,6 +272,7 @@ export default function News() {
   const qc = useQueryClient();
   const { selectedPairs } = useBackground();
   const pairsParam = selectedPairs.length > 0 ? `&pairs=${selectedPairs.join(",")}` : "";
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const { data, isLoading, isFetching } = useQuery<NewsData>({
     queryKey: ["macro-news", selectedPairs, language],
@@ -280,8 +281,8 @@ export default function News() {
       if (!res.ok) throw new Error("Failed to fetch news");
       return res.json();
     },
-    staleTime: 55 * 60 * 1000,          // considera stale dopo 55 min
-    refetchInterval: 60 * 60 * 1000,    // auto-refresh ogni ora
+    staleTime: 9 * 60 * 1000,           // stale dopo 9 min (server cache = 10 min)
+    refetchInterval: 10 * 60 * 1000,    // auto-refresh ogni 10 min
     refetchIntervalInBackground: false,  // solo se la tab è attiva
   });
 
@@ -289,10 +290,15 @@ export default function News() {
   const isAI = newsData?.source === "ai";
 
   const handleRefresh = async () => {
-    const res = await fetch(`api/news?nocache=1${pairsParam}&lang=${language}`, { credentials: "include" });
-    if (res.ok) {
-      const freshData = await res.json();
-      qc.setQueryData(["macro-news", selectedPairs, language], freshData);
+    setIsRefreshing(true);
+    try {
+      const res = await fetch(`api/news?nocache=1${pairsParam}&lang=${language}`, { credentials: "include" });
+      if (res.ok) {
+        const freshData = await res.json();
+        qc.setQueryData(["macro-news", selectedPairs, language], freshData);
+      }
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -305,8 +311,8 @@ export default function News() {
         title={t("news.title")}
         subtitle={t("news.subtitle")}
         action={
-          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isFetching}>
-            <RefreshCw className={`w-4 h-4 mr-2 ${isFetching ? "animate-spin" : ""}`} />
+          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isRefreshing || isFetching}>
+            <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing || isFetching ? "animate-spin" : ""}`} />
             {t("news.refresh")}
           </Button>
         }
@@ -357,12 +363,6 @@ export default function News() {
             <>
               <span>·</span>
               <RefreshCountdown nextRefreshAt={newsData.nextRefreshAt} />
-            </>
-          )}
-          {!newsData.hasApiKey && (
-            <>
-              <span>·</span>
-              <span className="text-amber-400/70">Chiave Perplexity mancante — modalità RSS</span>
             </>
           )}
         </div>

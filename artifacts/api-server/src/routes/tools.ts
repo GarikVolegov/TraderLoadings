@@ -959,6 +959,99 @@ const LANG_NAMES: Record<string, string> = {
   it: "italiano", en: "inglese", es: "spagnolo", fr: "francese", de: "tedesco",
 };
 
+async function fetchMacroNewsGroq(currencyLabel: string, currenciesRaw = "", lang = "it"): Promise<MacroNewsResult> {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) throw new Error("GROQ_API_KEY not set");
+
+  // Step 1: fetch RSS articles first (real, current news)
+  const rssResult = await fetchMacroRSSFallback(currenciesRaw, lang);
+  const rssArticles = rssResult.articles.slice(0, 8);
+  if (rssArticles.length === 0) throw new Error("No RSS articles to enrich");
+
+  const today = new Date().toLocaleDateString("it-IT", {
+    weekday: "long", day: "numeric", month: "long", year: "numeric",
+  });
+  const langName = LANG_NAMES[lang] ?? "italiano";
+
+  const articlesInput = rssArticles
+    .map((a, i) => `[${i}] "${a.title.slice(0, 120)}" — ${a.summary.slice(0, 200)}`)
+    .join("\n");
+
+  const systemPrompt = `Sei un analista macro-economico e geopolitico esperto. Classifica ogni notizia per impatto forex. Valute target: ${currencyLabel}. Oggi: ${today}. Rispondi SOLO con JSON valido, nessun testo extra.`;
+
+  const userPrompt = `Analizza questi articoli di notizie:
+${articlesInput}
+
+Per ogni articolo scegli UNA SOLA valuta tra: EUR, USD, GBP, JPY, CHF, CAD, AUD, NZD, XAU, GLOBALE.
+Scegli UNO impatto tra: alto, medio, basso.
+Scegli UNA direzione tra: bullish, bearish, neutrale.
+Scegli UNA categoria tra: banca-centrale, macro-dati, conflitto, sanzioni, elezioni, commercio, energia, commodities.
+
+Rispondi SOLO con questo JSON (summary in ${langName}):
+{
+  "enriched": [
+    { "idx": 0, "currency": "USD", "impact": "alto", "direction": "bullish", "category": "macro-dati" },
+    { "idx": 1, "currency": "EUR", "impact": "medio", "direction": "neutrale", "category": "banca-centrale" }
+  ],
+  "sentiment": "risk-on",
+  "summary": "Sintesi del quadro macro-geopolitico globale in 2-3 frasi."
+}`;
+
+  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "llama-3.1-8b-instant",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      temperature: 0.2,
+      max_tokens: 1500,
+      response_format: { type: "json_object" },
+    }),
+    signal: AbortSignal.timeout(25000),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text().catch(() => "");
+    throw new Error(`Groq ${response.status}: ${errText.slice(0, 200)}`);
+  }
+
+  const data = await response.json() as { choices: Array<{ message: { content: string } }> };
+  const raw = data.choices[0]?.message?.content ?? "{}";
+  const parsed = JSON.parse(raw) as {
+    enriched?: Array<{ idx: number; currency: string; impact: string; direction: string; category: string }>;
+    sentiment?: string;
+    summary?: string;
+  };
+
+  // Step 2: merge Groq classification back into RSS articles
+  const enrichMap = new Map<number, NonNullable<typeof parsed.enriched>[number]>();
+  for (const e of (parsed.enriched ?? [])) enrichMap.set(e.idx, e);
+
+  const articles = rssArticles.map((a, i) => {
+    const e = enrichMap.get(i);
+    return {
+      ...a,
+      currency: e?.currency || a.currency,
+      impact: ((e?.impact as "alto" | "medio" | "basso") || a.impact),
+      direction: ((e?.direction as "bullish" | "bearish" | "neutrale") || a.direction),
+      category: e?.category,
+      verified: false,
+    };
+  });
+
+  console.log(`[tools/macro-news/groq] OK — ${articles.length} articoli classificati con Llama`);
+
+  return {
+    articles,
+    sentiment: (parsed.sentiment as string) || rssResult.sentiment,
+    summary: parsed.summary || "",
+    fetchedAt: new Date().toISOString(),
+  };
+}
+
 async function fetchMacroNewsPerplexity(currencyLabel: string, lang = "it"): Promise<MacroNewsResult> {
   const apiKey = process.env.PERPLEXITY_API_KEY;
   if (!apiKey) throw new Error("PERPLEXITY_API_KEY not set");
@@ -1245,9 +1338,9 @@ async function fetchMacroRSSFallback(currenciesInput: string, lang = "it"): Prom
 
 async function fetchMacroNews(currencyLabel: string, currenciesRaw = "", lang = "it"): Promise<MacroNewsResult> {
   try {
-    return await fetchMacroNewsPerplexity(currencyLabel, lang);
+    return await fetchMacroNewsGroq(currencyLabel, currenciesRaw, lang);
   } catch (err) {
-    console.warn("[tools/macro-news] AI failed, falling back to RSS:", err instanceof Error ? err.message : String(err));
+    console.warn("[tools/macro-news] Groq failed, falling back to RSS:", err instanceof Error ? err.message : String(err));
     return fetchMacroRSSFallback(currenciesRaw, lang);
   }
 }
