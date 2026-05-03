@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import { getCurrenciesFromPairs } from "@workspace/pair-catalog";
+import OpenAI from "openai";
 
 const router: IRouter = Router();
 
@@ -37,11 +38,24 @@ interface NewsResponse {
 
 let cache: { data: NewsResponse; ts: number; key: string } | null = null;
 
-const AI_CACHE_TTL  = 60 * 60 * 1000;  // 1 ora per Perplexity (come richiesto)
-const RSS_CACHE_TTL = 10 * 60 * 1000;  // 10 min per RSS fallback
+const AI_CACHE_TTL  = 60 * 60 * 1000;  // 1 ora (agente AI)
+const RSS_CACHE_TTL = 10 * 60 * 1000;  // 10 min (fallback RSS)
 
-// Short-circuit: se la chiave Perplexity restituisce 401, evita di riprovare per 1 ora
+// ─── Perplexity client (OpenAI-compatible SDK) ────────────────────────────────
+// Short-circuit: evita richieste se la chiave è già stata rifiutata
 let _perplexityKeyInvalidUntil = 0;
+let _perplexityClient: OpenAI | null = null;
+function getPerplexityClient(): OpenAI | null {
+  if (Date.now() < _perplexityKeyInvalidUntil) return null;
+  if (_perplexityClient) return _perplexityClient;
+  const apiKey = process.env.PERPLEXITY_API_KEY;
+  if (!apiKey) return null;
+  _perplexityClient = new OpenAI({
+    baseURL: "https://api.perplexity.ai",
+    apiKey,
+  });
+  return _perplexityClient;
+}
 
 // ─── RSS helpers ──────────────────────────────────────────────────────────────
 
@@ -263,65 +277,60 @@ async function translateNewsArticle(title: string, summary: string, lang: string
   }
 }
 
-// ─── Perplexity AI Agent ──────────────────────────────────────────────────────
+// ─── AI News Agent (OpenRouter → perplexity/sonar con web search) ────────────
 
 const NEWS_LANG_NAMES: Record<string, string> = {
   it: "Italian", en: "English", es: "Spanish", fr: "French", de: "German",
 };
 
-interface PerplexityArticle extends NewsArticle {
+interface AgentArticle extends NewsArticle {
   imageKeywords?: string[];
   affectedPairs?: string[];
   impactScore?: number;
   impactReason?: string;
 }
 
-interface PerplexityResponse {
+interface AgentResponse {
   agentSummary: string;
-  articles: PerplexityArticle[];
+  articles: AgentArticle[];
 }
 
-async function tryPerplexity(
-  apiKey: string,
+async function tryAIAgent(
   pairCurrencies: string[],
   pairsStr: string,
   lang = "it",
 ): Promise<{ articles: NewsArticle[]; agentSummary: string } | null> {
-  if (Date.now() < _perplexityKeyInvalidUntil) return null;
+  const client = getPerplexityClient();
+  if (!client) {
+    console.warn("[news/agent] Perplexity non configurato o chiave non valida — fallback RSS");
+    return null;
+  }
 
   const langName = NEWS_LANG_NAMES[lang] ?? "Italian";
   const formattedPairs = formatPairsForPrompt(pairsStr);
-  const currencyFocus = pairCurrencies.length > 0
-    ? pairCurrencies.join(", ")
-    : "USD, EUR, XAU";
+  const currencyFocus = pairCurrencies.length > 0 ? pairCurrencies.join(", ") : "USD, EUR, XAU";
 
   try {
-    const response = await fetch("https://api.perplexity.ai/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "sonar",
-        search_recency_filter: "day",
-        return_citations: true,
-        messages: [
-          {
-            role: "system",
-            content: `You are an expert forex and commodities market analyst AI agent. Your job is to:
+    const completion = await client.chat.completions.create({
+      model: "sonar",              // Perplexity sonar (web search nativo)
+      max_tokens: 3000,
+      temperature: 0.1,
+      messages: [
+        {
+          role: "system",
+          content: `You are an expert forex and commodities market analyst AI agent. Your job is to:
 1. Search the web for the most impactful macro-economic and geopolitical news from the last 24 hours
 2. Carefully select ONLY news that directly affects the user's specific trading pairs
 3. For each article, explain exactly WHY it matters and score its market impact (1-10)
 4. Write a brief agent summary of the overall market situation for these pairs today
 Respond ONLY with valid JSON. All text (title, summary, impactReason, agentSummary) MUST be in ${langName}.`,
-          },
-          {
-            role: "user",
-            content: `The user trades these pairs: ${formattedPairs}
+        },
+        {
+          role: "user",
+          content: `The user trades these pairs: ${formattedPairs}
 Key currencies involved: ${currencyFocus}
 
-Search for and select the 6 most market-moving news from the last 24 hours that DIRECTLY affect these specific pairs. Be selective — only include news that genuinely moves these markets.
+Search the web and select the 6 most market-moving news from the last 24 hours that DIRECTLY affect these specific pairs. Be selective — only include news that genuinely moves these markets.
 
 Return ONLY this JSON structure (no markdown, no extra text):
 {
@@ -344,88 +353,59 @@ Return ONLY this JSON structure (no markdown, no extra text):
 }
 
 RULES:
-- impactScore: 1-10 (10 = extremely high market impact, e.g. Fed rate decision; 1 = low)
-- affectedPairs: only include pairs from the user's list that are actually affected
+- impactScore: 1-10 (10 = extremely high market impact e.g. Fed rate decision; 1 = low)
+- affectedPairs: only pairs from the user's watchlist that are genuinely affected
 - sentiment: from the perspective of the BASE currency (first in the pair)
 - Order articles by impactScore descending
 - Include both macro-economic data (CPI, NFP, PMI, rate decisions) AND geopolitical events`,
-          },
-        ],
-        temperature: 0.1,
-        max_tokens: 3000,
-      }),
-      signal: AbortSignal.timeout(25000),
-    });
+        },
+      ],
+    } as Parameters<typeof client.chat.completions.create>[0]);
 
-    if (!response.ok) {
-      const errText = await response.text().catch(() => "");
-      if (response.status === 401 || response.status === 403) {
-        _perplexityKeyInvalidUntil = Date.now() + 60 * 60 * 1000;
-        console.warn(`[news/agent] Chiave API non valida (${response.status}) — fallback RSS per 1h`);
-      } else {
-        console.warn(`[news/agent] HTTP ${response.status}: ${errText.slice(0, 200)}`);
-      }
-      return null;
-    }
-
-    const data = await response.json() as {
-      choices: Array<{ message: { content: string } }>;
-      citations?: string[];
-    };
-
-    const realCitationUrls: string[] = (data.citations ?? []).filter(
-      (u) => typeof u === "string" && u.startsWith("http"),
-    );
-    if (realCitationUrls.length > 0) {
-      console.info(`[news/agent] ${realCitationUrls.length} citation URLs from Perplexity`);
-    }
-
-    const raw = data.choices[0]?.message?.content ?? "";
+    const raw = completion.choices[0]?.message?.content ?? "";
     const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
     const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-    const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : cleaned) as PerplexityResponse;
-
+    if (!jsonMatch) {
+      console.warn("[news/agent] Risposta non-JSON dall'AI:", raw.slice(0, 100));
+      return null;
+    }
+    const parsed = JSON.parse(jsonMatch[0]) as AgentResponse;
     if (!Array.isArray(parsed.articles) || parsed.articles.length === 0) return null;
 
     const articles: NewsArticle[] = parsed.articles.map((a, i) => {
       const rawSources = Array.isArray(a.sources) && a.sources.length > 0
-        ? a.sources
-        : a.source ? [a.source] : [];
+        ? a.sources : a.source ? [a.source] : [];
       const dedupedSources = [...new Set(rawSources.map((s) => String(s).trim()).filter(Boolean))];
-
-      // Distribute Perplexity citation URLs across articles
-      let articleCitationUrls: string[] = [];
-      if (realCitationUrls.length > 0) {
-        const perArticle = 3;
-        const startIdx = (i * perArticle) % realCitationUrls.length;
-        const slice1 = realCitationUrls.slice(startIdx, startIdx + perArticle);
-        const slice2 = realCitationUrls.slice(0, Math.max(0, perArticle - slice1.length));
-        articleCitationUrls = [...new Set([...slice1, ...slice2])].slice(0, perArticle);
-      }
-
       return {
         title: a.title,
         summary: a.summary,
-        source: a.source || dedupedSources[0] || "",
+        source: a.source || dedupedSources[0] || "AI",
         sources: dedupedSources,
-        citationUrls: articleCitationUrls,
-        verified: realCitationUrls.length >= 3 || dedupedSources.length >= 2,
+        citationUrls: [],
+        verified: dedupedSources.length >= 2,
         publishedAt: a.publishedAt ?? null,
         url: a.url ?? null,
         sentiment: a.sentiment ?? null,
         imageUrl: buildNewsImageUrl(a.imageKeywords, a.sentiment ?? null, i),
-        // AI agent enrichment
         affectedPairs: Array.isArray(a.affectedPairs) ? a.affectedPairs : [],
-        impactScore: typeof a.impactScore === "number" ? Math.min(10, Math.max(1, Math.round(a.impactScore))) : undefined,
+        impactScore: typeof a.impactScore === "number"
+          ? Math.min(10, Math.max(1, Math.round(a.impactScore))) : undefined,
         impactReason: typeof a.impactReason === "string" ? a.impactReason : undefined,
       };
     });
 
-    console.info(`[news/agent] OK — ${articles.length} curated articles for [${formattedPairs}]`);
+    console.info(`[news/agent] OK — ${articles.length} articoli curati per [${formattedPairs}]`);
     return { articles, agentSummary: parsed.agentSummary ?? "" };
 
   } catch (err) {
-    console.warn("[news/agent] Error:", err instanceof Error ? err.message : String(err));
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("401") || msg.includes("403")) {
+      _perplexityKeyInvalidUntil = Date.now() + 60 * 60 * 1000;
+      _perplexityClient = null;  // forza re-init alla prossima ora
+      console.warn("[news/agent] Chiave non valida — fallback RSS per 1h");
+    } else {
+      console.warn("[news/agent] Errore:", msg);
+    }
     return null;
   }
 }
@@ -449,21 +429,18 @@ router.get("/news", async (req, res) => {
     }
   }
 
-  const apiKey = process.env.PERPLEXITY_API_KEY;
   let articles: NewsArticle[] = [];
   let source: "ai" | "rss" = "rss";
   let agentSummary: string | undefined;
   let nextRefreshAt: string | undefined;
 
-  // 1. Try Perplexity AI agent
-  if (apiKey) {
-    const aiResult = await tryPerplexity(apiKey, pairCurrencies, pairsStr, lang);
-    if (aiResult && aiResult.articles.length > 0) {
-      articles = aiResult.articles;
-      agentSummary = aiResult.agentSummary;
-      source = "ai";
-      nextRefreshAt = new Date(Date.now() + AI_CACHE_TTL).toISOString();
-    }
+  // 1. AI Agent via OpenRouter (Replit AI Integrations — nessuna chiave richiesta)
+  const aiResult = await tryAIAgent(pairCurrencies, pairsStr, lang);
+  if (aiResult && aiResult.articles.length > 0) {
+    articles = aiResult.articles;
+    agentSummary = aiResult.agentSummary;
+    source = "ai";
+    nextRefreshAt = new Date(Date.now() + AI_CACHE_TTL).toISOString();
   }
 
   // 2. RSS fallback
@@ -498,7 +475,7 @@ router.get("/news", async (req, res) => {
   const result: NewsResponse = {
     articles,
     fetchedAt: new Date().toISOString(),
-    hasApiKey: !!apiKey,
+    hasApiKey: !!process.env.PERPLEXITY_API_KEY,
     source,
     agentSummary,
     watchedPairs,
