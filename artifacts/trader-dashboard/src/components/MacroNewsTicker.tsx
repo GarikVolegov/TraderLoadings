@@ -399,7 +399,12 @@ export function MacroNewsTicker() {
                       <div className="p-3.5 space-y-2">
                       <div className="flex items-start justify-between gap-3">
                         <h4 className="text-sm font-semibold leading-tight flex-1">
-                          {article.title}
+                          {article.url ? (
+                            <a href={article.url} target="_blank" rel="noopener noreferrer"
+                              className="hover:text-primary hover:underline transition-colors">
+                              {article.title}
+                            </a>
+                          ) : article.title}
                         </h4>
                         <div className="flex items-center gap-1.5 flex-shrink-0">
                           <span className="font-mono text-xs font-bold text-muted-foreground">
