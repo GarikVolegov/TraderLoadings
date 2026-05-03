@@ -33,6 +33,7 @@ import Backtest from "./pages/Backtest";
 import Tools from "./pages/Tools";
 import Zen from "./pages/Zen";
 import Milestones from "./pages/Milestones";
+import Routine from "./pages/Routine";
 import NotFound from "./pages/not-found";
 import LandingPage from "./pages/LandingPage";
 
@@ -190,6 +191,7 @@ function AppRouter() {
           <Route path="/tools" component={Tools} />
           <Route path="/zen" component={Zen} />
           <Route path="/milestones" component={Milestones} />
+          <Route path="/routine" component={Routine} />
           <Route path="/settings" component={Settings} />
           <Route component={NotFound} />
         </Switch>
