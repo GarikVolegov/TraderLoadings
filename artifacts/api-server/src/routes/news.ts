@@ -41,20 +41,19 @@ let cache: { data: NewsResponse; ts: number; key: string } | null = null;
 const AI_CACHE_TTL  = 60 * 60 * 1000;  // 1 ora (agente AI)
 const RSS_CACHE_TTL = 10 * 60 * 1000;  // 10 min (fallback RSS)
 
-// ─── Perplexity client (OpenAI-compatible SDK) ────────────────────────────────
-// Short-circuit: evita richieste se la chiave è già stata rifiutata
-let _perplexityKeyInvalidUntil = 0;
-let _perplexityClient: OpenAI | null = null;
-function getPerplexityClient(): OpenAI | null {
-  if (Date.now() < _perplexityKeyInvalidUntil) return null;
-  if (_perplexityClient) return _perplexityClient;
-  const apiKey = process.env.PERPLEXITY_API_KEY;
+// ─── Groq client (free tier — llama-3.1-8b-instant) ──────────────────────────
+// Signup gratuito senza carta di credito: https://console.groq.com
+// Imposta GROQ_API_KEY come secret per attivare l'analisi AI avanzata.
+// Senza chiave il sistema usa l'enrichment euristico gratuito (sempre attivo).
+let _groqKeyInvalidUntil = 0;
+let _groqClient: OpenAI | null = null;
+function getGroqClient(): OpenAI | null {
+  if (Date.now() < _groqKeyInvalidUntil) return null;
+  if (_groqClient) return _groqClient;
+  const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) return null;
-  _perplexityClient = new OpenAI({
-    baseURL: "https://api.perplexity.ai",
-    apiKey,
-  });
-  return _perplexityClient;
+  _groqClient = new OpenAI({ baseURL: "https://api.groq.com/openai/v1", apiKey });
+  return _groqClient;
 }
 
 // ─── RSS helpers ──────────────────────────────────────────────────────────────
@@ -277,134 +276,216 @@ async function translateNewsArticle(title: string, summary: string, lang: string
   }
 }
 
-// ─── AI News Agent (OpenRouter → perplexity/sonar con web search) ────────────
+// ─── Heuristic Enrichment (100% gratuito, nessuna API key) ───────────────────
 
 const NEWS_LANG_NAMES: Record<string, string> = {
   it: "Italian", en: "English", es: "Spanish", fr: "French", de: "German",
 };
 
-interface AgentArticle extends NewsArticle {
-  imageKeywords?: string[];
-  affectedPairs?: string[];
-  impactScore?: number;
-  impactReason?: string;
+interface ImpactPattern { re: RegExp; score: number; key: string }
+const IMPACT_PATTERNS: ImpactPattern[] = [
+  { re: /non.?farm\s*payroll|nfp\b/i,                                             score: 9, key: "nfp" },
+  { re: /rate\s*(decision|cut|hike|change)|interest\s*rate\s*(decision|change)/i, score: 9, key: "rate" },
+  { re: /\bfomc\b|federal\s*reserve\s*(decision|meeting|statement|minutes)/i,     score: 9, key: "fed" },
+  { re: /\bcpi\b|inflation\s*data|consumer\s*price\s*index/i,                      score: 8, key: "cpi" },
+  { re: /war|conflict|military\s*action|invasion|sanctions/i,                     score: 8, key: "geo" },
+  { re: /recession|financial\s*crisis|market\s*crash/i,                           score: 8, key: "crisis" },
+  { re: /currency\s*intervention|emergency\s*(measure|rate)/i,                    score: 8, key: "intv" },
+  { re: /unemployment|jobs?\s*report|employment\s*data/i,                         score: 7, key: "jobs" },
+  { re: /\bgdp\b|gross\s*domestic\s*product/i,                                    score: 7, key: "gdp" },
+  { re: /trade\s*(war|tariff|deal|agreement)/i,                                   score: 7, key: "trade" },
+  { re: /\bpmi\b|purchasing\s*managers/i,                                         score: 6, key: "pmi" },
+  { re: /central\s*bank|monetary\s*policy|quantitative\s*(easing|tightening)/i,  score: 6, key: "cb" },
+];
+
+const IMPACT_REASONS: Record<string, Record<string, string>> = {
+  it: {
+    nfp:   "Il dato NFP è il principale indicatore del mercato del lavoro USA e muove USD su tutti i pair collegati.",
+    rate:  "Le decisioni sui tassi spostano direttamente i differenziali di rendimento tra valute.",
+    fed:   "Le comunicazioni Fed influenzano il dollaro e per riflesso tutti i pair legati all'USD.",
+    cpi:   "L'inflazione condiziona le aspettative sui tassi e quindi i movimenti valutari.",
+    geo:   "L'instabilità geopolitica aumenta la volatilità e favorisce i beni rifugio (XAU, CHF, JPY).",
+    crisis:"Le crisi finanziarie aumentano l'avversione al rischio e muovono verso asset sicuri.",
+    intv:  "Gli interventi valutari causano movimenti immediati e bruschi sul mercato.",
+    jobs:  "I dati occupazionali influenzano le decisioni di politica monetaria della banca centrale.",
+    gdp:   "Il PIL misura la salute economica del paese e orienta le aspettative di politica monetaria.",
+    trade: "Le tensioni commerciali impattano le valute dei paesi esportatori coinvolti.",
+    pmi:   "Il PMI anticipa l'attività economica e può modificare le aspettative sui tassi futuri.",
+    cb:    "La politica monetaria è il principale motore dei tassi di cambio nel medio termine.",
+  },
+  en: {
+    nfp:   "NFP is the key US labor market indicator and directly moves USD across all linked pairs.",
+    rate:  "Interest rate decisions shift yield differentials between currencies.",
+    fed:   "Fed communications influence the dollar and by extension all USD-linked pairs.",
+    cpi:   "Inflation shapes rate expectations and thus drives currency movements.",
+    geo:   "Geopolitical instability increases volatility and drives demand for safe havens (XAU, CHF, JPY).",
+    crisis:"Financial crises increase risk aversion and shift flows to safe-haven assets.",
+    intv:  "Direct currency interventions cause immediate and sharp market moves.",
+    jobs:  "Employment data influences central bank monetary policy decisions.",
+    gdp:   "GDP measures economic health and shapes monetary policy expectations.",
+    trade: "Trade tensions impact currencies of the exporting countries involved.",
+    pmi:   "PMI leads economic activity and can shift future rate expectations.",
+    cb:    "Monetary policy is the primary driver of exchange rates in the medium term.",
+  },
+};
+
+function computeImpact(text: string): { score: number; key: string } {
+  let best = { score: 3, key: "" };
+  for (const { re, score, key } of IMPACT_PATTERNS) {
+    if (re.test(text) && score > best.score) best = { score, key };
+  }
+  return best;
 }
 
-interface AgentResponse {
-  agentSummary: string;
-  articles: AgentArticle[];
+function detectSentiment(text: string): "bullish" | "bearish" | "neutral" {
+  const b = (text.match(/surges?|rally|rallies|gains?|rises?|risen|higher|strong|beats?|above.forecast|hawkish|boost/ig) ?? []).length;
+  const e = (text.match(/falls?|dropped?|drops?|declines?|lower|weak|misses?|below.forecast|dovish|recession|crisis|concern/ig) ?? []).length;
+  return b > e ? "bullish" : e > b ? "bearish" : "neutral";
 }
 
-async function tryAIAgent(
+function detectAffectedPairs(text: string, pairCurrencies: string[], pairsStr: string): string[] {
+  const lc = text.toLowerCase();
+  const userPairs = pairsStr.split(",").map((p) => {
+    const s = p.trim();
+    return s.length === 6 ? `${s.slice(0, 3)}/${s.slice(3)}` : s;
+  }).filter(Boolean);
+  const matched = new Set<string>();
+  for (const cur of pairCurrencies) {
+    const kws = PAIR_KEYWORDS[cur.toUpperCase()];
+    if (kws?.some((kw) => lc.includes(kw))) matched.add(cur.toUpperCase());
+  }
+  return userPairs.filter((pair) => {
+    const [base, quote] = pair.split("/");
+    return matched.has(base) || matched.has(quote);
+  });
+}
+
+function enrichHeuristically(
+  articles: NewsArticle[],
   pairCurrencies: string[],
   pairsStr: string,
-  lang = "it",
-): Promise<{ articles: NewsArticle[]; agentSummary: string } | null> {
-  const client = getPerplexityClient();
-  if (!client) {
-    console.warn("[news/agent] Perplexity non configurato o chiave non valida — fallback RSS");
-    return null;
+  lang: string,
+): NewsArticle[] {
+  const reasons = IMPACT_REASONS[lang] ?? IMPACT_REASONS.en;
+  return articles.map((a) => {
+    const text = `${a.title} ${a.summary}`;
+    const { score, key } = computeImpact(text);
+    const affectedPairs = detectAffectedPairs(text, pairCurrencies, pairsStr);
+    const sentiment = a.sentiment ?? detectSentiment(text);
+    const baseReason = key ? (reasons[key] ?? "") : "";
+    const impactReason = baseReason && affectedPairs.length > 0
+      ? `${baseReason}${lang === "it" ? " Pair coinvolti" : " Affected pairs"}: ${affectedPairs.join(", ")}.`
+      : baseReason || undefined;
+    return { ...a, impactScore: score, affectedPairs, sentiment, impactReason };
+  });
+}
+
+function heuristicAgentSummary(articles: NewsArticle[], formattedPairs: string, lang: string): string {
+  const top = articles.filter((a) => (a.impactScore ?? 0) >= 7).slice(0, 3);
+  if (top.length === 0) {
+    return lang === "it"
+      ? `Nessun evento macro ad alto impatto rilevato oggi per ${formattedPairs}. I mercati potrebbero muoversi su dati tecnici o flussi di fine sessione.`
+      : `No high-impact macro events detected today for ${formattedPairs}. Markets may trade on technicals or end-of-session flows.`;
   }
+  const titles = top.map((a) => a.title.slice(0, 60)).join("; ");
+  return lang === "it"
+    ? `Attenzione ai seguenti eventi ad alto impatto per ${formattedPairs}: ${titles}. Gestire il rischio con stop adeguati.`
+    : `Watch these high-impact events for ${formattedPairs}: ${titles}. Manage risk with appropriate stops.`;
+}
+
+// ─── Groq AI Enrichment (opzionale — free tier, nessuna carta di credito) ─────
+// 1. Vai su https://console.groq.com  → crea account gratuito
+// 2. Genera un'API key
+// 3. Aggiungila come secret GROQ_API_KEY in questo progetto
+
+interface GroqEnrichItem {
+  impactScore: number;
+  impactReason: string;
+  affectedPairs: string[];
+  sentiment: string;
+}
+interface GroqEnrichResult { agentSummary: string; articles: GroqEnrichItem[] }
+
+async function enrichWithGroq(
+  articles: NewsArticle[],
+  pairCurrencies: string[],
+  pairsStr: string,
+  lang: string,
+): Promise<{ articles: NewsArticle[]; agentSummary: string } | null> {
+  const client = getGroqClient();
+  if (!client) return null;
 
   const langName = NEWS_LANG_NAMES[lang] ?? "Italian";
   const formattedPairs = formatPairsForPrompt(pairsStr);
   const currencyFocus = pairCurrencies.length > 0 ? pairCurrencies.join(", ") : "USD, EUR, XAU";
+  const batch = articles.slice(0, 8).map((a, i) => ({
+    id: i, title: a.title, summary: a.summary.slice(0, 200),
+  }));
 
   try {
     const completion = await client.chat.completions.create({
-      model: "sonar",              // Perplexity sonar (web search nativo)
-      max_tokens: 3000,
+      model: "llama-3.1-8b-instant",
+      max_tokens: 2000,
       temperature: 0.1,
       messages: [
         {
           role: "system",
-          content: `You are an expert forex and commodities market analyst AI agent. Your job is to:
-1. Search the web for the most impactful macro-economic and geopolitical news from the last 24 hours
-2. Carefully select ONLY news that directly affects the user's specific trading pairs
-3. For each article, explain exactly WHY it matters and score its market impact (1-10)
-4. Write a brief agent summary of the overall market situation for these pairs today
-Respond ONLY with valid JSON. All text (title, summary, impactReason, agentSummary) MUST be in ${langName}.`,
+          content: `You are a professional forex and commodities market analyst. Analyze news articles and return structured market impact data. Respond ONLY with valid JSON. All text fields MUST be in ${langName}.`,
         },
         {
           role: "user",
-          content: `The user trades these pairs: ${formattedPairs}
-Key currencies involved: ${currencyFocus}
+          content: `Trading pairs: ${formattedPairs}. Key currencies: ${currencyFocus}.
 
-Search the web and select the 6 most market-moving news from the last 24 hours that DIRECTLY affect these specific pairs. Be selective — only include news that genuinely moves these markets.
+Articles to analyze:
+${JSON.stringify(batch, null, 2)}
 
-Return ONLY this JSON structure (no markdown, no extra text):
+Return ONLY this JSON (no markdown, no extra text):
 {
-  "agentSummary": "2-3 sentence overview in ${langName} of today's macro situation for ${formattedPairs}",
+  "agentSummary": "2-3 sentence macro overview in ${langName} for ${formattedPairs}",
   "articles": [
     {
-      "title": "article title in ${langName}",
-      "summary": "2-3 sentence summary in ${langName} explaining the news",
-      "impactReason": "1-2 sentences in ${langName} explaining specifically why this affects ${formattedPairs}",
-      "impactScore": 8,
-      "affectedPairs": ["EUR/USD", "GBP/USD"],
-      "sentiment": "bullish|bearish|neutral",
-      "source": "Primary source name",
-      "sources": ["Source 1", "Source 2"],
-      "publishedAt": "ISO date or null",
-      "url": null,
-      "imageKeywords": ["keyword1", "keyword2"]
+      "impactScore": 7,
+      "impactReason": "1 sentence in ${langName} why this matters for these specific pairs",
+      "affectedPairs": ["EUR/USD"],
+      "sentiment": "bullish|bearish|neutral"
     }
   ]
 }
 
-RULES:
-- impactScore: 1-10 (10 = extremely high market impact e.g. Fed rate decision; 1 = low)
-- affectedPairs: only pairs from the user's watchlist that are genuinely affected
-- sentiment: from the perspective of the BASE currency (first in the pair)
-- Order articles by impactScore descending
-- Include both macro-economic data (CPI, NFP, PMI, rate decisions) AND geopolitical events`,
+Return exactly ${batch.length} objects in articles[], same order as input.`,
         },
       ],
-    } as Parameters<typeof client.chat.completions.create>[0]);
+    });
 
     const raw = completion.choices[0]?.message?.content ?? "";
-    const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      console.warn("[news/agent] Risposta non-JSON dall'AI:", raw.slice(0, 100));
-      return null;
-    }
-    const parsed = JSON.parse(jsonMatch[0]) as AgentResponse;
-    if (!Array.isArray(parsed.articles) || parsed.articles.length === 0) return null;
+    const jsonMatch = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim().match(/\{[\s\S]*\}/);
+    if (!jsonMatch) { console.warn("[news/groq] Risposta non-JSON"); return null; }
+    const parsed = JSON.parse(jsonMatch[0]) as GroqEnrichResult;
+    if (!Array.isArray(parsed.articles)) return null;
 
-    const articles: NewsArticle[] = parsed.articles.map((a, i) => {
-      const rawSources = Array.isArray(a.sources) && a.sources.length > 0
-        ? a.sources : a.source ? [a.source] : [];
-      const dedupedSources = [...new Set(rawSources.map((s) => String(s).trim()).filter(Boolean))];
+    const enriched = articles.map((a, i) => {
+      const ai = parsed.articles[i];
+      if (!ai) return a;
       return {
-        title: a.title,
-        summary: a.summary,
-        source: a.source || dedupedSources[0] || "AI",
-        sources: dedupedSources,
-        citationUrls: [],
-        verified: dedupedSources.length >= 2,
-        publishedAt: a.publishedAt ?? null,
-        url: a.url ?? null,
-        sentiment: a.sentiment ?? null,
-        imageUrl: buildNewsImageUrl(a.imageKeywords, a.sentiment ?? null, i),
-        affectedPairs: Array.isArray(a.affectedPairs) ? a.affectedPairs : [],
-        impactScore: typeof a.impactScore === "number"
-          ? Math.min(10, Math.max(1, Math.round(a.impactScore))) : undefined,
-        impactReason: typeof a.impactReason === "string" ? a.impactReason : undefined,
+        ...a,
+        impactScore: typeof ai.impactScore === "number" ? Math.min(10, Math.max(1, Math.round(ai.impactScore))) : a.impactScore,
+        impactReason: typeof ai.impactReason === "string" ? ai.impactReason : a.impactReason,
+        affectedPairs: Array.isArray(ai.affectedPairs) && ai.affectedPairs.length > 0 ? ai.affectedPairs : a.affectedPairs,
+        sentiment: typeof ai.sentiment === "string" ? ai.sentiment : a.sentiment,
       };
     });
 
-    console.info(`[news/agent] OK — ${articles.length} articoli curati per [${formattedPairs}]`);
-    return { articles, agentSummary: parsed.agentSummary ?? "" };
+    console.info(`[news/groq] OK — ${enriched.length} articoli arricchiti con Llama`);
+    return { articles: enriched, agentSummary: parsed.agentSummary ?? "" };
 
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     if (msg.includes("401") || msg.includes("403")) {
-      _perplexityKeyInvalidUntil = Date.now() + 60 * 60 * 1000;
-      _perplexityClient = null;  // forza re-init alla prossima ora
-      console.warn("[news/agent] Chiave non valida — fallback RSS per 1h");
+      _groqKeyInvalidUntil = Date.now() + 60 * 60 * 1000;
+      _groqClient = null;
+      console.warn("[news/groq] Chiave non valida — solo enrichment euristico");
     } else {
-      console.warn("[news/agent] Errore:", msg);
+      console.warn("[news/groq] Errore:", msg);
     }
     return null;
   }
@@ -433,36 +514,44 @@ router.get("/news", async (req, res) => {
   let source: "ai" | "rss" = "rss";
   let agentSummary: string | undefined;
   let nextRefreshAt: string | undefined;
+  const formattedPairs = formatPairsForPrompt(pairsStr);
 
-  // 1. AI Agent via OpenRouter (Replit AI Integrations — nessuna chiave richiesta)
-  const aiResult = await tryAIAgent(pairCurrencies, pairsStr, lang);
-  if (aiResult && aiResult.articles.length > 0) {
-    articles = aiResult.articles;
-    agentSummary = aiResult.agentSummary;
-    source = "ai";
-    nextRefreshAt = new Date(Date.now() + AI_CACHE_TTL).toISOString();
-  }
+  // 1. Fetch RSS (sempre attivo, gratuito)
+  try {
+    const rssArticles = await fetchRSSNews(pairCurrencies.length > 0 ? pairCurrencies : ["USD", "XAU"]);
+    const withImages = rssArticles.map((a, i) => ({
+      ...a,
+      imageUrl: a.imageUrl ?? buildNewsImageUrl(undefined, a.sentiment, i),
+    }));
+    const translated = lang !== "en"
+      ? await Promise.all(
+          withImages.map(async (a) => {
+            const { title, summary } = await translateNewsArticle(a.title, a.summary, lang);
+            return { ...a, title, summary };
+          })
+        )
+      : withImages;
 
-  // 2. RSS fallback
-  if (source !== "ai") {
-    try {
-      const rssArticles = await fetchRSSNews(pairCurrencies.length > 0 ? pairCurrencies : ["USD", "XAU"]);
-      const withImages = rssArticles.map((a, i) => ({
-        ...a,
-        imageUrl: a.imageUrl ?? buildNewsImageUrl(undefined, a.sentiment, i),
-      }));
-      articles = lang !== "en"
-        ? await Promise.all(
-            withImages.map(async (a) => {
-              const { title, summary } = await translateNewsArticle(a.title, a.summary, lang);
-              return { ...a, title, summary };
-            })
-          )
-        : withImages;
-      nextRefreshAt = new Date(Date.now() + RSS_CACHE_TTL).toISOString();
-    } catch {
-      articles = [];
+    // 2. Enrichment euristico (sempre gratuito — impact score, pair detection, sentiment)
+    const enriched = enrichHeuristically(translated, pairCurrencies, pairsStr, lang);
+
+    // 3. Groq AI enhancement (opzionale — free tier con GROQ_API_KEY)
+    const groqResult = await enrichWithGroq(enriched, pairCurrencies, pairsStr, lang);
+    if (groqResult && groqResult.articles.length > 0) {
+      articles = groqResult.articles;
+      agentSummary = groqResult.agentSummary;
+    } else {
+      articles = enriched;
+      agentSummary = heuristicAgentSummary(enriched, formattedPairs, lang);
     }
+
+    // Ordina per impact score decrescente
+    articles.sort((a, b) => (b.impactScore ?? 0) - (a.impactScore ?? 0));
+    source = "ai";  // enrichment (euristico o Groq) conta come AI
+    nextRefreshAt = new Date(Date.now() + RSS_CACHE_TTL).toISOString();
+  } catch {
+    articles = [];
+    nextRefreshAt = new Date(Date.now() + RSS_CACHE_TTL).toISOString();
   }
 
   const watchedPairs = pairsStr
@@ -475,7 +564,7 @@ router.get("/news", async (req, res) => {
   const result: NewsResponse = {
     articles,
     fetchedAt: new Date().toISOString(),
-    hasApiKey: !!process.env.PERPLEXITY_API_KEY,
+    hasApiKey: true,  // sempre attivo: enrichment euristico gratuito (+ Groq se GROQ_API_KEY è impostata)
     source,
     agentSummary,
     watchedPairs,
