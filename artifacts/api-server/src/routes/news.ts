@@ -19,6 +19,10 @@ interface NewsArticle {
 let cache: { data: unknown; ts: number; key: string } | null = null;
 const CACHE_TTL = 10 * 60 * 1000; // 10 min
 
+// Short-circuit: se la chiave Perplexity restituisce 401, evita di riprovare
+// per 1 ora (la chiave è invalida finché non viene cambiata)
+let _perplexityKeyInvalidUntil = 0;
+
 function extractCDATA(block: string, tag: string): string {
   const cdataRe = new RegExp(`<${tag}><!\\[CDATA\\[([\\s\\S]*?)\\]\\]><\\/${tag}>`);
   const plainRe = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`);
@@ -231,6 +235,9 @@ const NEWS_LANG_NAMES: Record<string, string> = {
 };
 
 async function tryPerplexity(apiKey: string, pairCurrencies: string[], lang = "it"): Promise<NewsArticle[] | null> {
+  if (Date.now() < _perplexityKeyInvalidUntil) {
+    return null;
+  }
   const currencyFocus = pairCurrencies.length > 0
     ? pairCurrencies.join(", ")
     : "gold (XAU/USD), US dollar and major forex pairs";
@@ -272,7 +279,13 @@ imageKeywords: 2-3 short English words for a representative image.`,
 
     if (!response.ok) {
       const errText = await response.text().catch(() => "");
-      console.error(`[news/perplexity] ${response.status}: ${errText.slice(0, 200)}`);
+      if (response.status === 401 || response.status === 403) {
+        // Chiave non valida — sospendi i tentativi per 1 ora
+        _perplexityKeyInvalidUntil = Date.now() + 60 * 60 * 1000;
+        console.warn(`[news/perplexity] Chiave API non valida (${response.status}) — fallback RSS attivo per 1h`);
+      } else {
+        console.error(`[news/perplexity] ${response.status}: ${errText.slice(0, 200)}`);
+      }
       return null;
     }
 

@@ -23,14 +23,16 @@ async function ensureTodayMissions(userId: string | null) {
       ? userTemplates.map((t) => ({ title: t.title, description: t.description, xpReward: t.xpReward }))
       : DEFAULT_MISSIONS;
 
-    await db.insert(missionsTable).values(
-      missionsToCreate.map((m) => ({
-        ...m,
-        completed: false,
-        missionDate: today,
-        userId,
-      }))
-    );
+    if (missionsToCreate.length > 0) {
+      await db.insert(missionsTable).values(
+        missionsToCreate.map((m) => ({
+          ...m,
+          completed: false,
+          missionDate: today,
+          userId,
+        }))
+      );
+    }
     return await db.select().from(missionsTable).where(and(eq(missionsTable.missionDate, today), userFilter));
   }
 

@@ -494,6 +494,85 @@ function parseCotCsv(text: string): CotEntry[] {
     .sort((a, b) => COT_ORDER.indexOf(a.currency) - COT_ORDER.indexOf(b.currency));
 }
 
+// ─── Parser per FinFutWk.txt (Traders in Financial Futures, no header row) ────
+// Colonne confermate (0-indexed) dal file CFTC live:
+//   0  = Market name
+//   2  = Date YYYY-MM-DD
+//   7  = Open Interest All
+//   8  = Dealer/Intermediary Long All   (commercials/market makers)
+//   9  = Dealer Short All
+//  10  = Dealer Spread All
+//  11  = Asset Manager Long All         (commercials/institutional)
+//  12  = Asset Manager Short All
+//  13  = Asset Manager Spread All
+//  14  = Leveraged Money Long All       (non-commercial / speculatori)
+//  15  = Leveraged Money Short All
+//  16  = Leveraged Money Spread All
+//  17  = Other Reportables Long All
+//  18  = Other Reportables Short All
+//  19  = Other Reportables Spread All
+//  20  = Total Reportable Longs (derived)
+//  21  = Total Reportable Shorts (derived)
+//  22  = Non-Reportable Long All
+//  23  = Non-Reportable Short All
+function parseCotTxt(text: string): CotEntry[] {
+  const lines = text.trim().split("\n");
+  if (lines.length < 1) return [];
+
+  const historyByMarket: Record<string, CotWeek[]> = {};
+
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const cols = line.split(",").map((c) => c.trim().replace(/^"|"$/g, ""));
+    if (cols.length < 24) continue;
+
+    const market = (cols[0] ?? "").toUpperCase();
+    const matchedKey = Object.keys(COT_MARKET_MAP).find((k) => market.includes(k));
+    if (!matchedKey) continue;
+
+    const currency = COT_MARKET_MAP[matchedKey];
+    const date = cols[2] ?? "";
+    if (!date.match(/^\d{4}-\d{2}-\d{2}$/)) continue;
+
+    const n = (i: number) => parseInt(cols[i]) || 0;
+
+    // Leveraged Money = speculators (equiv. "Non-Commercial")
+    const levLong  = n(14);
+    const levShort = n(15);
+    // Dealer + Asset Manager = hedgers (equiv. "Commercial")
+    const commL = n(8)  + n(11);
+    const commS = n(9)  + n(12);
+    // Non-Reportable
+    const nrL = n(22);
+    const nrS = n(23);
+
+    if (!historyByMarket[currency]) historyByMarket[currency] = [];
+    if (!historyByMarket[currency].some((w) => w.date === date)) {
+      historyByMarket[currency].push({
+        date,
+        nonCommLong: levLong, nonCommShort: levShort,
+        commLong: commL,      commShort: commS,
+        retailLong: nrL,      retailShort: nrS,
+        nonCommNet: levLong - levShort,
+        commNet:    commL - commS,
+        retailNet:  nrL - nrS,
+      });
+    }
+  }
+
+  return Object.entries(historyByMarket)
+    .map(([currency, weeks]) => {
+      weeks.sort((a, b) => b.date.localeCompare(a.date));
+      const latest = weeks[0];
+      const history = weeks.slice(0, COT_HISTORY_WEEKS).reverse().map((w) => ({
+        date: w.date, nonCommNet: w.nonCommNet, commNet: w.commNet,
+      }));
+      const matchedKey = Object.keys(COT_MARKET_MAP).find((k) => COT_MARKET_MAP[k] === currency) ?? "";
+      return { ...latest, market: matchedKey, currency, history };
+    })
+    .sort((a, b) => COT_ORDER.indexOf(a.currency) - COT_ORDER.indexOf(b.currency));
+}
+
 const COT_FALLBACK: CotEntry[] = [
   { market:"EURO FX",          currency:"EUR", date:"2026-03-11", nonCommLong:218450, nonCommShort:142310, commLong:136200, commShort:211400, retailLong:42100, retailShort:42040, nonCommNet:76140,  commNet:-75200, retailNet:60,   history:[{date:"2026-03-11",nonCommNet:76140,commNet:-75200}] },
   { market:"BRITISH POUND",    currency:"GBP", date:"2026-03-11", nonCommLong:68250,  nonCommShort:112340, commLong:124800, commShort:78900,  retailLong:18200, retailShort:20010, nonCommNet:-44090, commNet:45900,  retailNet:-1810,history:[{date:"2026-03-11",nonCommNet:-44090,commNet:45900}] },
@@ -507,8 +586,8 @@ const COT_FALLBACK: CotEntry[] = [
 ];
 
 const CFTC_URLS = [
-  "https://www.cftc.gov/dea/newcot/FinFutWkly.txt",
-  "https://www.cftc.gov/files/dea/newcot/FinFutWkly.txt",
+  "https://www.cftc.gov/dea/newcot/FinFutWk.txt",   // URL corretto (rinominato da CFTC)
+  "https://www.cftc.gov/dea/newcot/FinComWk.txt",   // Combined (contiene stessi dati)
 ];
 
 // Smart cache — porta la data del prossimo venerdì CFTC come scadenza
@@ -534,10 +613,98 @@ interface CotCache {
 }
 let cotCache: CotCache | null = null;
 
+// ─── Socrata API (CFTC Public Reporting Portal) ───────────────────────────────
+// Endpoint pubblico, no auth richiesta.
+// Dataset: "Traders in Financial Futures - Futures Only"
+const SOCRATA_COT_URL = "https://publicreporting.cftc.gov/resource/jun7-ujqd.json";
+
+async function fetchCotFromSocrata(): Promise<CotEntry[] | null> {
+  try {
+    const socrataUrl = new URL(SOCRATA_COT_URL);
+    socrataUrl.searchParams.set("$limit", "250");
+    socrataUrl.searchParams.set("$order", "report_date_as_yyyy_mm_dd DESC");
+
+    const res = await fetch(socrataUrl.toString(), {
+      headers: {
+        "User-Agent": "TraderLoading/1.0",
+        "Accept": "application/json",
+      },
+      signal: AbortSignal.timeout(15000),
+    });
+
+    if (!res.ok) {
+      console.warn(`[tools/cot] Socrata HTTP ${res.status}`);
+      return null;
+    }
+
+    type SocrataRow = {
+      market_and_exchange_names: string;
+      report_date_as_yyyy_mm_dd: string;
+      noncomm_positions_long_all?: string;
+      noncomm_positions_short_all?: string;
+      comm_positions_long_all?: string;
+      comm_positions_short_all?: string;
+      nonrept_positions_long_all?: string;
+      nonrept_positions_short_all?: string;
+    };
+
+    const rows: SocrataRow[] = await res.json() as SocrataRow[];
+    if (!Array.isArray(rows) || rows.length === 0) return null;
+
+    const historyByMarket: Record<string, CotWeek[]> = {};
+
+    for (const row of rows) {
+      const market = (row.market_and_exchange_names ?? "").toUpperCase();
+      const matchedKey = Object.keys(COT_MARKET_MAP).find((k) => market.includes(k));
+      if (!matchedKey) continue;
+
+      const currency = COT_MARKET_MAP[matchedKey];
+      const date = row.report_date_as_yyyy_mm_dd?.slice(0, 10) ?? "";
+      const ncLong  = parseInt(row.noncomm_positions_long_all  ?? "0") || 0;
+      const ncShort = parseInt(row.noncomm_positions_short_all ?? "0") || 0;
+      const commL   = parseInt(row.comm_positions_long_all     ?? "0") || 0;
+      const commS   = parseInt(row.comm_positions_short_all    ?? "0") || 0;
+      const nrL     = parseInt(row.nonrept_positions_long_all  ?? "0") || 0;
+      const nrS     = parseInt(row.nonrept_positions_short_all ?? "0") || 0;
+
+      if (!historyByMarket[currency]) historyByMarket[currency] = [];
+      if (!historyByMarket[currency].some((w) => w.date === date)) {
+        historyByMarket[currency].push({
+          date, nonCommLong: ncLong, nonCommShort: ncShort,
+          commLong: commL, commShort: commS,
+          retailLong: nrL, retailShort: nrS,
+          nonCommNet: ncLong - ncShort,
+          commNet: commL - commS,
+          retailNet: nrL - nrS,
+        });
+      }
+    }
+
+    if (Object.keys(historyByMarket).length === 0) return null;
+
+    const results: CotEntry[] = Object.entries(historyByMarket).map(([currency, weeks]) => {
+      weeks.sort((a, b) => b.date.localeCompare(a.date));
+      const latest = weeks[0];
+      const history = weeks.slice(0, COT_HISTORY_WEEKS).reverse().map((w) => ({
+        date: w.date, nonCommNet: w.nonCommNet, commNet: w.commNet,
+      }));
+      const matchedKey = Object.keys(COT_MARKET_MAP).find((k) => COT_MARKET_MAP[k] === currency) ?? "";
+      return { ...latest, market: matchedKey, currency, history };
+    }).sort((a, b) => COT_ORDER.indexOf(a.currency) - COT_ORDER.indexOf(b.currency));
+
+    console.info(`[tools/cot] Socrata OK — ${results.length} markets`);
+    return results;
+  } catch (err) {
+    console.warn("[tools/cot] Socrata error:", err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
 async function fetchCotData(): Promise<void> {
   const now = Date.now();
   console.info("[tools/cot] Fetching CFTC data...");
 
+  // 1. Tenta i file TXT ufficiali CFTC
   for (const url of CFTC_URLS) {
     try {
       const response = await fetch(url, {
@@ -547,17 +714,27 @@ async function fetchCotData(): Promise<void> {
       if (!response.ok) { console.warn(`[tools/cot] ${url} → HTTP ${response.status}`); continue; }
       const text = await response.text();
       if (text.trim().startsWith("<!")) { console.warn(`[tools/cot] ${url} → HTML (blocked)`); continue; }
-      const reports = parseCotCsv(text);
+      // FinFutWk.txt e FinComWk.txt non hanno header row → parser posizionale
+      const reports = parseCotTxt(text);
       if (reports.length === 0) continue;
       cotCache = { data: reports, fetchedAt: now, expiresAt: nextCftcPublishMs(), fallback: false };
-      console.info(`[tools/cot] OK — ${reports.length} markets, expires at ${new Date(cotCache.expiresAt).toISOString()}`);
+      console.info(`[tools/cot] TXT OK — ${reports.length} markets, expires at ${new Date(cotCache.expiresAt).toISOString()}`);
       return;
     } catch (err) {
       console.warn(`[tools/cot] ${url} →`, err instanceof Error ? err.message : err);
     }
   }
 
-  console.info("[tools/cot] All CFTC URLs failed, keeping/using fallback");
+  // 2. Fallback: API Socrata CFTC Public Reporting Portal
+  console.info("[tools/cot] TXT URLs failed — trying Socrata API...");
+  const socrataData = await fetchCotFromSocrata();
+  if (socrataData && socrataData.length > 0) {
+    cotCache = { data: socrataData, fetchedAt: now, expiresAt: nextCftcPublishMs(), fallback: false };
+    return;
+  }
+
+  // 3. Fallback statico hardcoded
+  console.info("[tools/cot] All sources failed — using static fallback");
   if (!cotCache) {
     cotCache = { data: COT_FALLBACK, fetchedAt: now, expiresAt: nextCftcPublishMs(), fallback: true };
   }
