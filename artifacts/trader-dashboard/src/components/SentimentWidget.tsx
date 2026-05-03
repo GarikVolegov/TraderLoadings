@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Link } from "wouter";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Activity, ArrowRight, Loader2, AlertCircle, RefreshCw } from "lucide-react";
 import { useBackground } from "@/contexts/BackgroundContext";
 
@@ -23,51 +23,59 @@ async function apiFetch<T>(url: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-function EmotionalWaveMini({ score }: { score: number }) {
+function FearGreedArc({ score }: { score: number }) {
   const zones = [
-    { label: "Panico", min: 0, max: 30, color: "#ef4444" },
-    { label: "Paura", min: 30, max: 45, color: "#f97316" },
-    { label: "Neutrale", min: 45, max: 55, color: "#eab308" },
-    { label: "Ottimismo", min: 55, max: 70, color: "#84cc16" },
-    { label: "Euforia", min: 70, max: 100, color: "#22c55e" },
+    { label: "Panico",    min: 0,  max: 30,  color: "#ef4444" },
+    { label: "Paura",     min: 30, max: 45,  color: "#f97316" },
+    { label: "Neutrale",  min: 45, max: 55,  color: "#eab308" },
+    { label: "Ottimismo", min: 55, max: 70,  color: "#84cc16" },
+    { label: "Euforia",   min: 70, max: 100, color: "#22c55e" },
   ];
-  const current = zones.find((z) => score >= z.min && score < z.max) ?? zones[2];
-  const markerX = `${Math.min(Math.max(score, 2), 98)}%`;
+  const zone = zones.find(z => score >= z.min && score < z.max) ?? zones[2];
+  const clamp = Math.min(Math.max(score, 2), 98);
 
   return (
     <div className="space-y-1.5">
-      <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-        <span>😱 Panico</span>
-        <span className="font-semibold text-xs" style={{ color: current.color }}>
-          {current.label} · {score.toFixed(0)}% long
+      <div className="flex items-center justify-between">
+        <span className="text-[9px] text-muted-foreground/50">😱 Panico</span>
+        <span className="text-xs font-bold font-mono tabular-nums" style={{ color: zone.color }}>
+          {zone.label} · {score.toFixed(0)}%
         </span>
-        <span>😄 Euforia</span>
+        <span className="text-[9px] text-muted-foreground/50">😄 Euforia</span>
       </div>
-      <div className="relative h-7 rounded-lg overflow-hidden">
-        <svg width="100%" height="100%" className="absolute inset-0">
+
+      <div className="relative h-6 rounded-lg overflow-hidden">
+        {/* Gradient background */}
+        <div
+          className="absolute inset-0 opacity-20 rounded-lg"
+          style={{ background: "linear-gradient(to right, #ef4444, #f97316, #eab308, #84cc16, #22c55e)" }}
+        />
+        {/* Wave SVG */}
+        <svg className="absolute inset-0 w-full h-full" preserveAspectRatio="none">
           <defs>
-            <linearGradient id="sentWaveGradW" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#ef4444" />
-              <stop offset="30%" stopColor="#f97316" />
-              <stop offset="50%" stopColor="#eab308" />
-              <stop offset="70%" stopColor="#84cc16" />
+            <linearGradient id="sg2" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%"   stopColor="#ef4444" />
+              <stop offset="30%"  stopColor="#f97316" />
+              <stop offset="50%"  stopColor="#eab308" />
+              <stop offset="70%"  stopColor="#84cc16" />
               <stop offset="100%" stopColor="#22c55e" />
             </linearGradient>
           </defs>
-          <rect width="100%" height="100%" fill="url(#sentWaveGradW)" opacity={0.2} rx="8" />
           <path
-            d="M0,22 C80,8 160,22 240,12 S360,4 480,15 S600,26 720,14 S880,6 1024,18 L1024,28 L0,28 Z"
-            fill="url(#sentWaveGradW)" opacity={0.35}
+            d="M0,18 C60,6 120,18 200,10 S300,4 400,13 S520,22 640,11 S780,3 1024,14 L1024,24 L0,24 Z"
+            fill="url(#sg2)" opacity={0.3}
           />
         </svg>
+        {/* Marker */}
         <div
-          className="absolute top-1 bottom-1 w-0.5 rounded-full"
-          style={{ left: markerX, backgroundColor: current.color, boxShadow: `0 0 6px ${current.color}` }}
-        />
-        <div
-          className="absolute top-0.5 w-3 h-3 rounded-full border-2 border-background"
-          style={{ left: `calc(${markerX} - 6px)`, backgroundColor: current.color }}
-        />
+          className="absolute top-0 bottom-0 flex items-center"
+          style={{ left: `calc(${clamp}% - 5px)` }}
+        >
+          <div
+            className="w-2.5 h-2.5 rounded-full border-2 border-background"
+            style={{ backgroundColor: zone.color, boxShadow: `0 0 6px ${zone.color}` }}
+          />
+        </div>
       </div>
     </div>
   );
@@ -97,33 +105,38 @@ export function SentimentWidget() {
     : 50;
 
   return (
-    <Card className="relative overflow-hidden bg-card/60 backdrop-blur-sm border-border/30 flex flex-col">
-      <CardHeader className="pb-3 px-4 pt-4 border-b border-border/30">
-        <CardTitle className="flex items-center gap-2 text-sm">
-          <Activity className="w-4 h-4 text-primary" />
-          Sentiment
-          {data?.live && (
-            <span className="flex items-center gap-1 text-[10px] text-green-400 bg-green-400/10 border border-green-400/20 px-1.5 py-0.5 rounded-full">
-              <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
-              LIVE
-            </span>
-          )}
-          <div className="ml-auto flex items-center gap-1.5">
-            <button
-              onClick={() => refetch()}
-              disabled={isFetching}
-              className="p-1 rounded-md hover:bg-secondary/50 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <RefreshCw className={`w-3 h-3 ${isFetching ? "animate-spin" : ""}`} />
-            </button>
-            <Link href="/tools">
-              <button className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-primary transition-colors">
-                Dettaglio <ArrowRight className="w-3 h-3" />
-              </button>
-            </Link>
+    <Card className="relative overflow-hidden flex flex-col bg-card/60 backdrop-blur-sm border-border/30">
+      {/* Header */}
+      <div className="widget-header">
+        <div className="flex items-center gap-2.5">
+          <div className="widget-icon bg-primary/10 border border-primary/20">
+            <Activity className="w-4 h-4 text-primary" />
           </div>
-        </CardTitle>
-      </CardHeader>
+          <div>
+            <p className="widget-title">Sentiment</p>
+            {data?.live && (
+              <span className="inline-flex items-center gap-1 text-[9px] text-green-400">
+                <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
+                LIVE
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => refetch()}
+            disabled={isFetching}
+            className="p-1.5 rounded-lg hover:bg-secondary/60 text-muted-foreground/50 hover:text-foreground transition-colors"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? "animate-spin" : ""}`} />
+          </button>
+          <Link href="/tools">
+            <span className="link-pill">
+              Dettaglio <ArrowRight className="w-3 h-3" />
+            </span>
+          </Link>
+        </div>
+      </div>
 
       <CardContent className="p-4 space-y-3 flex-1">
         {isLoading && (
@@ -133,34 +146,38 @@ export function SentimentWidget() {
         )}
         {isError && (
           <div className="flex items-center gap-2 text-xs text-destructive py-4">
-            <AlertCircle className="w-4 h-4 flex-shrink-0" />
-            Dati non disponibili
+            <AlertCircle className="w-4 h-4 shrink-0" /> Dati non disponibili
           </div>
         )}
+
         {data?.symbols && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
-            <EmotionalWaveMini score={avgLong} />
+            <FearGreedArc score={avgLong} />
 
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               {sortedSymbols.map((sym) => {
-                const bias = sym.longPercentage >= 55 ? "Long" : sym.shortPercentage >= 55 ? "Short" : "Neutro";
-                const biasColor =
-                  bias === "Long" ? "text-primary" : bias === "Short" ? "text-destructive" : "text-muted-foreground";
+                const bias      = sym.longPercentage >= 55 ? "Long" : sym.shortPercentage >= 55 ? "Short" : "Neutro";
+                const biasColor = bias === "Long" ? "text-primary" : bias === "Short" ? "text-destructive" : "text-muted-foreground";
+
                 return (
                   <div key={sym.name} className="space-y-1">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5">
                         <span className="text-xs font-mono font-bold">{sym.name}</span>
-                        <span className={`text-[9px] font-semibold ${biasColor}`}>{bias}</span>
+                        <span className={`text-[9px] font-semibold px-1 py-0.5 rounded-md ${
+                          bias === "Long"  ? "bg-primary/10 text-primary" :
+                          bias === "Short" ? "bg-destructive/10 text-destructive" :
+                                            "bg-secondary text-muted-foreground"
+                        }`}>{bias}</span>
                       </div>
-                      <div className="flex items-center gap-2 text-[10px]">
-                        <span className="text-primary font-semibold">▲ {sym.longPercentage.toFixed(0)}%</span>
-                        <span className="text-destructive font-semibold">▼ {sym.shortPercentage.toFixed(0)}%</span>
+                      <div className="flex items-center gap-2 text-[9px] font-mono font-bold">
+                        <span className="text-primary">▲ {sym.longPercentage.toFixed(0)}%</span>
+                        <span className="text-destructive">▼ {sym.shortPercentage.toFixed(0)}%</span>
                       </div>
                     </div>
-                    <div className="h-1.5 rounded-full bg-destructive/25 overflow-hidden">
+                    <div className="h-1.5 rounded-full bg-destructive/20 overflow-hidden">
                       <motion.div
-                        className="h-full bg-primary rounded-full"
+                        className="h-full bg-gradient-to-r from-primary to-primary/70 rounded-full"
                         initial={{ width: 0 }}
                         animate={{ width: `${sym.longPercentage}%` }}
                         transition={{ duration: 0.5, ease: "easeOut" }}
@@ -172,7 +189,9 @@ export function SentimentWidget() {
             </div>
 
             {!data.hasCredentials && (
-              <p className="text-[9px] text-amber-400/80 text-center">Dati dimostrativi · configura MYFXBOOK_EMAIL/PASSWORD</p>
+              <p className="text-[9px] text-amber-400/70 text-center">
+                Dati dimostrativi · configura MYFXBOOK_EMAIL/PASSWORD
+              </p>
             )}
           </motion.div>
         )}

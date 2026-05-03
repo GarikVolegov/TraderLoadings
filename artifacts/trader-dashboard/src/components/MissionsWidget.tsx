@@ -1,12 +1,15 @@
 import { useQueryClient } from "@tanstack/react-query";
 import confetti from "canvas-confetti";
 import { CheckCircle2, Circle, Target, Zap, ChevronRight, CalendarPlus, ArrowRight, Settings } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "wouter";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { useGetMissions, useCompleteMission, getGetMissionsQueryKey, getGetProfileQueryKey, type Mission } from "@workspace/api-client-react";
+import {
+  useGetMissions, useCompleteMission,
+  getGetMissionsQueryKey, getGetProfileQueryKey,
+  type Mission,
+} from "@workspace/api-client-react";
 import { downloadICS } from "@/utils/icsExport";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -14,16 +17,12 @@ function exportMissionToCalendar(mission: Mission) {
   const today = new Date();
   const start = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 9, 0, 0);
   const end = new Date(start.getTime() + 60 * 60_000);
-  downloadICS(`missione-${mission.id}.ics`, [
-    {
-      uid: `mission-${mission.id}-${today.toISOString().slice(0, 10)}@traderloading`,
-      summary: `Missione: ${mission.title}`,
-      description: mission.description,
-      dtstart: start,
-      dtend: end,
-      alarm: 15,
-    },
-  ]);
+  downloadICS(`missione-${mission.id}.ics`, [{
+    uid: `mission-${mission.id}-${today.toISOString().slice(0, 10)}@traderloading`,
+    summary: `Missione: ${mission.title}`,
+    description: mission.description,
+    dtstart: start, dtend: end, alarm: 15,
+  }]);
 }
 
 export function MissionsWidget() {
@@ -37,15 +36,19 @@ export function MissionsWidget() {
       onSuccess: (data) => {
         queryClient.invalidateQueries({ queryKey: getGetMissionsQueryKey() });
         queryClient.invalidateQueries({ queryKey: getGetProfileQueryKey() });
-
         toast({
           title: t("missions.completed_toast"),
           description: t("missions.xp_earned", { xp: data.mission.xpReward }),
           className: "bg-card border-primary text-foreground",
         });
-
         if (data.levelUp) {
-          fireConfetti();
+          const end = Date.now() + 3000;
+          const frame = () => {
+            confetti({ particleCount: 5, angle: 60, spread: 55, origin: { x: 0 }, colors: ["#22c55e","#3b82f6","#10b981"] });
+            confetti({ particleCount: 5, angle: 120, spread: 55, origin: { x: 1 }, colors: ["#22c55e","#3b82f6","#10b981"] });
+            if (Date.now() < end) requestAnimationFrame(frame);
+          };
+          frame();
           toast({
             title: t("missions.level_up"),
             description: t("missions.level_up_desc", { level: data.profile.level }),
@@ -57,129 +60,133 @@ export function MissionsWidget() {
     }
   });
 
-  const fireConfetti = () => {
-    const duration = 3000;
-    const end = Date.now() + duration;
-
-    const frame = () => {
-      confetti({
-        particleCount: 5,
-        angle: 60,
-        spread: 55,
-        origin: { x: 0 },
-        colors: ['#22c55e', '#3b82f6', '#10b981']
-      });
-      confetti({
-        particleCount: 5,
-        angle: 120,
-        spread: 55,
-        origin: { x: 1 },
-        colors: ['#22c55e', '#3b82f6', '#10b981']
-      });
-
-      if (Date.now() < end) {
-        requestAnimationFrame(frame);
-      }
-    };
-    frame();
-  };
-
-  const handleComplete = (id: number) => {
-    completeMutation.mutate({ id });
-  };
-
-  const totalEarnedXp = missions
-    ? missions.filter(m => m.completed).reduce((sum, m) => sum + m.xpReward, 0)
-    : 0;
+  const completed = missions?.filter(m => m.completed) ?? [];
+  const pending   = missions?.filter(m => !m.completed) ?? [];
+  const totalXp   = completed.reduce((s, m) => s + m.xpReward, 0);
+  const totalPossible = missions?.reduce((s, m) => s + m.xpReward, 0) ?? 0;
+  const progress  = totalPossible > 0 ? (totalXp / totalPossible) * 100 : 0;
 
   return (
-    <Card className="h-full relative overflow-hidden">
-      <CardHeader className="flex flex-row items-center justify-between pb-3 sm:pb-4 px-3 sm:px-6 pt-3 sm:pt-6 border-b border-border/50 bg-secondary/10">
-        <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-          <Target className="w-4 h-4 sm:w-5 sm:h-5 text-accent" />
-          {t("missions.title")}
-        </CardTitle>
-        <div className="flex items-center gap-1.5 sm:gap-2 bg-primary/10 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full border border-primary/20">
-          <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />
-          <span className="text-xs sm:text-sm font-bold text-primary font-mono">+{totalEarnedXp} XP</span>
-        </div>
-      </CardHeader>
-
-      <CardContent className="p-0">
-        {isLoading ? (
-          <div className="p-4 flex justify-center">
-            <div className="w-8 h-8 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+    <Card className="overflow-hidden flex flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-border/25">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center shrink-0">
+            <Target className="w-4 h-4 text-accent" />
           </div>
-        ) : !missions || missions.length === 0 ? (
+          <div>
+            <p className="text-sm font-bold font-mono tracking-tight">{t("missions.title")}</p>
+            <p className="text-[10px] text-muted-foreground/50">
+              {completed.length}/{(missions?.length ?? 0)} completate
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-primary/10 border border-primary/20">
+          <Zap className="w-3.5 h-3.5 text-primary" />
+          <span className="text-xs font-bold text-primary font-mono">+{totalXp} XP</span>
+        </div>
+      </div>
+
+      {/* XP progress bar */}
+      {missions && missions.length > 0 && (
+        <div className="px-4 pt-2.5 pb-1">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[9px] text-muted-foreground/50 uppercase tracking-wider">Progresso XP</span>
+            <span className="text-[9px] text-muted-foreground/60 font-mono">{totalXp}/{totalPossible}</span>
+          </div>
+          <div className="h-1.5 rounded-full bg-secondary/60 overflow-hidden">
+            <motion.div
+              className="h-full bg-gradient-to-r from-primary to-primary/70 rounded-full"
+              initial={{ width: 0 }}
+              animate={{ width: `${progress}%` }}
+              transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1], delay: 0.2 }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Content */}
+      <CardContent className="p-0 flex-1">
+        {isLoading && (
+          <div className="p-6 flex justify-center">
+            <div className="w-7 h-7 rounded-full border-[3px] border-primary border-t-transparent animate-spin" />
+          </div>
+        )}
+
+        {!isLoading && (!missions || missions.length === 0) && (
           <Link href="/settings">
             <div className="px-4 py-4 flex items-center gap-3 text-muted-foreground hover:text-foreground hover:bg-secondary/20 transition-colors cursor-pointer group">
-              <Settings className="w-5 h-5 opacity-40 group-hover:opacity-70 transition-opacity shrink-0" />
+              <Settings className="w-4 h-4 opacity-40 group-hover:opacity-70 shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium">{t("missions.empty")}</p>
                 <span className="text-xs flex items-center gap-1 text-primary mt-0.5">
-                  {t("missions.empty_link")}
-                  <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-0.5" />
+                  {t("missions.empty_link")} <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-0.5" />
                 </span>
               </div>
             </div>
           </Link>
-        ) : (
-          <div className="divide-y divide-border/50">
-            {missions.map((mission, idx) => (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx * 0.1 }}
-                key={mission.id}
-                className={`p-3 sm:p-4 md:p-6 flex flex-col sm:flex-row gap-3 sm:gap-4 items-start sm:items-center justify-between transition-colors hover:bg-secondary/20 ${mission.completed ? 'opacity-60 grayscale' : ''}`}
-              >
-                <div className="flex items-start gap-3 sm:gap-4">
-                  <div className="mt-0.5 sm:mt-1">
-                    {mission.completed ? (
-                      <CheckCircle2 className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
-                    ) : (
-                      <Circle className="w-5 h-5 sm:w-6 sm:h-6 text-muted-foreground" />
-                    )}
-                  </div>
-                  <div>
-                    <h4 className={`text-base sm:text-lg font-semibold ${mission.completed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
+        )}
+
+        {missions && missions.length > 0 && (
+          <div className="divide-y divide-border/25">
+            <AnimatePresence initial={false}>
+              {[...pending, ...completed].map((mission, idx) => (
+                <motion.div
+                  key={mission.id}
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: mission.completed ? 0.55 : 1, x: 0 }}
+                  transition={{ delay: idx * 0.06, duration: 0.25 }}
+                  className={`px-4 py-3 flex items-center gap-3 hover:bg-secondary/15 transition-colors ${mission.completed ? "grayscale" : ""}`}
+                >
+                  {/* Status icon */}
+                  <button
+                    onClick={() => !mission.completed && completeMutation.mutate({ id: mission.id })}
+                    disabled={mission.completed || completeMutation.isPending}
+                    className="shrink-0 transition-transform active:scale-90"
+                  >
+                    {mission.completed
+                      ? <CheckCircle2 className="w-5 h-5 text-primary" />
+                      : <Circle className="w-5 h-5 text-muted-foreground/40 hover:text-primary/60 transition-colors" />
+                    }
+                  </button>
+
+                  {/* Text */}
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-semibold leading-snug truncate ${mission.completed ? "line-through text-muted-foreground" : ""}`}>
                       {mission.title}
-                    </h4>
-                    <p className="text-sm text-muted-foreground mt-1 max-w-xl">
+                    </p>
+                    <p className="text-[10px] text-muted-foreground/50 leading-snug truncate mt-0.5">
                       {mission.description}
                     </p>
                   </div>
-                </div>
 
-                <div className="flex items-center gap-4 w-full sm:w-auto justify-end sm:justify-start">
-                  <div className="flex items-center justify-center bg-secondary/80 border border-border px-3 py-1 rounded-md font-mono text-sm font-bold text-accent">
-                    {mission.xpReward} XP
-                  </div>
-
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
-                    title={t("missions.add_calendar")}
-                    onClick={() => exportMissionToCalendar(mission)}
-                  >
-                    <CalendarPlus className="w-4 h-4" />
-                  </Button>
-
-                  {!mission.completed && (
-                    <Button
-                      size="sm"
-                      onClick={() => handleComplete(mission.id)}
-                      disabled={completeMutation.isPending}
-                      className="group"
+                  {/* Actions */}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="text-[10px] font-bold font-mono text-accent/80 bg-secondary/50 px-1.5 py-0.5 rounded-md border border-border/30">
+                      {mission.xpReward}xp
+                    </span>
+                    <button
+                      onClick={() => exportMissionToCalendar(mission)}
+                      className="p-1 rounded-lg hover:bg-secondary/50 text-muted-foreground/40 hover:text-muted-foreground transition-colors"
+                      title={t("missions.add_calendar")}
                     >
-                      {t("missions.complete_button")}
-                      <ChevronRight className="w-4 h-4 ml-1 transition-transform group-hover:translate-x-1" />
-                    </Button>
-                  )}
-                </div>
-              </motion.div>
-            ))}
+                      <CalendarPlus className="w-3.5 h-3.5" />
+                    </button>
+                    {!mission.completed && (
+                      <button
+                        onClick={() => completeMutation.mutate({ id: mission.id })}
+                        disabled={completeMutation.isPending}
+                        className="flex items-center gap-0.5 px-2.5 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-[11px] font-bold transition-all group border border-primary/20 hover:border-primary/35"
+                      >
+                        {t("missions.complete_button")}
+                        <ChevronRight className="w-3 h-3 transition-transform group-hover:translate-x-0.5" />
+                      </button>
+                    )}
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
           </div>
         )}
       </CardContent>

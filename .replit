@@ -38,3 +38,4 @@ PLATFORM_ADMIN_IDS = "Garik"
 
 [nix]
 packages = ["hol"]
+channel = "stable-25_05"
