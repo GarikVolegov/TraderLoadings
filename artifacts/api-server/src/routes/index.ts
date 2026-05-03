@@ -21,6 +21,7 @@ import socialRouter from "./social.js";
 import pushRouter from "./push.js";
 import loginAccessRouter from "./login-access.js";
 import communityRouter from "./community.js";
+import milestonesRouter from "./milestones.js";
 
 const router: IRouter = Router();
 
@@ -46,5 +47,6 @@ router.use(socialRouter);
 router.use(pushRouter);
 router.use(loginAccessRouter);
 router.use(communityRouter);
+router.use(milestonesRouter);
 
 export default router;

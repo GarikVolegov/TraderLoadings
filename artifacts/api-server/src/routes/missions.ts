@@ -4,6 +4,7 @@ import { missionsTable, missionTemplatesTable, profileTable } from "@workspace/d
 import { GetMissionsResponse, CompleteMissionParams, CompleteMissionResponse } from "@workspace/api-zod";
 import { eq, and, isNull } from "drizzle-orm";
 import { getOrCreateProfile, computeLevel, getUserId, updateStreak, getLevelName } from "./profile.js";
+import { awardLevelCertificate } from "./milestones.js";
 
 const router: IRouter = Router();
 
@@ -106,6 +107,12 @@ router.post("/missions/:id/complete", async (req, res) => {
 
   const { level, xpToNextLevel } = computeLevel(finalXp);
   const levelUp = level > oldLevel;
+
+  if (levelUp && userId) {
+    for (let l = oldLevel + 1; l <= level; l++) {
+      awardLevelCertificate(userId, l).catch(() => {});
+    }
+  }
 
   const [freshProfile] = await db.select().from(profileTable).where(eq(profileTable.id, profile.id)).limit(1);
 

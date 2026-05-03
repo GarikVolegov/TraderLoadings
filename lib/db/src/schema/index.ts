@@ -7,3 +7,4 @@ export * from "./chat";
 export * from "./backtest";
 export * from "./social";
 export * from "./community";
+export * from "./milestones";
