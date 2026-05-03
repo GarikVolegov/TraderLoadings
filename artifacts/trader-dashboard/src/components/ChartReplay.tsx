@@ -15,11 +15,23 @@ import {
   Play, Pause, SkipForward, SkipBack, RotateCcw,
   TrendingUp, TrendingDown, X, ChevronRight,
   Eye, EyeOff, Calendar, ChevronLeft, MousePointer2,
+  Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "";
+
+const START_BALANCE = 10_000;
+const LOT_SIZES = ["0.01", "0.05", "0.10", "0.25", "0.50", "1.00"];
+
+function getPipDollarValue(symbol: string, lotSize: number): number {
+  const s = symbol.replace("/", "").toUpperCase();
+  if (["US30", "NAS100", "SPX500"].includes(s)) return lotSize * 1;
+  if (s.includes("BTC") || s.includes("ETH")) return lotSize * 1;
+  if (s === "XAUUSD") return lotSize * 10;
+  return lotSize * 10;
+}
 
 interface CandleRaw {
   time: number;
@@ -27,6 +39,7 @@ interface CandleRaw {
   high: number;
   low: number;
   close: number;
+  volume?: number;
 }
 
 interface ReplayTrade {
@@ -40,6 +53,8 @@ interface ReplayTrade {
   takeProfit?: number;
   result?: "win" | "loss" | "breakeven";
   pips?: number;
+  lotSize?: number;
+  dollarPL?: number;
 }
 
 interface ChartReplayProps {
@@ -77,9 +92,11 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
   const slLineRef = useRef<ISeriesApi<"Line"> | null>(null);
   const tpLineRef = useRef<ISeriesApi<"Line"> | null>(null);
   const markersRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
+  const volSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
 
   const [activeInterval, setActiveInterval] = useState(initialInterval);
   const [allCandles, setAllCandles] = useState<CandlestickData<Time>[]>([]);
+  const [allVolumes, setAllVolumes] = useState<{ time: Time; value: number; color: string }[]>([]);
   const [startIndex, setStartIndex] = useState(0);
   const [revealedCount, setRevealedCount] = useState(START_VISIBLE);
   const prevRevealedRef = useRef(START_VISIBLE);
@@ -95,6 +112,8 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
   const [trades, setTrades] = useState<ReplayTrade[]>([]);
   const [openTrade, setOpenTrade] = useState<ReplayTrade | null>(null);
   const openTradeRef = useRef<ReplayTrade | null>(null);
+  const [lotSize, setLotSize] = useState("0.01");
+  const [balance, setBalance] = useState(START_BALANCE);
 
   const [settingSL, setSettingSL] = useState(false);
   const [settingTP, setSettingTP] = useState(false);
@@ -140,6 +159,14 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
           low: c.low,
           close: c.close,
         }));
+        const volumes = data.candles
+          .filter((c: CandleRaw) => c.volume != null)
+          .map((c: CandleRaw) => ({
+            time: c.time as Time,
+            value: c.volume!,
+            color: c.close >= c.open ? "rgba(16,185,129,0.25)" : "rgba(239,68,68,0.25)",
+          }));
+        setAllVolumes(volumes);
         setAllCandles(candles);
 
         let initialRevealed = START_VISIBLE;
@@ -250,11 +277,23 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
       lastValueVisible: false,
     });
 
+    const volSeries = chart.addSeries("Histogram", {
+      color: "rgba(120,120,120,0.3)",
+      priceFormat: { type: "volume" },
+      priceScaleId: "vol",
+      lastValueVisible: false,
+      priceLineVisible: false,
+    });
+    chart.priceScale("vol").applyOptions({
+      scaleMargins: { top: 0.85, bottom: 0 },
+    });
+
     chartRef.current = chart;
     candleSeriesRef.current = candleSeries;
     slLineRef.current = slLine;
     tpLineRef.current = tpLine;
     markersRef.current = seriesMarkers;
+    volSeriesRef.current = volSeries;
 
     const handleResize = () => {
       if (chartContainerRef.current) {
@@ -271,6 +310,7 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
       slLineRef.current = null;
       tpLineRef.current = null;
       markersRef.current = null;
+      volSeriesRef.current = null;
     };
   }, [loading]);
 
@@ -334,7 +374,12 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
     }
 
     chartRef.current?.timeScale().scrollToPosition(2, false);
-  }, [visibleCandles, trades, openTrade, showTrades, symbol]);
+
+    if (volSeriesRef.current && allVolumes.length > 0) {
+      const replayVolumes = allVolumes.slice(startIndex, startIndex + revealedCount);
+      volSeriesRef.current.setData(replayVolumes);
+    }
+  }, [visibleCandles, trades, openTrade, showTrades, symbol, allVolumes, startIndex, revealedCount]);
 
   useEffect(() => {
     const trade = openTradeRef.current;
@@ -356,10 +401,13 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
             ? trade.stopLoss - trade.entryPrice
             : trade.entryPrice - trade.stopLoss;
           const pips = parseFloat((diff * pipMultiplier).toFixed(1));
-          const closedTrade = { ...trade, exitPrice: trade.stopLoss, exitIndex: i, pips, result: "loss" as const };
+          const ls = trade.lotSize ?? 0.01;
+          const dollarPL = parseFloat((pips * getPipDollarValue(trade.direction, ls)).toFixed(2));
+          const closedTrade = { ...trade, exitPrice: trade.stopLoss, exitIndex: i, pips, result: "loss" as const, dollarPL };
           setOpenTrade(null);
           setSLInput("");
           setTPInput("");
+          setBalance((prev) => parseFloat((prev + dollarPL).toFixed(2)));
           setTrades((old) => {
             const updated = [...old, closedTrade];
             onTradesChange?.(updated);
@@ -380,10 +428,13 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
             ? trade.takeProfit - trade.entryPrice
             : trade.entryPrice - trade.takeProfit;
           const pips = parseFloat((diff * pipMultiplier).toFixed(1));
-          const closedTrade = { ...trade, exitPrice: trade.takeProfit, exitIndex: i, pips, result: "win" as const };
+          const ls = trade.lotSize ?? 0.01;
+          const dollarPL = parseFloat((pips * getPipDollarValue(trade.direction, ls)).toFixed(2));
+          const closedTrade = { ...trade, exitPrice: trade.takeProfit, exitIndex: i, pips, result: "win" as const, dollarPL };
           setOpenTrade(null);
           setSLInput("");
           setTPInput("");
+          setBalance((prev) => parseFloat((prev + dollarPL).toFixed(2)));
           setTrades((old) => {
             const updated = [...old, closedTrade];
             onTradesChange?.(updated);
@@ -419,16 +470,19 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
       : trade.entryPrice - exitPrice;
     const pips = parseFloat((diff * pipMultiplier).toFixed(1));
     const result: "win" | "loss" | "breakeven" = pips > 0 ? "win" : pips < 0 ? "loss" : "breakeven";
-    const closedTrade = { ...trade, exitPrice, exitIndex, pips, result };
+    const ls = trade.lotSize ?? 0.01;
+    const dollarPL = parseFloat((pips * getPipDollarValue(symbol, ls)).toFixed(2));
+    const closedTrade = { ...trade, exitPrice, exitIndex, pips, result, dollarPL };
     setOpenTrade(null);
     setSLInput("");
     setTPInput("");
+    setBalance((prev) => parseFloat((prev + dollarPL).toFixed(2)));
     setTrades((old) => {
       const updated = [...old, closedTrade];
       onTradesChange?.(updated);
       return updated;
     });
-  }, [pipMultiplier, onTradesChange]);
+  }, [pipMultiplier, onTradesChange, symbol]);
 
   useEffect(() => {
     if (!isPlaying) return;
@@ -464,6 +518,7 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
       direction: "buy",
       entryPrice: currentPrice,
       entryIndex: revealedCount - 1,
+      lotSize: parseFloat(lotSize) || 0.01,
     };
     setOpenTrade(trade);
     setSLInput("");
@@ -480,6 +535,7 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
       direction: "sell",
       entryPrice: currentPrice,
       entryIndex: revealedCount - 1,
+      lotSize: parseFloat(lotSize) || 0.01,
     };
     setOpenTrade(trade);
     setSLInput("");
@@ -558,6 +614,7 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
     setOpenTrade(null);
     setSLInput("");
     setTPInput("");
+    setBalance(START_BALANCE);
     setShowTradePanel(false);
     onTradesChange?.([]);
   };
@@ -587,8 +644,9 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
     const wins = trades.filter((t) => t.result === "win").length;
     const losses = trades.filter((t) => t.result === "loss").length;
     const totalPips = trades.reduce((s, t) => s + (t.pips ?? 0), 0);
+    const totalDollar = trades.reduce((s, t) => s + (t.dollarPL ?? 0), 0);
     const winRate = Math.round((wins / trades.length) * 100);
-    return { total: trades.length, wins, losses, totalPips: totalPips.toFixed(1), winRate };
+    return { total: trades.length, wins, losses, totalPips: totalPips.toFixed(1), totalDollar: totalDollar.toFixed(2), winRate };
   }, [trades]);
 
   const openPnL = useMemo(() => {
@@ -691,7 +749,7 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
           </div>
         )}
 
-        <div className="relative" style={{ height: "clamp(300px, 48vh, 680px)" }}>
+        <div className="relative" style={{ height: "clamp(360px, 58vh, 780px)" }}>
           {loading && (
             <div className="absolute inset-0 flex flex-col items-center justify-center z-10">
               <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mb-3" />
@@ -814,23 +872,55 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
       </div>
 
       {!loading && !error && (
-        <div className="flex gap-2">
-          <Button
-            onClick={handleBuy}
-            disabled={!!openTrade}
-            className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold h-12 text-base"
-          >
-            <TrendingUp className="w-5 h-5 mr-2" />
-            BUY
-          </Button>
-          <Button
-            onClick={handleSell}
-            disabled={!!openTrade}
-            className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold h-12 text-base"
-          >
-            <TrendingDown className="w-5 h-5 mr-2" />
-            SELL
-          </Button>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-3 px-1">
+            <div className="flex items-center gap-1.5">
+              <Wallet className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+              <span className="text-[11px] text-muted-foreground">Saldo virtuale:</span>
+              <span className={`text-sm font-mono font-bold ${balance >= START_BALANCE ? "text-green-400" : "text-red-400"}`}>
+                ${balance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+              {balance !== START_BALANCE && (
+                <span className={`text-[10px] font-mono ${balance >= START_BALANCE ? "text-green-400/70" : "text-red-400/70"}`}>
+                  ({balance >= START_BALANCE ? "+" : ""}${(balance - START_BALANCE).toFixed(2)})
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] text-muted-foreground mr-1">Lotti:</span>
+              {LOT_SIZES.map((ls) => (
+                <button
+                  key={ls}
+                  onClick={() => setLotSize(ls)}
+                  className={`px-1.5 py-1 rounded text-[10px] font-bold transition-all ${
+                    lotSize === ls
+                      ? "bg-primary/20 text-primary border border-primary/40"
+                      : "text-muted-foreground hover:text-foreground border border-transparent hover:border-border/50"
+                  }`}
+                >
+                  {ls}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              onClick={handleBuy}
+              disabled={!!openTrade}
+              className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold h-12 text-base"
+            >
+              <TrendingUp className="w-5 h-5 mr-2" />
+              BUY
+            </Button>
+            <Button
+              onClick={handleSell}
+              disabled={!!openTrade}
+              className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold h-12 text-base"
+            >
+              <TrendingDown className="w-5 h-5 mr-2" />
+              SELL
+            </Button>
+          </div>
         </div>
       )}
 
@@ -847,10 +937,21 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
                 Entry: {formatPrice(openTrade.entryPrice, symbol)}
               </span>
             </div>
-            <div className={`text-lg font-mono font-bold ${
-              (openPnL ?? 0) >= 0 ? "text-green-400" : "text-red-400"
-            }`}>
-              {(openPnL ?? 0) >= 0 ? "+" : ""}{openPnL?.toFixed(1)} pip
+            <div className="text-right">
+              <div className={`text-base font-mono font-bold leading-tight ${
+                (openPnL ?? 0) >= 0 ? "text-green-400" : "text-red-400"
+              }`}>
+                {(openPnL ?? 0) >= 0 ? "+" : ""}{openPnL?.toFixed(1)} pip
+              </div>
+              <div className={`text-[11px] font-mono ${
+                (openPnL ?? 0) >= 0 ? "text-green-400/70" : "text-red-400/70"
+              }`}>
+                {(() => {
+                  const ls = openTrade.lotSize ?? 0.01;
+                  const dollarVal = (openPnL ?? 0) * getPipDollarValue(symbol, ls);
+                  return `${dollarVal >= 0 ? "+" : ""}$${dollarVal.toFixed(2)}`;
+                })()}
+              </div>
             </div>
           </div>
 
@@ -943,15 +1044,13 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
           <div className="rounded-xl bg-card/40 border border-border/30 p-2 text-center">
             <div className="text-[10px] text-muted-foreground">Pips</div>
             <div className={`text-sm font-bold font-mono ${parseFloat(stats.totalPips) >= 0 ? "text-green-400" : "text-red-400"}`}>
-              {stats.totalPips}
+              {parseFloat(stats.totalPips) >= 0 ? "+" : ""}{stats.totalPips}
             </div>
           </div>
           <div className="rounded-xl bg-card/40 border border-border/30 p-2 text-center">
-            <div className="text-[10px] text-muted-foreground">W / L</div>
-            <div className="text-sm font-bold font-mono">
-              <span className="text-green-400">{stats.wins}</span>
-              <span className="text-muted-foreground">/</span>
-              <span className="text-red-400">{stats.losses}</span>
+            <div className="text-[10px] text-muted-foreground">P&L $</div>
+            <div className={`text-sm font-bold font-mono ${parseFloat(stats.totalDollar) >= 0 ? "text-green-400" : "text-red-400"}`}>
+              {parseFloat(stats.totalDollar) >= 0 ? "+" : ""}${stats.totalDollar}
             </div>
           </div>
         </div>
@@ -969,20 +1068,29 @@ export default function ChartReplay({ symbol, interval: initialInterval, onTrade
           {showTradePanel && (
             <div className="max-h-48 overflow-y-auto divide-y divide-border/20 border-t border-border/20">
               {trades.map((t) => (
-                <div key={t.id} className="flex items-center justify-between text-xs px-4 py-2">
-                  <div className="flex items-center gap-2">
-                    <span className={t.direction === "buy" ? "text-green-400 font-bold" : "text-red-400 font-bold"}>
+                <div key={t.id} className="flex items-center justify-between text-xs px-4 py-2 gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className={`shrink-0 font-bold ${t.direction === "buy" ? "text-green-400" : "text-red-400"}`}>
                       {t.direction.toUpperCase()}
                     </span>
-                    <span className="font-mono text-muted-foreground text-[10px]">
+                    <span className="font-mono text-muted-foreground text-[10px] truncate">
                       {formatPrice(t.entryPrice, symbol)} → {t.exitPrice != null ? formatPrice(t.exitPrice, symbol) : "—"}
                     </span>
                   </div>
-                  <span className={`font-bold font-mono ${
-                    t.result === "win" ? "text-green-400" : t.result === "loss" ? "text-red-400" : "text-yellow-400"
-                  }`}>
-                    {(t.pips ?? 0) >= 0 ? "+" : ""}{t.pips?.toFixed(1)} pip
-                  </span>
+                  <div className="text-right shrink-0">
+                    <div className={`font-bold font-mono text-[11px] ${
+                      t.result === "win" ? "text-green-400" : t.result === "loss" ? "text-red-400" : "text-yellow-400"
+                    }`}>
+                      {(t.pips ?? 0) >= 0 ? "+" : ""}{t.pips?.toFixed(1)} pip
+                    </div>
+                    {t.dollarPL != null && (
+                      <div className={`font-mono text-[10px] ${
+                        t.dollarPL >= 0 ? "text-green-400/70" : "text-red-400/70"
+                      }`}>
+                        {t.dollarPL >= 0 ? "+" : ""}${t.dollarPL.toFixed(2)}
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

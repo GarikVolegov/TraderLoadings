@@ -28,7 +28,7 @@ const YAHOO_INTERVAL: Record<string, string> = {
 };
 
 const YAHOO_RANGE: Record<string, string> = {
-  M15: "60d", M30: "60d", H1: "2y", H4: "2y", D1: "10y", W1: "10y",
+  M15: "60d", M30: "60d", H1: "90d", H4: "90d", D1: "6mo", W1: "2y",
 };
 
 const TWELVE_INTERVAL: Record<string, string> = {
@@ -43,7 +43,7 @@ interface CachedData { data: unknown; timestamp: number; }
 const cache = new Map<string, CachedData>();
 const CACHE_TTL = 60 * 60 * 1000;
 
-type Candle = { time: number; open: number; high: number; low: number; close: number };
+type Candle = { time: number; open: number; high: number; low: number; close: number; volume?: number };
 
 async function fetchYahoo(symbol: string, interval: string): Promise<Candle[]> {
   const yahooSym = YAHOO_SYMBOLS[symbol];
@@ -68,6 +68,7 @@ async function fetchYahoo(symbol: string, interval: string): Promise<Candle[]> {
           quote?: Array<{
             open?: (number | null)[]; high?: (number | null)[];
             low?: (number | null)[]; close?: (number | null)[];
+            volume?: (number | null)[];
           }>;
         };
       }>;
@@ -92,6 +93,7 @@ async function fetchYahoo(symbol: string, interval: string): Promise<Candle[]> {
         high: parseFloat(h.toFixed(5)),
         low: parseFloat(l.toFixed(5)),
         close: parseFloat(c.toFixed(5)),
+        volume: q.volume?.[i] ?? undefined,
       });
     }
   }
