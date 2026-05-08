@@ -11,6 +11,7 @@ import {
   clerkProxyMiddleware,
   getClerkProxyHost,
 } from "./middlewares/clerkProxyMiddleware";
+import { loggingMiddleware } from "./middlewares/loggingMiddleware";
 import router from "./routes";
 
 const app: Express = express();
@@ -21,6 +22,9 @@ if (!fs.existsSync(UPLOADS_DIR)) {
 }
 
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
+
+// ── Logging distribuito: deve stare PRIMA di cors/json per catturare tutto ──
+app.use(loggingMiddleware);
 
 app.use(cors({ credentials: true, origin: true }));
 app.use(cookieParser());
