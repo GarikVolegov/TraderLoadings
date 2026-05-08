@@ -11,6 +11,19 @@ export interface RequestContext {
 
 export const requestContext = new AsyncLocalStorage<RequestContext>();
 
+/**
+ * getRequestId()
+ * --------------
+ * Helper per recuperare il requestId corrente dall'AsyncLocalStorage.
+ * Utile per layer separati (AI, workers) che devono propagare il requestId
+ * esplicitamente in chiamate cross-process o log manuali.
+ *
+ * @returns requestId corrente oppure undefined se fuori contesto HTTP
+ */
+export function getRequestId(): string | undefined {
+  return requestContext.getStore()?.requestId;
+}
+
 // ─── Logger base ─────────────────────────────────────────────────────────────
 const baseLogger = pino({
   level: process.env.LOG_LEVEL ?? "info",

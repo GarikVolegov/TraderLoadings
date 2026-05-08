@@ -3,6 +3,7 @@ import { type Request, type Response, type NextFunction } from "express";
 import type { AuthUser } from "@workspace/api-zod";
 import { db, loginAccessTable } from "@workspace/db";
 import { and, eq, gte } from "drizzle-orm";
+import { requestContext, type RequestContext } from "../lib/logger";
 
 declare global {
   namespace Express {
@@ -80,6 +81,12 @@ export async function authMiddleware(
       lastName: null,
       profileImageUrl: null,
     };
+
+    // ── Inietta userId nel contesto AsyncLocalStorage per il logging distribuito ──
+    const store = requestContext.getStore() as RequestContext | undefined;
+    if (store) {
+      store.userId = userId;
+    }
 
     // Fire-and-forget: record this IP access in the background
     const ip = getClientIp(req);

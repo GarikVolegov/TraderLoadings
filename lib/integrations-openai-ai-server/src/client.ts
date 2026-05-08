@@ -16,3 +16,27 @@ export const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
 });
+
+/**
+ * withRequestId(requestId)
+ * ------------------------
+ * Restituisce un client OpenAI arricchito con l'header X-Request-Id.
+ * Usare questa factory nelle route/servizi che ricevono il requestId
+ * dal contesto HTTP, in modo da correlare i log OpenAI con quelli Express.
+ *
+ * Esempio:
+ *   import { getRequestId } from '@workspace/api-server/lib/logger';
+ *   const client = withRequestId(getRequestId());
+ *   await client.chat.completions.create({ ... });
+ */
+export function withRequestId(requestId: string | undefined): OpenAI {
+  if (!requestId) return openai;
+
+  return new OpenAI({
+    apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+    baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+    defaultHeaders: {
+      "X-Request-Id": requestId,
+    },
+  });
+}
